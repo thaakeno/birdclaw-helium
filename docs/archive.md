@@ -1,11 +1,11 @@
 ---
 title: Archive Import
-description: "Import a Twitter/X archive into local SQLite — autodiscovery, full DM mode, idempotent re-runs, and profile hydration."
+description: "Import a Twitter/X archive into local SQLite — autodiscovery, full DM mode, bundled media extraction, and profile hydration."
 ---
 
 # Archive import
 
-`birdclaw import archive` parses a Twitter/X archive ZIP and writes everything into the canonical SQLite tables: tweets, likes, bookmarks, profiles, DMs, and (when present) blocklists.
+`birdclaw import archive` parses a Twitter/X archive ZIP and writes everything into the canonical SQLite tables: tweets, likes, bookmarks, profiles, DMs, bundled media files, and (when present) blocklists.
 
 It is **idempotent**. Re-running on the same archive replays the import without producing duplicates, so you can import, then re-import after a fresh archive download to top up.
 
@@ -49,6 +49,35 @@ birdclaw import archive ~/Downloads/twitter-archive.zip --dm-mode metadata --jso
 birdclaw import archive ~/Downloads/twitter-archive.zip --dry-run --json
 ```
 
+## Bundled media files
+
+Archive ZIPs ship the actual image and video files for every media kind X exports. `import archive` streams them out of the ZIP and into the local originals cache:
+
+```text
+~/.birdclaw/media/originals/archive/<kind>/<id>/<filename>
+```
+
+`<kind>` is one of the seven archive media kinds X currently exports:
+
+- `tweets` — tweet image and video attachments (`data/tweets_media/`)
+- `dms` — 1:1 DM attachments (`data/direct_messages_media/`)
+- `community` — Community-tweet attachments (`data/community_tweet_media/`)
+- `deleted` — attachments on tweets the user has since deleted (`data/deleted_tweets_media/`)
+- `profile` — profile banner and avatar history (`data/profile_media/`)
+- `moments` — moments-tweet attachments (`data/moments_tweets_media/`)
+- `dmGroup` — group DM attachments (`data/direct_messages_group_media/`)
+
+`<id>` is the parent tweet or DM event id. `<filename>` is the original file name X chose. Extraction is idempotent: a file is rewritten only if its size on disk differs from the size in the ZIP.
+
+## video_info.variants extraction
+
+Archive tweet rows ship `extended_entities.media[].video_info.variants[]` for every video and animated GIF. `import archive` lifts that array onto each media row's `media_json` payload so:
+
+- `birdclaw search tweets` and the local web UI can render archive video without a live call
+- downstream live media fetchers can pick the highest-bitrate mp4 from `variants[]` rather than re-deriving the URL
+
+Bitrate, content type, and URL fields stay verbatim from the archive, so a fresh archive download replaces stale variants on re-import.
+
 ## Hydrate profiles
 
 The archive ships with stale profile metadata (bios, follower counts, avatars from years ago). Hydrate from live Twitter when you can:
@@ -70,6 +99,8 @@ After import, archive data and live data live in the same canonical tables. Ther
 - **Bookmarks** → `tweets` table + a `bookmarks` collection edge — searchable via `--bookmarked`
 - **DMs** → `dm_conversations` and `dm_events` tables, indexed by FTS5 — searchable via `birdclaw search dms`
 - **Profiles** → `profiles` table — drives @mention resolution, profile evidence, and DM influence scoring
+- **Bundled media** → files on disk under `~/.birdclaw/media/originals/archive/<kind>/<id>/<filename>` for the seven archive media kinds
+- **Video variants** → `tweets.media_json[].video_info.variants[]` carries the mp4 URL list for every archive video and animated GIF
 - **Affiliations** → `profile_affiliations` table when live profile hydration exposes X badge/highlighted-label organization metadata
 - **Profile history** → `profile_snapshots` table after live hydration observes profile/bio/affiliation changes
 - **Bio entities** → `profile_bio_entities` table for extracted `@handle`, domain, and company-phrase identity hints

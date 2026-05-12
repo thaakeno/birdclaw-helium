@@ -217,6 +217,8 @@ birdclaw backup validate ~/Projects/birdclaw-store --json
 - validate archive
 - analyze contents
 - import selected slices
+- stream bundled media files from `data/tweets_media/`, `data/direct_messages_media/`, `data/community_tweet_media/`, `data/deleted_tweets_media/`, `data/profile_media/`, `data/moments_tweets_media/`, and `data/direct_messages_group_media/` into `~/.birdclaw/media/originals/archive/<kind>/<id>/<filename>`
+- extract `extended_entities.media[].video_info.variants[]` onto each tweet media row for archive video and animated GIFs
 - idempotent
 
 Flags:
