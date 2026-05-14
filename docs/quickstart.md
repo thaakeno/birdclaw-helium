@@ -42,6 +42,15 @@ birdclaw import hydrate-profiles --json
 
 `hydrate-profiles` fills bios, follower counts, and avatars from live Twitter metadata using whichever transport is available.
 
+Later, when you download a newer archive, you can refresh only one stale slice without wiping live-synced or local data:
+
+```bash
+birdclaw import archive ~/Downloads/twitter-archive-2026.zip --select likes,bookmarks --json
+birdclaw import archive ~/Downloads/twitter-archive-2026.zip --select directMessages --json
+```
+
+Valid slices: `tweets`, `likes`, `bookmarks`, `profiles`, `directMessages`, `followers`, `following`. Use `dms` as a short alias for `directMessages`.
+
 No archive yet? Skip to step 4 — birdclaw is fully usable in live-only mode.
 
 ## 4. Sync live state

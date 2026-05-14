@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add `birdclaw import archive --select` for importing targeted archive slices while preserving unselected local data.
 - Add a `/links` web lane for Hacker News-style top URL and video-provider insights with today, week, month, year, and all-time ranges.
 - Import archive `follower.js`/`following.js` files into the local follow graph and add archive-authored tweet edges so fresh archive imports are immediately queryable without live sync. Thanks @cavit99.
 - Add cache-first followers/following sync, local follow graph queries, and backup/export support for graph snapshots and churn events. Thanks @ma08.

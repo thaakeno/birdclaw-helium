@@ -77,6 +77,15 @@ vi.mock("#/lib/archive-finder", () => ({
 }));
 
 vi.mock("#/lib/archive-import", () => ({
+	ARCHIVE_IMPORT_SLICES: [
+		"tweets",
+		"likes",
+		"bookmarks",
+		"directMessages",
+		"profiles",
+		"followers",
+		"following",
+	],
 	importArchive: (...args: unknown[]) => importArchiveMock(...args),
 }));
 
@@ -475,7 +484,9 @@ describe("cli", () => {
 
 		await runCli(["node", "birdclaw", "--json", "import", "archive"]);
 
-		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/twitter.zip");
+		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/twitter.zip", {
+			select: undefined,
+		});
 	});
 
 	it("dispatches paged live mention exports", async () => {
@@ -547,8 +558,101 @@ describe("cli", () => {
 			"/tmp/explicit.zip",
 		]);
 
-		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/explicit.zip");
+		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/explicit.zip", {
+			select: undefined,
+		});
 		expect(findArchivesMock).not.toHaveBeenCalled();
+	});
+
+	it("passes selected archive slices to import archive", async () => {
+		const { runCli } = await loadCli();
+
+		await runCli([
+			"node",
+			"birdclaw",
+			"--json",
+			"import",
+			"archive",
+			"/tmp/explicit.zip",
+			"--select",
+			"tweets,directMessages,dms,likes",
+		]);
+
+		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/explicit.zip", {
+			select: ["tweets", "directMessages", "likes"],
+		});
+	});
+
+	it("rejects unknown archive import slices", async () => {
+		const consoleErrorMock = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		const { runCli } = await loadCli();
+
+		await runCli([
+			"node",
+			"birdclaw",
+			"import",
+			"archive",
+			"/tmp/explicit.zip",
+			"--select",
+			"likes,blocks",
+		]);
+
+		expect(process.exitCode).toBe(1);
+		expect(importArchiveMock).not.toHaveBeenCalled();
+		expect(consoleErrorMock).toHaveBeenCalledWith(
+			expect.stringContaining("--select must be a comma-separated subset"),
+		);
+		consoleErrorMock.mockRestore();
+	});
+
+	it("rejects prototype-property archive import selections", async () => {
+		const consoleErrorMock = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		const { runCli } = await loadCli();
+
+		await runCli([
+			"node",
+			"birdclaw",
+			"import",
+			"archive",
+			"/tmp/explicit.zip",
+			"--select",
+			"constructor",
+		]);
+
+		expect(process.exitCode).toBe(1);
+		expect(importArchiveMock).not.toHaveBeenCalled();
+		expect(consoleErrorMock).toHaveBeenCalledWith(
+			expect.stringContaining("--select must be a comma-separated subset"),
+		);
+		consoleErrorMock.mockRestore();
+	});
+
+	it("rejects empty archive import selections", async () => {
+		const consoleErrorMock = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		const { runCli } = await loadCli();
+
+		await runCli([
+			"node",
+			"birdclaw",
+			"import",
+			"archive",
+			"/tmp/explicit.zip",
+			"--select",
+			"",
+		]);
+
+		expect(process.exitCode).toBe(1);
+		expect(importArchiveMock).not.toHaveBeenCalled();
+		expect(consoleErrorMock).toHaveBeenCalledWith(
+			expect.stringContaining("--select must include at least one"),
+		);
+		consoleErrorMock.mockRestore();
 	});
 
 	it("reports backup auto-sync failures without hiding command output", async () => {
@@ -586,7 +690,9 @@ describe("cli", () => {
 			"birdclaw backup sync failed: push failed",
 		);
 		expect(listTimelineItemsMock).toHaveBeenCalled();
-		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/x.zip");
+		expect(importArchiveMock).toHaveBeenCalledWith("/tmp/x.zip", {
+			select: undefined,
+		});
 		consoleErrorMock.mockRestore();
 	});
 
