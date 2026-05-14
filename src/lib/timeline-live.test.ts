@@ -95,4 +95,61 @@ describe("live home timeline sync", () => {
 			}),
 		]);
 	});
+
+	it("preserves existing media_json when home payload omits media details", async () => {
+		makeTempHome();
+		const db = getNativeDb();
+		const existingMediaJson = JSON.stringify([
+			{
+				url: "https://pbs.twimg.com/media/existing.jpg",
+				type: "image",
+				variants: [{ url: "https://video.twimg.com/existing.mp4" }],
+			},
+		]);
+		db.prepare(
+			`
+      insert into tweets (
+        id, account_id, author_profile_id, kind, text, created_at,
+        is_replied, reply_to_id, like_count, media_count, bookmarked, liked,
+        entities_json, media_json, quoted_tweet_id
+      ) values (?, 'acct_primary', 'profile_user_42', 'home', ?, ?, 0, null, 0, 1, 0, 0, '{}', ?, null)
+      `,
+		).run(
+			"home_partial_media",
+			"old home media",
+			"2026-04-26T13:00:00.000Z",
+			existingMediaJson,
+		);
+		listHomeTimelineViaBirdMock.mockResolvedValueOnce({
+			data: [
+				{
+					id: "home_partial_media",
+					author_id: "42",
+					text: "partial home media",
+					created_at: "2026-04-26T13:43:34.000Z",
+					attachments: { media_keys: ["missing_media"] },
+				},
+			],
+			includes: {
+				users: [{ id: "42", username: "sam", name: "Sam" }],
+			},
+			meta: { result_count: 1 },
+		});
+		const { syncHomeTimeline } = await import("./timeline-live");
+
+		await syncHomeTimeline({
+			account: "acct_primary",
+			limit: 5,
+			refresh: true,
+		});
+		const row = db
+			.prepare("select media_count, media_json from tweets where id = ?")
+			.get("home_partial_media") as {
+			media_count: number;
+			media_json: string;
+		};
+
+		expect(row.media_count).toBe(1);
+		expect(row.media_json).toBe(existingMediaJson);
+	});
 });

@@ -102,6 +102,96 @@ describe("media includes mapping", () => {
 		expect(countTweetMedia(tweet)).toBe(1);
 	});
 
+	it("rejects shortlink and non-media entity fallback urls", () => {
+		const tweet = {
+			entities: {
+				urls: [
+					{
+						media_key: "3_123",
+						url: "https://t.co/photo",
+						expanded_url: "https://example.com/not-media",
+						images: [
+							{ url: "https://t.co/image" },
+							{ url: "https://example.com/card.jpg" },
+						],
+					},
+				],
+			},
+		};
+
+		expect(countTweetMedia(tweet)).toBe(1);
+		expect(buildMediaJsonFromIncludes(tweet, [])).toBe("[]");
+	});
+
+	it("rejects non-https and malformed entity fallback urls", () => {
+		const tweet = {
+			entities: {
+				urls: [
+					{
+						media_key: "3_123",
+						url: "http://pbs.twimg.com/media/insecure.jpg",
+						expanded_url: "not a url",
+					},
+				],
+			},
+		};
+
+		expect(buildMediaJsonFromIncludes(tweet, [])).toBe("[]");
+	});
+
+	it("accepts known media CDN entity fallback urls", () => {
+		expect(
+			JSON.parse(
+				buildMediaJsonFromIncludes(
+					{
+						entities: {
+							urls: [
+								{
+									media_key: "3_123",
+									url: "https://t.co/photo",
+									expanded_url: "https://pbs.twimg.com/media/photo_123.jpg",
+								},
+							],
+						},
+					},
+					[],
+				),
+			),
+		).toEqual([
+			{
+				url: "https://pbs.twimg.com/media/photo_123.jpg",
+				type: "image",
+			},
+		]);
+		expect(
+			JSON.parse(
+				buildMediaJsonFromIncludes(
+					{
+						entities: {
+							urls: [
+								{
+									media_key: "3_456",
+									url: "https://t.co/photo",
+									images: [
+										{
+											url: "https://pbs.twimg.com/card_img/photo_456.jpg",
+										},
+									],
+								},
+							],
+						},
+					},
+					[],
+				),
+			),
+		).toEqual([
+			{
+				url: "https://pbs.twimg.com/card_img/photo_456.jpg",
+				type: "image",
+			},
+		]);
+	});
+
 	it("serializes bird-normalized entity media URLs", () => {
 		const tweet = birdTest.normalizeBirdTweets([
 			{

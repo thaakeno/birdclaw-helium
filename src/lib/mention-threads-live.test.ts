@@ -190,6 +190,45 @@ describe("mention thread sync", () => {
 		]);
 	});
 
+	it("preserves existing media_json when thread payload omits media details", async () => {
+		setupTempHome();
+		const existingMediaJson = JSON.stringify([
+			{
+				url: "https://pbs.twimg.com/media/existing.jpg",
+				type: "image",
+				variants: [{ url: "https://video.twimg.com/existing.mp4" }],
+			},
+		]);
+		getNativeDb()
+			.prepare("update tweets set media_count = 1, media_json = ? where id = ?")
+			.run(existingMediaJson, "mention_1");
+		mocks.listThreadViaBird.mockResolvedValue({
+			data: [
+				{
+					id: "mention_1",
+					author_id: "42",
+					text: "mention text",
+					created_at: "2026-05-04T07:00:00.000Z",
+					conversation_id: "mention_1",
+					attachments: { media_keys: ["missing_media"] },
+				},
+			],
+			includes: {
+				users: [{ id: "42", username: "sam", name: "Sam" }],
+			},
+			meta: { result_count: 1 },
+		});
+		const { syncMentionThreads } = await import("./mention-threads-live");
+
+		await syncMentionThreads({ limit: 1, delayMs: 0, timeoutMs: 5000 });
+		const row = getNativeDb()
+			.prepare("select media_count, media_json from tweets where id = ?")
+			.get("mention_1") as { media_count: number; media_json: string };
+
+		expect(row.media_count).toBe(1);
+		expect(row.media_json).toBe(existingMediaJson);
+	});
+
 	it("records failed thread fetches without failing the sync", async () => {
 		setupTempHome();
 		mocks.listThreadViaBird.mockRejectedValue(new Error("rate limited"));

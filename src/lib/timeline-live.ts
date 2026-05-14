@@ -77,7 +77,10 @@ function mergeHomeTimelineIntoLocalStore(
       like_count = excluded.like_count,
       media_count = excluded.media_count,
       entities_json = excluded.entities_json,
-      media_json = excluded.media_json,
+      media_json = case
+        when excluded.media_json not in ('', '[]', 'null') then excluded.media_json
+        else tweets.media_json
+      end,
       bookmarked = tweets.bookmarked,
       liked = tweets.liked
     `,

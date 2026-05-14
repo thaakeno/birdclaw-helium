@@ -27,6 +27,7 @@ function insertTweet(
 	id: string,
 	media: unknown[],
 	createdAt = "2026-05-01T12:00:00.000Z",
+	mediaCount = media.length,
 ) {
 	getNativeDb({ seedDemoData: false })
 		.prepare(
@@ -38,7 +39,7 @@ function insertTweet(
       ) values (?, 'acct_primary', 'profile_me', 'home', ?, ?, 0, null, 0, ?, 0, 0, '{}', ?, null)
     `,
 		)
-		.run(id, `tweet ${id}`, createdAt, media.length, JSON.stringify(media));
+		.run(id, `tweet ${id}`, createdAt, mediaCount, JSON.stringify(media));
 }
 
 function pbs(name: string) {
@@ -279,6 +280,24 @@ describe("media fetch", () => {
 		expect(
 			readFileSync(path.join(root, "media", "originals", "demo.jpg")),
 		).toEqual(Buffer.from([1, 2]));
+	});
+
+	it("fetches media_json candidates even when media_count is stale zero", async () => {
+		const root = home();
+		insertTweet("tweet_1", [pbs("preserved")], "2026-05-01T12:00:00.000Z", 0);
+		const fetchMock = vi.fn(async () => new Response(new Uint8Array([5, 6])));
+
+		const result = await fetchTweetMedia({ fetchImpl: fetchMock, pacingMs: 0 });
+
+		expect(result).toMatchObject({
+			fetched: 1,
+			images_fetched: 1,
+			bytes: 2,
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(
+			readFileSync(path.join(root, "media", "originals", "preserved.jpg")),
+		).toEqual(Buffer.from([5, 6]));
 	});
 
 	it("ignores stale archive bytes with a different basename", async () => {

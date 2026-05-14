@@ -62,19 +62,42 @@ function record(value: unknown) {
 		: null;
 }
 
+function parsedMediaUrl(value: unknown) {
+	if (typeof value !== "string" || value.length === 0) return null;
+	try {
+		const url = new URL(value);
+		return url.protocol === "https:" ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+function isKnownMediaCdn(url: URL) {
+	return url.hostname === "pbs.twimg.com" || url.hostname === "video.twimg.com";
+}
+
+function directMediaUrl(value: unknown, trustedField = false) {
+	const url = parsedMediaUrl(value);
+	if (!url || url.hostname === "t.co") return null;
+	return trustedField || isKnownMediaCdn(url) ? url.toString() : null;
+}
+
 function entityMediaUrl(value: Record<string, unknown>) {
-	for (const key of ["media_url_https", "media_url", "url", "expanded_url"]) {
-		if (typeof value[key] === "string" && value[key].length > 0) {
-			return value[key];
-		}
+	for (const key of ["media_url_https", "media_url"]) {
+		const url = directMediaUrl(value[key], true);
+		if (url) return url;
+	}
+
+	for (const key of ["expanded_url", "url"]) {
+		const url = directMediaUrl(value[key]);
+		if (url) return url;
 	}
 
 	const images = Array.isArray(value.images) ? value.images : [];
 	for (const image of images) {
 		const item = record(image);
-		if (typeof item?.url === "string" && item.url.length > 0) {
-			return item.url;
-		}
+		const url = directMediaUrl(item?.url);
+		if (url) return url;
 	}
 	return null;
 }

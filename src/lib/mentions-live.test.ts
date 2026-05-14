@@ -207,6 +207,61 @@ describe("cached live mentions", () => {
 		]);
 	});
 
+	it("preserves existing media_json when a refreshed mention omits media details", async () => {
+		makeTempHome();
+		const existingMediaJson = JSON.stringify([
+			{
+				url: "https://pbs.twimg.com/media/existing.jpg",
+				type: "image",
+				variants: [{ url: "https://video.twimg.com/existing.mp4" }],
+			},
+		]);
+		getNativeDb()
+			.prepare(
+				`
+        insert into tweets (
+          id, account_id, author_profile_id, kind, text, created_at,
+          is_replied, reply_to_id, like_count, media_count, bookmarked, liked,
+          entities_json, media_json, quoted_tweet_id
+        ) values (?, 'acct_primary', 'profile_user_999', 'mention', ?, ?, 0, null, 0, 1, 0, 0, '{}', ?, null)
+        `,
+			)
+			.run(
+				"tweet_live_partial_media",
+				"old text",
+				"2026-03-09T01:00:00.000Z",
+				existingMediaJson,
+			);
+		listMentionsViaXurlMock.mockResolvedValueOnce({
+			data: [
+				{
+					id: "tweet_live_partial_media",
+					author_id: "999",
+					text: "partial media mention",
+					created_at: "2026-03-09T02:00:00.000Z",
+					attachments: { media_keys: ["missing_media"] },
+				},
+			],
+			meta: { result_count: 1 },
+		});
+		const { exportMentionsViaCachedXurl } = await import("./mentions-live");
+
+		await exportMentionsViaCachedXurl({
+			account: "acct_primary",
+			limit: 5,
+			refresh: true,
+		});
+		const row = getNativeDb()
+			.prepare("select media_count, media_json from tweets where id = ?")
+			.get("tweet_live_partial_media") as {
+			media_count: number;
+			media_json: string;
+		};
+
+		expect(row.media_count).toBe(1);
+		expect(row.media_json).toBe(existingMediaJson);
+	});
+
 	it("reuses fresh cache without spending another xurl call", async () => {
 		makeTempHome();
 		listMentionsViaXurlMock.mockResolvedValue({

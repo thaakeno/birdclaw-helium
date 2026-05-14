@@ -315,8 +315,7 @@ function queryRows(options: MediaFetchOptions) {
 	let sql = `
     select t.id, t.media_json
     from tweets t
-    where t.media_count > 0
-      and t.media_json not in ('', '[]', 'null')
+    where t.media_json not in ('', '[]', 'null')
   `;
 	const scopeClause = buildScopeClause(params, account, kind);
 	if (scopeClause) sql += ` and (${scopeClause})`;
