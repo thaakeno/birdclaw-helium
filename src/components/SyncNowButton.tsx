@@ -1,9 +1,10 @@
 import { RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { postSync } from "#/lib/api-client";
 import type { AccountRecord } from "#/lib/types";
 import { cx, selectFieldClass } from "#/lib/ui";
 import type { WebSyncKind, WebSyncResponse } from "#/lib/web-sync";
+import { setStoredAccountId, useSelectedAccountId } from "./account-selection";
 
 interface SyncNowButtonProps {
 	kind: WebSyncKind;
@@ -21,24 +22,16 @@ export function SyncNowButton({
 	const [syncing, setSyncing] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [selectedAccountId, setSelectedAccountId] = useState<
-		string | undefined
-	>();
+	const globalAccountId = useSelectedAccountId(accounts);
 	const defaultAccountId = useMemo(
 		() => accounts.find((account) => account.isDefault)?.id ?? accounts[0]?.id,
 		[accounts],
 	);
-	const accountId = selectedAccountId ?? defaultAccountId;
+	const accountId = globalAccountId ?? defaultAccountId;
 
-	useEffect(() => {
-		if (!accounts.length) {
-			setSelectedAccountId(undefined);
-			return;
-		}
-		if (!accountId || !accounts.some((account) => account.id === accountId)) {
-			setSelectedAccountId(defaultAccountId);
-		}
-	}, [accountId, accounts, defaultAccountId]);
+	function selectAccount(accountId: string) {
+		setStoredAccountId(accountId);
+	}
 
 	async function syncNow() {
 		setSyncing(true);
@@ -63,7 +56,7 @@ export function SyncNowButton({
 					aria-label="Sync account"
 					className={cx(selectFieldClass, "h-9 w-[132px]")}
 					disabled={syncing}
-					onChange={(event) => setSelectedAccountId(event.target.value)}
+					onChange={(event) => selectAccount(event.target.value)}
 					value={accountId ?? ""}
 				>
 					{accounts.map((account) => (

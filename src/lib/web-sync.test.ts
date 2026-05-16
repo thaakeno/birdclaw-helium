@@ -145,11 +145,13 @@ describe("web sync dispatcher", () => {
 
 		const result = await runWebSync("timeline");
 
-		expect(syncHomeTimelineMock).toHaveBeenCalledWith({
-			limit: 100,
-			following: true,
-			refresh: true,
-		});
+		expect(syncHomeTimelineMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				limit: 100,
+				following: true,
+				refresh: true,
+			}),
+		);
 		expect(maybeAutoSyncBackupMock).toHaveBeenCalled();
 		expect(result).toMatchObject({
 			ok: true,
@@ -332,24 +334,36 @@ describe("web sync dispatcher", () => {
 		});
 	});
 
-	it("ignores selected accounts for bird-only sync plans", async () => {
-		const pending = deferred<{ ok: boolean; source: string; count: number }>();
-		syncHomeTimelineMock.mockReturnValue(pending.promise);
+	it("keeps selected-account home timeline syncs isolated", async () => {
+		const primary = deferred<{ ok: boolean; source: string; count: number }>();
+		const studio = deferred<{ ok: boolean; source: string; count: number }>();
+		syncHomeTimelineMock
+			.mockReturnValueOnce(primary.promise)
+			.mockReturnValueOnce(studio.promise);
 
 		const defaultJob = startWebSync("timeline");
 		const selectedJob = startWebSync("timeline", "acct_studio");
 
-		expect(selectedJob.id).toBe(defaultJob.id);
-		expect(selectedJob.accountId).toBeUndefined();
-		expect(syncHomeTimelineMock).toHaveBeenCalledTimes(1);
-		expect(syncHomeTimelineMock).toHaveBeenCalledWith(
+		expect(selectedJob.id).not.toBe(defaultJob.id);
+		expect(syncHomeTimelineMock).toHaveBeenCalledTimes(2);
+		expect(syncHomeTimelineMock).toHaveBeenNthCalledWith(
+			1,
 			expect.objectContaining({ account: undefined }),
 		);
+		expect(syncHomeTimelineMock).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ account: "acct_studio" }),
+		);
 
-		pending.resolve({ ok: true, source: "bird", count: 1 });
+		primary.resolve({ ok: true, source: "bird", count: 1 });
+		studio.resolve({ ok: true, source: "bird", count: 2 });
 		await vi.waitFor(() => {
 			expect(getWebSyncJob(defaultJob.id)).toMatchObject({
 				status: "succeeded",
+			});
+			expect(getWebSyncJob(selectedJob.id)).toMatchObject({
+				status: "succeeded",
+				accountId: "acct_studio",
 			});
 		});
 	});
