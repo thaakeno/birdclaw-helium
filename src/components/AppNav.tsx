@@ -60,6 +60,7 @@ export function AppNav() {
 						</span>
 					</span>
 				</Link>
+				<ThemeSlider />
 				<nav className={sidebarNavClass} aria-label="Primary">
 					{links.map((link) => {
 						const active = pathname === link.to;
@@ -85,7 +86,6 @@ export function AppNav() {
 			</div>
 			<div className={sidebarFooterClass}>
 				<AccountSwitcher />
-				<ThemeSlider />
 			</div>
 		</aside>
 	);

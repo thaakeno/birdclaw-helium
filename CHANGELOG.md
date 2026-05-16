@@ -13,7 +13,7 @@
 
 ### Fixed
 
-- Remove the duplicate inline sync account picker now that the global web account switcher controls manual sync account state.
+- Remove the duplicate inline sync account picker now that the global web account switcher controls manual sync account state, and move the theme toggle out of the sidebar footer so the account switcher stays anchored at the bottom.
 
 ## 0.5.1 - 2026-05-15
 
