@@ -234,6 +234,16 @@ describe("database init", () => {
 });
 
 describe("native sqlite compatibility wrapper", () => {
+	it("installs a busy timeout as soon as the database opens", () => {
+		const db = new NativeSqliteDatabase(":memory:");
+
+		try {
+			expect(db.pragma("busy_timeout", { simple: true })).toBe(5000);
+		} finally {
+			db.close();
+		}
+	});
+
 	it("normalizes rows, buffers, parameter arrays, and close behavior", () => {
 		const db = new NativeSqliteDatabase(":memory:");
 		db.exec(

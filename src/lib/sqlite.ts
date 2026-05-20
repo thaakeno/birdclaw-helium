@@ -87,6 +87,7 @@ export class NativeSqliteDatabase {
 	constructor(path: string, options: DatabaseOptions = {}) {
 		this.db = new DatabaseSync(path, {
 			readOnly: options.readonly,
+			timeout: 5000,
 		});
 	}
 
