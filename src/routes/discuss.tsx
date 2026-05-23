@@ -257,14 +257,14 @@ function DiscussRoute() {
 		setSubmittedQuery(trimmed);
 		if (trimmed === submittedQuery) {
 			pendingSubmitRef.current = false;
-			run(true);
+			run(false);
 		}
 	}
 
 	useEffect(() => {
 		if (!submittedQuery || !pendingSubmitRef.current) return;
 		pendingSubmitRef.current = false;
-		run(true);
+		run(false);
 	}, [run, submittedQuery]);
 
 	return (

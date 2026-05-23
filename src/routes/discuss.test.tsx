@@ -152,6 +152,7 @@ describe("discuss route", () => {
 		expect(urls[0]?.searchParams.get("mode")).toBe("bird");
 		expect(urls[0]?.searchParams.get("includeDms")).toBe("true");
 		expect(urls[0]?.searchParams.get("question")).toBe("Useful takeaways");
+		expect(urls[0]?.searchParams.has("refresh")).toBe(false);
 
 		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -159,7 +160,7 @@ describe("discuss route", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Discuss" }));
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-		expect(urls[2]?.searchParams.get("refresh")).toBe("true");
+		expect(urls[2]?.searchParams.has("refresh")).toBe(false);
 	});
 
 	it("renders request and stream errors", async () => {

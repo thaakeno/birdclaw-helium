@@ -6,6 +6,10 @@
 
 - Add `birdclaw discuss <query>` and a Discuss web view for live keyword search via `bird`/`xurl`, persisted search-result tweets, and streaming OpenAI summaries with optional private DM context.
 
+### Fixed
+
+- Let normal Discuss web searches reuse cached AI discussions while keeping the Refresh button as the explicit forced-refresh path.
+
 ## 0.6.0 - 2026-05-22
 
 ### Added
