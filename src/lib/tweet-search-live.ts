@@ -93,25 +93,28 @@ function normalizeCacheTtlMs(value: number | undefined) {
 
 function resolveAccount(db: Database, accountId?: string) {
 	const row = accountId
-		? (db.prepare("select id from accounts where id = ?").get(accountId) as
-				| { id: string }
-				| undefined)
+		? (db
+				.prepare("select id, handle from accounts where id = ?")
+				.get(accountId) as { id: string; handle: string } | undefined)
 		: (db
 				.prepare(
 					`
-          select id
+          select id, handle
           from accounts
           order by is_default desc, created_at asc
           limit 1
           `,
 				)
-				.get() as { id: string } | undefined);
+				.get() as { id: string; handle: string } | undefined);
 
 	if (!row) {
 		throw new Error(`Unknown account: ${accountId ?? "default"}`);
 	}
 
-	return row.id;
+	return {
+		accountId: row.id,
+		username: row.handle.replace(/^@/, ""),
+	};
 }
 
 function replaceTweetFts(db: Database, tweetId: string, text: string) {
@@ -312,6 +315,7 @@ function fetchXurlSearchEffect({
 	timeoutMs,
 	since,
 	until,
+	username,
 }: {
 	query: string;
 	limit: number;
@@ -319,6 +323,7 @@ function fetchXurlSearchEffect({
 	timeoutMs?: number;
 	since?: string;
 	until?: string;
+	username?: string;
 }): Effect.Effect<XurlMentionsResponse, Error> {
 	return Effect.gen(function* () {
 		const responses: XurlMentionsResponse[] = [];
@@ -333,6 +338,7 @@ function fetchXurlSearchEffect({
 				paginationToken: nextToken,
 				startTime: since,
 				endTime: until,
+				username,
 				timeoutMs,
 			});
 			responses.push(toMentionsResponse(response));
@@ -351,6 +357,7 @@ function runModeEffect(
 	options: {
 		query: string;
 		accountId: string;
+		username: string;
 		limit: number;
 		maxPages: number;
 		since?: string;
@@ -435,7 +442,8 @@ export function syncTweetSearchEffect({
 		);
 		const ttlMs = normalizeCacheTtlMs(cacheTtlMs);
 		const db = getNativeDb();
-		const accountId = yield* trySync(() => resolveAccount(db, account));
+		const resolvedAccount = yield* trySync(() => resolveAccount(db, account));
+		const accountId = resolvedAccount.accountId;
 		if (mode === "local") {
 			return {
 				ok: true,
@@ -451,6 +459,7 @@ export function syncTweetSearchEffect({
 		const runOptions = {
 			query: normalizedQuery,
 			accountId,
+			username: resolvedAccount.username,
 			limit: normalizedLimit,
 			maxPages: normalizedMaxPages,
 			since: normalizedSince,

@@ -419,18 +419,24 @@ function writeMentionHighWaterId(
 function resolveAccount(db: Database, accountId?: string) {
 	const row = accountId
 		? (db
-				.prepare("select id, handle from accounts where id = ?")
-				.get(accountId) as { id: string; handle: string } | undefined)
+				.prepare(
+					"select id, handle, external_user_id from accounts where id = ?",
+				)
+				.get(accountId) as
+				| { id: string; handle: string; external_user_id: string | null }
+				| undefined)
 		: (db
 				.prepare(
 					`
-          select id, handle
+          select id, handle, external_user_id
           from accounts
           order by is_default desc, created_at asc
           limit 1
           `,
 				)
-				.get() as { id: string; handle: string } | undefined);
+				.get() as
+				| { id: string; handle: string; external_user_id: string | null }
+				| undefined);
 
 	if (!row) {
 		throw new Error(`Unknown account: ${accountId ?? "default"}`);
@@ -439,6 +445,11 @@ function resolveAccount(db: Database, accountId?: string) {
 	return {
 		accountId: row.id,
 		username: row.handle.replace(/^@/, ""),
+		externalUserId:
+			typeof row.external_user_id === "string" &&
+			row.external_user_id.trim().length > 0
+				? row.external_user_id.trim()
+				: undefined,
 	};
 }
 
@@ -707,10 +718,12 @@ function fetchMentionsViaXurlEffect({
 	startTime?: string;
 }) {
 	return Effect.gen(function* () {
-		const [accountUser] = yield* tryPromise(() =>
-			lookupUsersByHandles([resolvedAccount.username]),
-		);
-		if (!accountUser?.id) {
+		const accountUserId =
+			resolvedAccount.externalUserId ??
+			(yield* tryPromise(() =>
+				lookupUsersByHandles([resolvedAccount.username]),
+			).pipe(Effect.map((users) => users[0]?.id)));
+		if (!accountUserId) {
 			return yield* Effect.fail(
 				new Error(
 					`Could not resolve Twitter user id for @${resolvedAccount.username}`,
@@ -726,7 +739,7 @@ function fetchMentionsViaXurlEffect({
 				listMentionsViaXurl({
 					maxResults: limit,
 					username: resolvedAccount.username,
-					userId: String(accountUser.id),
+					userId: String(accountUserId),
 					paginationToken: nextToken,
 					...(sinceId ? { sinceId } : {}),
 					...(startTime ? { startTime } : {}),
