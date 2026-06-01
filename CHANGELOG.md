@@ -34,6 +34,7 @@
 - Show expanded URLs instead of `t.co` shortlinks in Profile Analyse account bios when X description URL entities are available.
 - Make Discuss search source/mode controls look like dropdowns in one row, raise live tweet search depth to 20,000 results / 200 pages, combine bird plus xurl in auto mode, and include matching local timeline/saved tweets in Live search discussions.
 - Default Discuss live mode to xurl now that OAuth2 search is authorized.
+- Use the default authorized xurl OAuth2 user for Discuss/Profile Analyse recent-search reads instead of the selected Birdclaw account handle.
 - Let normal Discuss web searches reuse cached AI discussions while keeping the Refresh button as the explicit forced-refresh path.
 - Tighten AI report line height and first-block spacing in Today and Discuss.
 

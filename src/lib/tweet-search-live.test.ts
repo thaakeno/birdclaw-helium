@@ -259,6 +259,36 @@ describe("live tweet search sync", () => {
 		);
 	});
 
+	it("uses the default xurl OAuth user for recent search on non-default accounts", async () => {
+		getNativeDb()
+			.prepare(
+				"insert into accounts (id, name, handle, transport, is_default, created_at) values (?, ?, ?, ?, ?, ?)",
+			)
+			.run(
+				"acct_openclaw",
+				"OpenClaw",
+				"@openclaw",
+				"archive",
+				0,
+				"2026-05-31T00:00:00.000Z",
+			);
+		mocks.searchRecentTweets.mockResolvedValueOnce(payload(["tweet_xurl_1"]));
+		const { syncTweetSearch } = await import("./tweet-search-live");
+
+		await syncTweetSearch({
+			query: "openclaw",
+			account: "acct_openclaw",
+			mode: "xurl",
+			refresh: true,
+			limit: 100,
+		});
+
+		expect(mocks.searchRecentTweets).toHaveBeenCalledWith(
+			"openclaw",
+			expect.not.objectContaining({ username: "openclaw" }),
+		);
+	});
+
 	it("uses only xurl for auto searches with selected time bounds", async () => {
 		mocks.searchTweetsViaBird.mockResolvedValue(payload(["tweet_unbounded"]));
 		mocks.searchRecentTweets.mockResolvedValueOnce(payload(["tweet_time_1"]));

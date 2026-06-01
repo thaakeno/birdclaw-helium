@@ -315,7 +315,6 @@ function fetchXurlSearchEffect({
 	timeoutMs,
 	since,
 	until,
-	username,
 }: {
 	query: string;
 	limit: number;
@@ -323,7 +322,6 @@ function fetchXurlSearchEffect({
 	timeoutMs?: number;
 	since?: string;
 	until?: string;
-	username?: string;
 }): Effect.Effect<XurlMentionsResponse, Error> {
 	return Effect.gen(function* () {
 		const responses: XurlMentionsResponse[] = [];
@@ -338,7 +336,6 @@ function fetchXurlSearchEffect({
 				paginationToken: nextToken,
 				startTime: since,
 				endTime: until,
-				username,
 				timeoutMs,
 			});
 			responses.push(toMentionsResponse(response));
