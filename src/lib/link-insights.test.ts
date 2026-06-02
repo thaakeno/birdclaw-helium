@@ -417,6 +417,53 @@ describe("link insights", () => {
 		});
 	});
 
+	it("anchors the today range to UTC midnight regardless of host timezone", () => {
+		// created_at is stored as a UTC ISO string, so the "today" boundary must
+		// be UTC midnight too. These occurrences straddle UTC midnight of the
+		// `now` day by 30 minutes on either side, so the classification only holds
+		// under any host timezone when the window starts at 00:00:00.000Z.
+		const db = insertAccountFixture();
+		insertTweet(db, {
+			id: "tweet_after_utc_midnight",
+			authorProfileId: "profile_a",
+			text: "Just after midnight https://t.co/after",
+			createdAt: "2026-05-11T00:30:00.000Z",
+		});
+		insertTweet(db, {
+			id: "tweet_before_utc_midnight",
+			authorProfileId: "profile_b",
+			text: "Just before midnight https://t.co/before",
+			createdAt: "2026-05-10T23:30:00.000Z",
+		});
+		insertExpansion(db, {
+			shortUrl: "https://t.co/after",
+			finalUrl: "https://after.example/post",
+		});
+		insertExpansion(db, {
+			shortUrl: "https://t.co/before",
+			finalUrl: "https://before.example/post",
+		});
+		insertOccurrence(db, {
+			sourceKind: "tweet",
+			sourceId: "tweet_after_utc_midnight",
+			shortUrl: "https://t.co/after",
+			createdAt: "2026-05-11T00:30:00.000Z",
+		});
+		insertOccurrence(db, {
+			sourceKind: "tweet",
+			sourceId: "tweet_before_utc_midnight",
+			shortUrl: "https://t.co/before",
+			createdAt: "2026-05-10T23:30:00.000Z",
+		});
+
+		const today = getLinkInsights({
+			range: "today",
+			now: new Date("2026-05-11T12:00:00.000Z"),
+		});
+		// The 00:30Z link belongs to today, the 23:30Z (prior day) link does not.
+		expect(today.items.map((item) => item.host)).toEqual(["after.example"]);
+	});
+
 	it("scopes results to the selected account", () => {
 		const db = insertAccountFixture();
 		insertTweet(db, {

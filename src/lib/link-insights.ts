@@ -380,7 +380,10 @@ function resolveRange(
 
 	const start = new Date(now);
 	if (range === "today") {
-		start.setHours(0, 0, 0, 0);
+		// created_at is stored as a UTC ISO string, so anchor the start of "today"
+		// to UTC midnight. Using local midnight would shift the window by the
+		// host's UTC offset and drop or include the wrong day's occurrences.
+		start.setUTCHours(0, 0, 0, 0);
 	} else {
 		const days = range === "week" ? 7 : range === "month" ? 30 : 365;
 		start.setDate(start.getDate() - days);
