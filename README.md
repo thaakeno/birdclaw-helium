@@ -219,6 +219,8 @@ birdclaw auth status --json
 birdclaw db stats --json
 ```
 
+`auth status` reports Birdclaw's coarse xurl status. Verify xurl with `xurl whoami` and bird with `bird whoami`. For setup and transport selection, see [Sign in](docs/auth.md).
+
 Find and import an archive:
 
 ```bash
@@ -226,6 +228,8 @@ birdclaw archive find --json
 birdclaw import archive --json
 birdclaw import archive ~/Downloads/twitter-archive-2025.zip --json
 ```
+
+Don't have an archive yet? Request it from <https://x.com/settings/download_your_data>; X emails a download link when it is ready, which may take a few days. A fresh Birdclaw database needs the archive import to establish account identity before live sync. See [Archive Import → Get an archive](docs/archive.md#get-an-archive).
 
 Optional profile hydration can improve bios, follower counts, and avatars, but it performs live X profile reads and can spend API credits on large archives:
 

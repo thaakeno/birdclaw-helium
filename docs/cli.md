@@ -27,34 +27,20 @@ birdclaw [global flags] <subcommand> [args]
 - `-h, --help`
 - `--version`
 - `--json`
-- `--plain`
-- `-q, --quiet`
-- `-v, --verbose`
-- `--no-color`
-- `--no-input`
-- `--config <path>`
-- `--profile <name>`
-- `--db <path>`
 
 ## Config precedence
 
-Flags > env > project config > user config
+Command flags > environment overrides > user config
 
 User config:
 
 - `~/.birdclaw/config.json`
 
-Project config:
-
-- `./.birdclawrc.json5`
-
 ## Env vars
 
-- `BIRDCLAW_DB`
-- `BIRDCLAW_PROFILE`
-- `BIRDCLAW_TRANSPORT`
-- `BIRDCLAW_LOG`
-- `NO_COLOR`
+- `BIRDCLAW_HOME`
+- `BIRDCLAW_CONFIG`
+- `BIRDCLAW_ACTIONS_TRANSPORT`
 
 ## Command tree
 
