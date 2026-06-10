@@ -1,18 +1,21 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const docsSite = path.join(root, "dist", "docs-site");
+let renderInline: (text: string, currentRel: string) => string;
 
 describe("docs site", () => {
-	beforeAll(() => {
-		execFileSync(process.execPath, ["scripts/build-docs-site.mjs"], {
-			cwd: root,
-			stdio: "pipe",
-		});
+	beforeAll(async () => {
+		const module = (await import(
+			pathToFileURL(path.join(root, "scripts", "build-docs-site.mjs")).href
+		)) as {
+			__test__: { inline: typeof renderInline };
+		};
+		renderInline = module.__test__.inline;
 	});
 
 	it("renders the Sign in page in onboarding order", () => {
@@ -46,5 +49,13 @@ describe("docs site", () => {
 
 		expect(archive).toContain(expected);
 		expect(archive).not.toContain("download<em>your</em>data");
+	});
+
+	it("preserves query strings in autolinks", () => {
+		const url = "https://example.test/path_with_value?a=1&b=2";
+
+		expect(renderInline(`<${url}>`, "auth.md")).toBe(
+			`<a href="${url.replace("&", "&amp;")}">${url.replace("&", "&amp;")}</a>`,
+		);
 	});
 });

@@ -452,11 +452,11 @@ function inline(text, currentRel) {
 		stash.push(`<code>${escapeHtml(code)}</code>`);
 		return `\u0000${stash.length - 1}\u0000`;
 	});
+	out = out.replace(/<(https?:\/\/[^\s<>]+)>/g, (_, url) => {
+		stash.push(`<a href="${escapeAttr(url)}">${escapeHtml(url)}</a>`);
+		return `\u0000${stash.length - 1}\u0000`;
+	});
 	out = escapeHtml(out)
-		.replace(/&lt;(https?:\/\/[^\s<>]+)&gt;/g, (_, url) => {
-			stash.push(`<a href="${escapeAttr(url)}">${escapeHtml(url)}</a>`);
-			return `\u0000${stash.length - 1}\u0000`;
-		})
 		.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
 		.replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
 		.replace(/(^|[^_])_([^_\s][^_]*?)_(?!_)/g, "$1<em>$2</em>")
@@ -891,6 +891,8 @@ function highlightYamlValue(rest) {
 		);
 	return escapeHtml(rest);
 }
+
+export const __test__ = { inline };
 
 function validateLinks(outputDir) {
 	const failures = [];
