@@ -12,6 +12,8 @@ birdclaw keeps its database local. Archive import needs no X credentials. Live r
 
 Install either tool or both. Transport selection is workflow-specific: sync commands expose `--mode`, while `auth use` only controls moderation writes such as block, unblock, mute, and unmute.
 
+On a fresh Birdclaw database, import your X archive before the first live sync. Archive import replaces the bundled demo identity with your account identity. The current auth commands verify transports but do not bind a new database to the authenticated X account.
+
 ## Set up xurl
 
 Install xurl, register an X developer app, then start OAuth2 authentication:

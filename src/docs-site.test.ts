@@ -37,6 +37,16 @@ describe("docs site", () => {
 		expect(auth).toContain("xurl whoami");
 		expect(auth).not.toContain("--client-secret");
 		expect(auth).not.toContain("BIRDCLAW_PROFILE");
+		expect(auth).toContain("import your X archive before the first live sync");
+
+		const quickstart = fs.readFileSync(
+			path.join(docsSite, "quickstart.html"),
+			"utf8",
+		);
+		expect(quickstart).not.toContain("fully usable in live-only mode");
+		expect(quickstart).toContain(
+			"Do not run live sync against a freshly initialized database",
+		);
 	});
 
 	it("keeps underscores inside autolink URLs literal", () => {

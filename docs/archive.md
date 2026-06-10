@@ -13,13 +13,13 @@ By default, archive import is a full archive replay. It refreshes archive-owned 
 
 ## Get an archive
 
-The archive is optional — birdclaw works in live-only mode via xurl or bird (see [Sign in](auth.md)). Import the archive when you want full local history, DMs, and bundled media.
+On a fresh Birdclaw database, archive import establishes the account identity required by live sync. Do not sync a newly initialized demo database before importing your archive. An archive is optional only when restoring an existing Birdclaw database or backup that already contains the correct account.
 
 Request flow:
 
 1. Sign in to x.com and go to <https://x.com/settings/download_your_data> (also reachable via *Settings and privacy → Your account → Download an archive of your data*).
 2. Re-enter your password and complete 2FA if prompted.
-3. Click *Request archive*. X queues the export and emails a download link when it's ready — usually ~24 hours, sometimes longer.
+3. Click *Request archive*. X queues the export and emails a download link when it is ready. [X Help](https://help.x.com/en/managing-your-account/how-to-download-your-x-archive) says preparation may take a few days.
 4. When the email arrives (subject: *Your X data is ready to download*), open the link, sign in again, and download the ZIP. Typical filename: `twitter-YYYY-MM-DD-<hash>.zip`.
 5. Save the ZIP into `~/Downloads` so autodiscovery picks it up, or note its path and pass it explicitly to `import archive`.
 
