@@ -15,6 +15,10 @@ import { Effect } from "effect";
 import { getBirdclawPaths } from "./config";
 import { getNativeDb } from "./db";
 import { runEffectPromise, tryPromise } from "./effect-runtime";
+import {
+	ingestStreamInBatchesEffect,
+	streamAssignedJsonArray,
+} from "./streaming-ingestion";
 import { safeHttpUrl } from "./url-safety";
 
 const execFileAsync = promisify(execFile);
@@ -202,6 +206,51 @@ function readArchiveEntryEffect(
 	entryPath: string,
 ): Effect.Effect<string, unknown> {
 	return runUnzipEffect(archivePath, ["-p", archivePath, entryPath]);
+}
+
+async function* streamArchiveArrayRecords(
+	archivePath: string,
+	entryPath: string,
+) {
+	const child = spawn("unzip", ["-p", archivePath, entryPath], {
+		stdio: ["ignore", "pipe", "pipe"],
+	});
+	let stderr = "";
+	child.stderr.setEncoding("utf8");
+	child.stderr.on("data", (chunk) => {
+		stderr += String(chunk);
+	});
+	const exit = new Promise<number | null>((resolve, reject) => {
+		child.on("error", reject);
+		child.on("close", resolve);
+	});
+
+	try {
+		yield* streamAssignedJsonArray(child.stdout);
+		const exitCode = await exit;
+		if (exitCode !== 0) {
+			throw new Error(
+				`Failed to extract ${entryPath}: ${
+					stderr.trim() || `exit ${String(exitCode)}`
+				}`,
+			);
+		}
+	} finally {
+		if (!child.killed) child.kill();
+	}
+}
+
+function processArchiveEntryRecordsEffect(
+	archivePath: string,
+	entryPath: string,
+	processRecord: (record: ArchiveRecord) => void,
+) {
+	return ingestStreamInBatchesEffect({
+		source: () => streamArchiveArrayRecords(archivePath, entryPath),
+		processBatch: (batch) => {
+			for (const record of batch) processRecord(record);
+		},
+	});
 }
 
 function getFirstEntry(entries: string[], pattern: RegExp) {
@@ -640,21 +689,14 @@ function extractArchiveMediaFilesEffect(
 	});
 }
 
-function getArchiveFollowRows(content: string, key: ArchiveFollowKey) {
-	const rows: Array<{ profileId: string; externalUserId: string }> = [];
-
-	for (const wrapper of parseArchiveArray(content)) {
-		const item = asRecord(wrapper[key]);
-		const externalUserId = String(item?.accountId ?? "");
-		if (!externalUserId) continue;
-
-		rows.push({
-			profileId: `profile_user_${externalUserId}`,
-			externalUserId,
-		});
-	}
-
-	return rows;
+function getArchiveFollowRow(wrapper: ArchiveRecord, key: ArchiveFollowKey) {
+	const item = asRecord(wrapper[key]);
+	const externalUserId = String(item?.accountId ?? "");
+	if (!externalUserId) return undefined;
+	return {
+		profileId: `profile_user_${externalUserId}`,
+		externalUserId,
+	};
 }
 
 function clearImportedData(db = getNativeDb()) {
@@ -817,10 +859,9 @@ function importArchiveInternalEffect(
 			});
 		}
 		for (const [tweetFileIndex, entry] of tweetEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			for (const wrapper of parseArchiveArray(content)) {
+			yield* processArchiveEntryRecordsEffect(archivePath, entry, (wrapper) => {
 				const tweet = asRecord(wrapper.tweet);
-				if (!tweet) continue;
+				if (!tweet) return;
 
 				for (const mention of asArray<Record<string, unknown>>(
 					asRecord(tweet.entities)?.user_mentions,
@@ -866,7 +907,7 @@ function importArchiveInternalEffect(
 						? String(tweet.quoted_status_id_str)
 						: null,
 				});
-			}
+			});
 			onProgress({
 				kind: "slice-file",
 				slice: "tweets",
@@ -891,10 +932,9 @@ function importArchiveInternalEffect(
 		}
 		const tweetRowsBeforeNotes = tweetRows.length;
 		for (const [noteFileIndex, entry] of noteTweetEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			for (const wrapper of parseArchiveArray(content)) {
+			yield* processArchiveEntryRecordsEffect(archivePath, entry, (wrapper) => {
 				const noteTweet = asRecord(wrapper.noteTweet);
-				if (!noteTweet) continue;
+				if (!noteTweet) return;
 				const core = asRecord(noteTweet.core);
 				addTweetRow({
 					id: String(noteTweet.noteTweetId ?? noteTweet.id ?? randomUUID()),
@@ -912,7 +952,7 @@ function importArchiveInternalEffect(
 					mediaJson: "[]",
 					quotedTweetId: null,
 				});
-			}
+			});
 			onProgress({
 				kind: "slice-file",
 				slice: "noteTweets",
@@ -1363,13 +1403,12 @@ function importArchiveInternalEffect(
 			});
 		}
 		for (const [dmFileIndex, entry] of dmEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			for (const wrapper of parseArchiveArray(content)) {
+			yield* processArchiveEntryRecordsEffect(archivePath, entry, (wrapper) => {
 				const dmConversation = asRecord(wrapper.dmConversation);
-				if (!dmConversation) continue;
+				if (!dmConversation) return;
 
 				const rawConversationId = String(dmConversation.conversationId ?? "");
-				if (!rawConversationId) continue;
+				if (!rawConversationId) return;
 				const conversationId =
 					resolveArchiveDmConversationId(rawConversationId);
 				const conversationIdChanged = conversationId !== rawConversationId;
@@ -1523,11 +1562,11 @@ function importArchiveInternalEffect(
 					);
 
 				if (messageEvents.length === 0) {
-					continue;
+					return;
 				}
 
 				const lastMessage = messageEvents.at(-1);
-				if (!lastMessage) continue;
+				if (!lastMessage) return;
 
 				dmMessages.push(...messageEvents);
 				const resolvedParticipantProfileId =
@@ -1544,7 +1583,7 @@ function importArchiveInternalEffect(
 					unreadCount: 0,
 					needsReply: lastMessage.direction === "inbound" ? 1 : 0,
 				});
-			}
+			});
 			onProgress({
 				kind: "slice-file",
 				slice: "directMessages",
@@ -1569,11 +1608,10 @@ function importArchiveInternalEffect(
 		}
 		let likeCount = 0;
 		for (const [likeFileIndex, entry] of likeEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			const likes = parseArchiveArray(content);
-			for (const like of likes) {
+			yield* processArchiveEntryRecordsEffect(archivePath, entry, (like) => {
+				likeCount += 1;
 				const tweet = extractCollectionTweet(like, "like");
-				if (!tweet) continue;
+				if (!tweet) return;
 				collectionRows.push({
 					tweetId: tweet.id,
 					kind: "likes",
@@ -1597,8 +1635,7 @@ function importArchiveInternalEffect(
 					mediaJson: "[]",
 					quotedTweetId: null,
 				});
-			}
-			likeCount += likes.length;
+			});
 			onProgress({
 				kind: "slice-file",
 				slice: "likes",
@@ -1619,36 +1656,38 @@ function importArchiveInternalEffect(
 		}
 		let bookmarkCount = 0;
 		for (const [bookmarkFileIndex, entry] of bookmarkEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			const bookmarks = parseArchiveArray(content);
-			for (const bookmark of bookmarks) {
-				const tweet = extractCollectionTweet(bookmark, "bookmark");
-				if (!tweet) continue;
-				collectionRows.push({
-					tweetId: tweet.id,
-					kind: "bookmarks",
-					collectedAt: tweet.createdAt,
-					source: "archive",
-					rawJson: JSON.stringify(bookmark),
-				});
-				addTweetRow({
-					id: tweet.id,
-					kind: "bookmark",
-					authorProfileId: "profile_unknown",
-					text: tweet.text,
-					createdAt: tweet.createdAt,
-					isReplied: 0,
-					replyToId: null,
-					likeCount: tweet.likeCount,
-					mediaCount: 0,
-					bookmarked: 1,
-					liked: 0,
-					entitiesJson: "{}",
-					mediaJson: "[]",
-					quotedTweetId: null,
-				});
-			}
-			bookmarkCount += bookmarks.length;
+			yield* processArchiveEntryRecordsEffect(
+				archivePath,
+				entry,
+				(bookmark) => {
+					bookmarkCount += 1;
+					const tweet = extractCollectionTweet(bookmark, "bookmark");
+					if (!tweet) return;
+					collectionRows.push({
+						tweetId: tweet.id,
+						kind: "bookmarks",
+						collectedAt: tweet.createdAt,
+						source: "archive",
+						rawJson: JSON.stringify(bookmark),
+					});
+					addTweetRow({
+						id: tweet.id,
+						kind: "bookmark",
+						authorProfileId: "profile_unknown",
+						text: tweet.text,
+						createdAt: tweet.createdAt,
+						isReplied: 0,
+						replyToId: null,
+						likeCount: tweet.likeCount,
+						mediaCount: 0,
+						bookmarked: 1,
+						liked: 0,
+						entitiesJson: "{}",
+						mediaJson: "[]",
+						quotedTweetId: null,
+					});
+				},
+			);
 			onProgress({
 				kind: "slice-file",
 				slice: "bookmarks",
@@ -1686,12 +1725,12 @@ function importArchiveInternalEffect(
 			});
 		}
 		for (const [followerFileIndex, entry] of followerEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			for (const row of getArchiveFollowRows(content, "follower")) {
-				if (followerIds.has(row.externalUserId)) continue;
+			yield* processArchiveEntryRecordsEffect(archivePath, entry, (wrapper) => {
+				const row = getArchiveFollowRow(wrapper, "follower");
+				if (!row || followerIds.has(row.externalUserId)) return;
 				followerIds.add(row.externalUserId);
 				followerRows.push(row);
-			}
+			});
 			onProgress({
 				kind: "slice-file",
 				slice: "followers",
@@ -1715,12 +1754,12 @@ function importArchiveInternalEffect(
 			});
 		}
 		for (const [followingFileIndex, entry] of followingEntries.entries()) {
-			const content = yield* readArchiveEntryEffect(archivePath, entry);
-			for (const row of getArchiveFollowRows(content, "following")) {
-				if (followingIds.has(row.externalUserId)) continue;
+			yield* processArchiveEntryRecordsEffect(archivePath, entry, (wrapper) => {
+				const row = getArchiveFollowRow(wrapper, "following");
+				if (!row || followingIds.has(row.externalUserId)) return;
 				followingIds.add(row.externalUserId);
 				followingRows.push(row);
-			}
+			});
 			onProgress({
 				kind: "slice-file",
 				slice: "following",

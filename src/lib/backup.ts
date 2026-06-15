@@ -9,6 +9,10 @@ import type { Database } from "./sqlite";
 import { getBirdclawConfig } from "./config";
 import { getNativeDb } from "./db";
 import { runEffectPromise, tryPromise } from "./effect-runtime";
+import {
+	ingestStreamInBatchesEffect,
+	streamJsonLines,
+} from "./streaming-ingestion";
 import { safeHttpUrl } from "./url-safety";
 
 const execFileAsync = promisify(execFile);
@@ -1261,13 +1265,18 @@ function readJsonlFileEffect(
 			resolveBackupFilePath(repoPath, relativePath),
 		);
 		yield* assertReadableBackupFileEffect(repoPath, filePath, relativePath);
-		const content = yield* tryPromise(() => fs.readFile(filePath, "utf8"));
-		return yield* trySync(() =>
-			content
-				.split("\n")
-				.filter((line) => line.length > 0)
-				.map((line) => JSON.parse(line) as JsonRecord),
-		);
+		const rows: JsonRecord[] = [];
+		yield* ingestStreamInBatchesEffect({
+			source: async function* () {
+				for await (const row of streamJsonLines(filePath)) {
+					yield row.value as JsonRecord;
+				}
+			},
+			processBatch: (batch) => {
+				rows.push(...batch);
+			},
+		});
+		return rows;
 	});
 }
 
