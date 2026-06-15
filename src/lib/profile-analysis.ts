@@ -1,10 +1,16 @@
 import { createHash } from "node:crypto";
 import { Effect } from "effect";
 import { z } from "zod";
+import {
+	createAnalysisRequestBody,
+	extractOpenAIResponseText,
+	parseHybridAnalysis,
+	requestHybridAnalysisEffect,
+	resolveAnalysisModelSettings,
+} from "./analysis-runtime";
 import { getNativeDb } from "./db";
 import { runEffectPromise, tryPromise } from "./effect-runtime";
 import { buildMediaJsonFromIncludes, countTweetMedia } from "./media-includes";
-import { requestOpenAIResponseEffect } from "./openai-response-runtime";
 import type { Database } from "./sqlite";
 import { readSyncCache, writeSyncCache } from "./sync-cache";
 import { tweetEntitiesFromXurl } from "./tweet-render";
@@ -139,9 +145,6 @@ export type ProfileAnalysisStreamEvent =
 	| { type: "done"; result: ProfileAnalysisRunResult }
 	| { type: "error"; error: string };
 
-const DEFAULT_MODEL = "gpt-5.5";
-const DEFAULT_REASONING_EFFORT = "medium";
-const DEFAULT_SERVICE_TIER = "priority";
 const DEFAULT_MAX_TWEETS = 10_000;
 const DEFAULT_MAX_PAGES = 100;
 const DEFAULT_MAX_CONVERSATIONS = 80;
@@ -288,27 +291,15 @@ function resolveAccount(db: Database, accountId?: string) {
 }
 
 function modelFromOptions(options: ProfileAnalysisOptions) {
-	return options.model ?? process.env.BIRDCLAW_AI_MODEL ?? DEFAULT_MODEL;
+	return resolveAnalysisModelSettings(options).model;
 }
 
 function reasoningEffortFromOptions(options: ProfileAnalysisOptions) {
-	return (
-		options.reasoningEffort ??
-		(process.env.BIRDCLAW_OPENAI_REASONING_EFFORT as
-			| ProfileAnalysisOptions["reasoningEffort"]
-			| undefined) ??
-		DEFAULT_REASONING_EFFORT
-	);
+	return resolveAnalysisModelSettings(options).reasoningEffort;
 }
 
 function serviceTierFromOptions(options: ProfileAnalysisOptions) {
-	return (
-		options.serviceTier ??
-		(process.env.BIRDCLAW_OPENAI_SERVICE_TIER as
-			| ProfileAnalysisOptions["serviceTier"]
-			| undefined) ??
-		DEFAULT_SERVICE_TIER
-	);
+	return resolveAnalysisModelSettings(options).serviceTier;
 }
 
 function tweetUrl(handle: string, id: string) {
@@ -1093,66 +1084,30 @@ function parseAnalysisFromHybridText(
 	context: ProfileAnalysisContext,
 	rawText: string,
 ): { analysis: ProfileAnalysis; markdown: string } {
-	const [markdownPart, jsonPart] = rawText.split(DELIMITER_PATTERN);
-	const markdown = (markdownPart ?? rawText).trim();
-	const candidate = jsonPart?.slice(
-		jsonPart.indexOf("{"),
-		jsonPart.lastIndexOf("}") + 1,
-	);
-	if (candidate?.startsWith("{")) {
-		try {
-			return {
-				markdown,
-				analysis: ProfileAnalysisSchema.parse(JSON.parse(candidate)),
-			};
-		} catch {
-			return { markdown, analysis: fallbackAnalysis(context, markdown) };
-		}
-	}
-	return { markdown, analysis: fallbackAnalysis(context, markdown) };
+	const parsed = parseHybridAnalysis({
+		rawText,
+		parse: (value) => ProfileAnalysisSchema.parse(value),
+		fallback: (markdown) => fallbackAnalysis(context, markdown),
+		delimiterPattern: DELIMITER_PATTERN,
+	});
+	return { markdown: parsed.markdown, analysis: parsed.value };
 }
 
 function extractResponseText(payload: Record<string, unknown>) {
-	if (typeof payload.output_text === "string") {
-		return payload.output_text;
-	}
-	const output = Array.isArray(payload.output) ? payload.output : [];
-	const parts: string[] = [];
-	for (const item of output) {
-		if (!item || typeof item !== "object") continue;
-		const content = (item as { content?: unknown }).content;
-		if (!Array.isArray(content)) continue;
-		for (const block of content) {
-			if (!block || typeof block !== "object") continue;
-			const record = block as Record<string, unknown>;
-			if (typeof record.text === "string") parts.push(record.text);
-		}
-	}
-	return parts.join("");
+	return extractOpenAIResponseText(payload);
 }
 
 function createOpenAIRequestBody(
 	context: ProfileAnalysisContext,
 	options: ProfileAnalysisOptions,
 ) {
-	return {
-		model: modelFromOptions(options),
-		reasoning: { effort: reasoningEffortFromOptions(options) },
-		service_tier: serviceTierFromOptions(options),
-		store: false,
-		max_output_tokens: 7000,
-		input: [
-			{
-				role: "system",
-				content:
-					"You are a precise X/Twitter profile analyst. Use only supplied data. Return Markdown plus the requested JSON after the delimiter.",
-			},
-			{
-				role: "user",
-				content: buildPrompt(context),
-			},
-		],
-	};
+	return createAnalysisRequestBody({
+		settings: resolveAnalysisModelSettings(options),
+		system:
+			"You are a precise X/Twitter profile analyst. Use only supplied data. Return Markdown plus the requested JSON after the delimiter.",
+		prompt: buildPrompt(context),
+		stream: false,
+	});
 }
 
 export function streamProfileAnalysisEffect(
@@ -1195,25 +1150,17 @@ export function streamProfileAnalysisEffect(
 
 		handlers.onEvent?.({ type: "start", context, cached: false });
 		emitStatus(handlers, "Summarizing with AI", modelFromOptions(options));
-		const response = yield* requestOpenAIResponseEffect({
+		const analysisResponse = yield* requestHybridAnalysisEffect({
 			body: createOpenAIRequestBody(context, options),
 			signal: options.signal,
+			parse: (value) => ProfileAnalysisSchema.parse(value),
+			fallback: (markdown) => fallbackAnalysis(context, markdown),
+			delimiterPattern: DELIMITER_PATTERN,
 		});
-		const payload = (yield* tryProfilePromise(() => response.json())) as Record<
-			string,
-			unknown
-		>;
-		const rawText = extractResponseText(payload);
-		if (!rawText) {
-			return yield* Effect.fail(new Error("OpenAI returned no output text"));
-		}
-		const parsed = yield* tryProfileSync(() =>
-			parseAnalysisFromHybridText(context, rawText),
-		);
 		const updatedAt = yield* tryProfileSync(() =>
 			writeSyncCache(resultCacheKey(context, options), {
-				analysis: parsed.analysis,
-				markdown: parsed.markdown,
+				analysis: analysisResponse.value,
+				markdown: analysisResponse.markdown,
 				model: modelFromOptions(options),
 				reasoningEffort: reasoningEffortFromOptions(options),
 				serviceTier: serviceTierFromOptions(options),
@@ -1221,8 +1168,8 @@ export function streamProfileAnalysisEffect(
 		);
 		const result: ProfileAnalysisRunResult = {
 			context,
-			analysis: parsed.analysis,
-			markdown: parsed.markdown,
+			analysis: analysisResponse.value,
+			markdown: analysisResponse.markdown,
 			model: modelFromOptions(options),
 			reasoningEffort: reasoningEffortFromOptions(options),
 			serviceTier: serviceTierFromOptions(options),

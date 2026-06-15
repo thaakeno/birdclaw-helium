@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import { Effect } from "effect";
 import { z } from "zod";
+import {
+	createAnalysisRequestBody,
+	type HybridAnalysisResult,
+	parseHybridAnalysis,
+	readHybridAnalysisStreamEffect,
+	resolveAnalysisModelSettings,
+	streamHybridAnalysisEffect,
+} from "./analysis-runtime";
 import { maybeAutoSyncBackupEffect } from "./backup";
 import { runEffectPromise } from "./effect-runtime";
 import { getLinkInsights } from "./link-insights";
@@ -11,8 +19,6 @@ import { getTweetsByIds, listTimelineItems } from "./timeline-read-model";
 import {
 	type OpenAIStreamState,
 	processOpenAIResponseSseChunk,
-	readOpenAIResponseStreamEffect,
-	requestOpenAIResponseEffect,
 } from "./openai-response-runtime";
 import { readSyncCache, writeSyncCache } from "./sync-cache";
 import { syncHomeTimelineEffect, type HomeTimelineMode } from "./timeline-live";
@@ -209,9 +215,6 @@ export interface PeriodDigestContext {
 	hash: string;
 }
 
-const DEFAULT_MODEL = "gpt-5.5";
-const DEFAULT_REASONING_EFFORT = "medium";
-const DEFAULT_SERVICE_TIER = "priority";
 const DEFAULT_MAX_TWEETS = 2_500;
 const DEFAULT_MAX_LINKS = 12;
 const DEFAULT_LIVE_TIMELINE_MAX_PAGES = undefined;
@@ -608,27 +611,15 @@ function languageFromOptions(options: PeriodDigestOptions) {
 }
 
 function modelFromOptions(options: PeriodDigestOptions) {
-	return options.model ?? process.env.BIRDCLAW_AI_MODEL ?? DEFAULT_MODEL;
+	return resolveAnalysisModelSettings(options).model;
 }
 
 function reasoningEffortFromOptions(options: PeriodDigestOptions) {
-	return (
-		options.reasoningEffort ??
-		(process.env.BIRDCLAW_OPENAI_REASONING_EFFORT as
-			| PeriodDigestOptions["reasoningEffort"]
-			| undefined) ??
-		DEFAULT_REASONING_EFFORT
-	);
+	return resolveAnalysisModelSettings(options).reasoningEffort;
 }
 
 function serviceTierFromOptions(options: PeriodDigestOptions) {
-	return (
-		options.serviceTier ??
-		(process.env.BIRDCLAW_OPENAI_SERVICE_TIER as
-			| PeriodDigestOptions["serviceTier"]
-			| undefined) ??
-		DEFAULT_SERVICE_TIER
-	);
+	return resolveAnalysisModelSettings(options).serviceTier;
 }
 
 function boundedPositiveInteger(
@@ -1136,26 +1127,13 @@ function parseDigestFromHybridText(
 	rawText: string,
 	language?: string,
 ): { digest: PeriodDigest; markdown: string } {
-	const [markdownPart, jsonPart] = rawText.split(DELIMITER_PATTERN);
-	const markdown = (markdownPart ?? rawText).trim();
-	const candidate = jsonPart?.slice(
-		jsonPart.indexOf("{"),
-		jsonPart.lastIndexOf("}") + 1,
-	);
-	if (candidate?.startsWith("{")) {
-		try {
-			return {
-				markdown,
-				digest: PeriodDigestSchema.parse(JSON.parse(candidate)),
-			};
-		} catch {
-			return {
-				markdown,
-				digest: fallbackDigest(context, markdown, language),
-			};
-		}
-	}
-	return { markdown, digest: fallbackDigest(context, markdown, language) };
+	const parsed = parseHybridAnalysis({
+		rawText,
+		parse: (value) => PeriodDigestSchema.parse(value),
+		fallback: (markdown) => fallbackDigest(context, markdown, language),
+		delimiterPattern: DELIMITER_PATTERN,
+	});
+	return { markdown: parsed.markdown, digest: parsed.value };
 }
 
 function processSseChunk(
@@ -1176,58 +1154,32 @@ function createOpenAIRequestBody(
 	context: PeriodDigestContext,
 	options: PeriodDigestOptions,
 ) {
-	return {
-		model: modelFromOptions(options),
-		reasoning: { effort: reasoningEffortFromOptions(options) },
-		service_tier: serviceTierFromOptions(options),
-		store: false,
+	return createAnalysisRequestBody({
+		settings: resolveAnalysisModelSettings(options),
+		system:
+			"You are a precise local Twitter archive analyst. Stream Markdown first, then emit the requested JSON object after the delimiter. Do not invent events not present in the dataset.",
+		prompt: buildPrompt(context, {
+			language: languageFromOptions(options),
+		}),
 		stream: true,
-		max_output_tokens: 7000,
-		input: [
-			{
-				role: "system",
-				content:
-					"You are a precise local Twitter archive analyst. Stream Markdown first, then emit the requested JSON object after the delimiter. Do not invent events not present in the dataset.",
-			},
-			{
-				role: "user",
-				content: buildPrompt(context, {
-					language: languageFromOptions(options),
-				}),
-			},
-		],
-	};
+	});
 }
 
-function readOpenAIStreamEffect(
-	response: Response,
+function completeOpenAIStreamEffect(
+	stream: HybridAnalysisResult<PeriodDigest>,
 	context: PeriodDigestContext,
 	options: PeriodDigestOptions,
 	handlers: PeriodDigestStreamHandlers,
 ): Effect.Effect<PeriodDigestRunResult, Error> {
 	return Effect.gen(function* () {
-		const stream = yield* readOpenAIResponseStreamEffect(response, {
-			delimiterPattern: DELIMITER_PATTERN,
-			onDelta: (delta) => {
-				handlers.onDelta?.(delta);
-				handlers.onEvent?.({ type: "delta", delta });
-			},
-		});
-		const parsed = yield* tryDigestSync(() =>
-			parseDigestFromHybridText(
-				context,
-				stream.rawText,
-				languageFromOptions(options),
-			),
-		);
 		const enrichedContext = yield* tryDigestSync(() =>
-			enrichContextWithCitedTweets(context, parsed.digest),
+			enrichContextWithCitedTweets(context, stream.value),
 		);
 		const cacheKey = digestCacheKey(context, options);
 		const updatedAt = yield* tryDigestSync(() =>
 			writeSyncCache(cacheKey, {
-				digest: parsed.digest,
-				markdown: parsed.markdown,
+				digest: stream.value,
+				markdown: stream.markdown,
 				model: modelFromOptions(options),
 				reasoningEffort: reasoningEffortFromOptions(options),
 				serviceTier: serviceTierFromOptions(options),
@@ -1237,8 +1189,8 @@ function readOpenAIStreamEffect(
 		);
 		const result: PeriodDigestRunResult = {
 			context: enrichedContext,
-			digest: parsed.digest,
-			markdown: parsed.markdown,
+			digest: stream.value,
+			markdown: stream.markdown,
 			model: modelFromOptions(options),
 			reasoningEffort: reasoningEffortFromOptions(options),
 			serviceTier: serviceTierFromOptions(options),
@@ -1258,6 +1210,32 @@ function readOpenAIStreamEffect(
 		);
 		handlers.onEvent?.({ type: "done", result });
 		return result;
+	});
+}
+
+function readOpenAIStreamEffect(
+	response: Response,
+	context: PeriodDigestContext,
+	options: PeriodDigestOptions,
+	handlers: PeriodDigestStreamHandlers,
+): Effect.Effect<PeriodDigestRunResult, Error> {
+	return Effect.gen(function* () {
+		const stream = yield* readHybridAnalysisStreamEffect(response, {
+			parse: (value) => PeriodDigestSchema.parse(value),
+			fallback: (markdown) =>
+				fallbackDigest(context, markdown, languageFromOptions(options)),
+			delimiterPattern: DELIMITER_PATTERN,
+			onDelta: (delta) => {
+				handlers.onDelta?.(delta);
+				handlers.onEvent?.({ type: "delta", delta });
+			},
+		});
+		return yield* completeOpenAIStreamEffect(
+			stream,
+			context,
+			options,
+			handlers,
+		);
 	});
 }
 
@@ -1345,12 +1323,20 @@ export function streamPeriodDigestEffect(
 
 		handlers.onEvent?.({ type: "start", context, cached: false });
 		emitDigestStatus(handlers, "Streaming AI summary");
-		const response = yield* requestOpenAIResponseEffect({
+		const stream = yield* streamHybridAnalysisEffect({
 			body: createOpenAIRequestBody(context, resolvedOptions),
 			signal: resolvedOptions.signal,
+			parse: (value) => PeriodDigestSchema.parse(value),
+			fallback: (markdown) =>
+				fallbackDigest(context, markdown, languageFromOptions(resolvedOptions)),
+			delimiterPattern: DELIMITER_PATTERN,
+			onDelta: (delta) => {
+				handlers.onDelta?.(delta);
+				handlers.onEvent?.({ type: "delta", delta });
+			},
 		});
-		return yield* readOpenAIStreamEffect(
-			response,
+		return yield* completeOpenAIStreamEffect(
+			stream,
 			context,
 			resolvedOptions,
 			handlers,

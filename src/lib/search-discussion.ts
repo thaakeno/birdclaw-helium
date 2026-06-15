@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 import { Effect } from "effect";
 import { z } from "zod";
+import {
+	createAnalysisRequestBody,
+	type HybridAnalysisResult,
+	parseHybridAnalysis,
+	resolveAnalysisModelSettings,
+	streamHybridAnalysisEffect,
+} from "./analysis-runtime";
 import { prefetchCachedAvatarsForProfileIdsEffect } from "./avatar-cache";
 import { runEffectBackground, runEffectPromise } from "./effect-runtime";
 import { getNativeDb } from "./db";
@@ -8,8 +15,6 @@ import { listDmConversations } from "./dm-read-model";
 import {
 	type OpenAIStreamState,
 	processOpenAIResponseSseChunk,
-	readOpenAIResponseStreamEffect,
-	requestOpenAIResponseEffect,
 } from "./openai-response-runtime";
 import { listTimelineItems } from "./timeline-read-model";
 import { readSyncCache, writeSyncCache } from "./sync-cache";
@@ -132,9 +137,6 @@ export type SearchDiscussionStreamEvent =
 	| { type: "done"; result: SearchDiscussionRunResult }
 	| { type: "error"; error: string };
 
-const DEFAULT_MODEL = "gpt-5.5";
-const DEFAULT_REASONING_EFFORT = "medium";
-const DEFAULT_SERVICE_TIER = "priority";
 const DEFAULT_LIMIT = 20_000;
 const DEFAULT_MAX_PAGES = 200;
 const MAX_PROMPT_DATA_CHARS = 1_200_000;
@@ -510,27 +512,15 @@ function prefetchDiscussionAvatars(context: SearchDiscussionContext) {
 }
 
 function modelFromOptions(options: SearchDiscussionOptions) {
-	return options.model ?? process.env.BIRDCLAW_AI_MODEL ?? DEFAULT_MODEL;
+	return resolveAnalysisModelSettings(options).model;
 }
 
 function reasoningEffortFromOptions(options: SearchDiscussionOptions) {
-	return (
-		options.reasoningEffort ??
-		(process.env.BIRDCLAW_OPENAI_REASONING_EFFORT as
-			| SearchDiscussionOptions["reasoningEffort"]
-			| undefined) ??
-		DEFAULT_REASONING_EFFORT
-	);
+	return resolveAnalysisModelSettings(options).reasoningEffort;
 }
 
 function serviceTierFromOptions(options: SearchDiscussionOptions) {
-	return (
-		options.serviceTier ??
-		(process.env.BIRDCLAW_OPENAI_SERVICE_TIER as
-			| SearchDiscussionOptions["serviceTier"]
-			| undefined) ??
-		DEFAULT_SERVICE_TIER
-	);
+	return resolveAnalysisModelSettings(options).serviceTier;
 }
 
 function cacheKey(
@@ -651,23 +641,13 @@ function parseDiscussionFromHybridText(
 	context: SearchDiscussionContext,
 	rawText: string,
 ): { discussion: SearchDiscussion; markdown: string } {
-	const [markdownPart, jsonPart] = rawText.split(DELIMITER_PATTERN);
-	const markdown = (markdownPart ?? rawText).trim();
-	const candidate = jsonPart?.slice(
-		jsonPart.indexOf("{"),
-		jsonPart.lastIndexOf("}") + 1,
-	);
-	if (candidate?.startsWith("{")) {
-		try {
-			return {
-				markdown,
-				discussion: SearchDiscussionSchema.parse(JSON.parse(candidate)),
-			};
-		} catch {
-			return { markdown, discussion: fallbackDiscussion(context, markdown) };
-		}
-	}
-	return { markdown, discussion: fallbackDiscussion(context, markdown) };
+	const parsed = parseHybridAnalysis({
+		rawText,
+		parse: (value) => SearchDiscussionSchema.parse(value),
+		fallback: (markdown) => fallbackDiscussion(context, markdown),
+		delimiterPattern: DELIMITER_PATTERN,
+	});
+	return { markdown: parsed.markdown, discussion: parsed.value };
 }
 
 function processSseChunk(
@@ -688,48 +668,26 @@ function createOpenAIRequestBody(
 	context: SearchDiscussionContext,
 	options: SearchDiscussionOptions,
 ) {
-	return {
-		model: modelFromOptions(options),
-		reasoning: { effort: reasoningEffortFromOptions(options) },
-		service_tier: serviceTierFromOptions(options),
-		store: false,
+	return createAnalysisRequestBody({
+		settings: resolveAnalysisModelSettings(options),
+		system:
+			"You are a precise local Twitter archive analyst. Stream Markdown first, then emit the requested JSON object after the delimiter. Do not invent events not present in the dataset.",
+		prompt: buildPrompt(context),
 		stream: true,
-		max_output_tokens: 7000,
-		input: [
-			{
-				role: "system",
-				content:
-					"You are a precise local Twitter archive analyst. Stream Markdown first, then emit the requested JSON object after the delimiter. Do not invent events not present in the dataset.",
-			},
-			{
-				role: "user",
-				content: buildPrompt(context),
-			},
-		],
-	};
+	});
 }
 
-function readOpenAIStreamEffect(
-	response: Response,
+function completeOpenAIStreamEffect(
+	stream: HybridAnalysisResult<SearchDiscussion>,
 	context: SearchDiscussionContext,
 	options: SearchDiscussionOptions,
 	handlers: SearchDiscussionStreamHandlers,
 ): Effect.Effect<SearchDiscussionRunResult, Error> {
 	return Effect.gen(function* () {
-		const stream = yield* readOpenAIResponseStreamEffect(response, {
-			delimiterPattern: DELIMITER_PATTERN,
-			onDelta: (delta) => {
-				handlers.onDelta?.(delta);
-				handlers.onEvent?.({ type: "delta", delta });
-			},
-		});
-		const parsed = yield* trySearchSync(() =>
-			parseDiscussionFromHybridText(context, stream.rawText),
-		);
 		const updatedAt = yield* trySearchSync(() =>
 			writeSyncCache(cacheKey(context, options), {
-				discussion: parsed.discussion,
-				markdown: parsed.markdown,
+				discussion: stream.value,
+				markdown: stream.markdown,
 				model: modelFromOptions(options),
 				reasoningEffort: reasoningEffortFromOptions(options),
 				serviceTier: serviceTierFromOptions(options),
@@ -739,8 +697,8 @@ function readOpenAIStreamEffect(
 		);
 		const result = {
 			context,
-			discussion: parsed.discussion,
-			markdown: parsed.markdown,
+			discussion: stream.value,
+			markdown: stream.markdown,
 			model: modelFromOptions(options),
 			reasoningEffort: reasoningEffortFromOptions(options),
 			serviceTier: serviceTierFromOptions(options),
@@ -819,11 +777,23 @@ export function streamSearchDiscussionEffect(
 		}
 
 		handlers.onEvent?.({ type: "start", context, cached: false });
-		const response = yield* requestOpenAIResponseEffect({
+		const stream = yield* streamHybridAnalysisEffect({
 			body: createOpenAIRequestBody(context, options),
 			signal: options.signal,
+			parse: (value) => SearchDiscussionSchema.parse(value),
+			fallback: (markdown) => fallbackDiscussion(context, markdown),
+			delimiterPattern: DELIMITER_PATTERN,
+			onDelta: (delta) => {
+				handlers.onDelta?.(delta);
+				handlers.onEvent?.({ type: "delta", delta });
+			},
 		});
-		return yield* readOpenAIStreamEffect(response, context, options, handlers);
+		return yield* completeOpenAIStreamEffect(
+			stream,
+			context,
+			options,
+			handlers,
+		);
 	});
 }
 
