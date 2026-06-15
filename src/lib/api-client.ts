@@ -7,6 +7,10 @@ import {
 	webSyncJobSchema,
 } from "./api-contracts";
 import { runEffectPromise } from "./effect-runtime";
+import {
+	defaultRuntimeServices,
+	type RuntimeServices,
+} from "./runtime-services";
 import type {
 	WebSyncJobSnapshot,
 	WebSyncKind,
@@ -61,10 +65,11 @@ export function fetchJsonEffect<T>(
 	init: RequestInit | undefined,
 	schema: z.ZodType<T>,
 	fallbackMessage: string,
+	runtime: RuntimeServices = defaultRuntimeServices,
 ) {
 	return Effect.gen(function* () {
 		const response = yield* Effect.tryPromise({
-			try: () => fetch(input, init),
+			try: () => runtime.fetch(input, init),
 			catch: (cause) => apiFetchErrorFromCause(cause, fallbackMessage),
 		});
 		const data = yield* readJsonEffect(response);
@@ -95,8 +100,11 @@ export function fetchJson<T>(
 	init: RequestInit | undefined,
 	schema: z.ZodType<T>,
 	fallbackMessage: string,
+	runtime: RuntimeServices = defaultRuntimeServices,
 ): Promise<T> {
-	return runApiEffect(fetchJsonEffect(input, init, schema, fallbackMessage));
+	return runApiEffect(
+		fetchJsonEffect(input, init, schema, fallbackMessage, runtime),
+	);
 }
 
 export function fetchQueryEnvelope(init?: RequestInit) {

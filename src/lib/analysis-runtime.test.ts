@@ -7,6 +7,7 @@ import {
 	requestHybridAnalysisEffect,
 	resolveAnalysisModelSettings,
 } from "./analysis-runtime";
+import { createRuntimeServices } from "./runtime-services";
 
 afterEach(() => {
 	delete process.env.OPENAI_API_KEY;
@@ -18,10 +19,14 @@ afterEach(() => {
 
 describe("analysis runtime", () => {
 	it("resolves shared model settings and request bodies", () => {
-		process.env.BIRDCLAW_AI_MODEL = "env-model";
-		const settings = resolveAnalysisModelSettings({
-			reasoningEffort: "high",
-		});
+		const settings = resolveAnalysisModelSettings(
+			{
+				reasoningEffort: "high",
+			},
+			createRuntimeServices({
+				env: (name) => (name === "BIRDCLAW_AI_MODEL" ? "env-model" : undefined),
+			}),
+		);
 		expect(settings).toEqual({
 			model: "env-model",
 			reasoningEffort: "high",
@@ -66,10 +71,9 @@ describe("analysis runtime", () => {
 	});
 
 	it("handles non-stream response extraction centrally", async () => {
-		process.env.OPENAI_API_KEY = "test";
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockResolvedValue(
+		const runtime = createRuntimeServices({
+			env: (name) => (name === "OPENAI_API_KEY" ? "test" : undefined),
+			fetch: vi.fn().mockResolvedValue(
 				new Response(
 					JSON.stringify({
 						output: [{ content: [{ text: 'Profile\n---\n{"title":"ok"}' }] }],
@@ -77,12 +81,13 @@ describe("analysis runtime", () => {
 					{ status: 200 },
 				),
 			),
-		);
+		});
 
 		await expect(
 			Effect.runPromise(
 				requestHybridAnalysisEffect({
 					body: {},
+					runtime,
 					parse: (value) => value as { title: string },
 					fallback: () => ({ title: "fallback" }),
 				}),

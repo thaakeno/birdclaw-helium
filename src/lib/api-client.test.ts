@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ApiFetchError, fetchJson } from "./api-client";
+import { createRuntimeServices } from "./runtime-services";
 
 describe("api client", () => {
 	afterEach(() => {
@@ -60,5 +61,20 @@ describe("api client", () => {
 				"Failed",
 			),
 		).rejects.toBe(abortError);
+	});
+
+	it("accepts an injected fetch service", async () => {
+		const fetch = vi.fn(async () => Response.json({ ok: true }));
+
+		await expect(
+			fetchJson(
+				"/api/test",
+				undefined,
+				z.object({ ok: z.boolean() }),
+				"Failed",
+				createRuntimeServices({ fetch }),
+			),
+		).resolves.toEqual({ ok: true });
+		expect(fetch).toHaveBeenCalledWith("/api/test", undefined);
 	});
 });

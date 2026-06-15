@@ -1,6 +1,9 @@
 import { Effect } from "effect";
-import { getNativeDb } from "./db";
 import type { Database } from "./sqlite";
+import {
+	defaultServerRuntimeServices,
+	type ServerRuntimeServices,
+} from "./server-runtime-services";
 import {
 	recordDatabaseWriteCompleted,
 	recordDatabaseWriteQueued,
@@ -12,8 +15,9 @@ let writeTails = new Map<string | object, Promise<void>>();
 export function enqueueDatabaseWrite<T>(
 	write: (db: Database) => T,
 	providedDb?: Database,
+	runtime: ServerRuntimeServices = defaultServerRuntimeServices,
 ): Promise<T> {
-	const db = providedDb ?? getNativeDb({ seedDemoData: false });
+	const db = providedDb ?? runtime.getDatabase({ seedDemoData: false });
 	const writeIdentity = db.writeIdentity;
 	const queuedAt = performance.now();
 	recordDatabaseWriteQueued();
@@ -45,9 +49,10 @@ export function enqueueDatabaseWrite<T>(
 export function databaseWriteEffect<T>(
 	write: (db: Database) => T,
 	providedDb?: Database,
+	runtime: ServerRuntimeServices = defaultServerRuntimeServices,
 ) {
 	return Effect.tryPromise({
-		try: () => enqueueDatabaseWrite(write, providedDb),
+		try: () => enqueueDatabaseWrite(write, providedDb, runtime),
 		catch: (error) =>
 			error instanceof Error ? error : new Error(String(error)),
 	});

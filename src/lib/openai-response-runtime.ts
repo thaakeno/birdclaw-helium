@@ -1,5 +1,9 @@
 import { Effect } from "effect";
 import { tryPromise } from "./effect-runtime";
+import {
+	defaultRuntimeServices,
+	type RuntimeServices,
+} from "./runtime-services";
 
 const DEFAULT_DELIMITER_PATTERN = /\n---\s*\n/;
 const DEFAULT_DELIMITER_HOLD = 8;
@@ -210,17 +214,19 @@ export function readOpenAIResponseStreamEffect(
 export function requestOpenAIResponseEffect({
 	body,
 	signal,
+	runtime = defaultRuntimeServices,
 }: {
 	body: unknown;
 	signal?: AbortSignal;
+	runtime?: RuntimeServices;
 }): Effect.Effect<Response, Error> {
 	return Effect.gen(function* () {
-		const apiKey = process.env.OPENAI_API_KEY;
+		const apiKey = runtime.env("OPENAI_API_KEY");
 		if (!apiKey) {
 			return yield* Effect.fail(new Error("OPENAI_API_KEY is not set"));
 		}
 		const response = yield* tryPromise(() =>
-			fetch("https://api.openai.com/v1/responses", {
+			runtime.fetch("https://api.openai.com/v1/responses", {
 				method: "POST",
 				signal,
 				headers: {

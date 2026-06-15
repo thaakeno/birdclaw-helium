@@ -1,4 +1,8 @@
 import { getNativeDb } from "./db";
+import {
+	defaultServerRuntimeServices,
+	type ServerRuntimeServices,
+} from "./server-runtime-services";
 
 export interface SyncCacheEntry<T> {
 	value: T;
@@ -45,8 +49,9 @@ export function writeSyncCache(
 	cacheKey: string,
 	value: unknown,
 	db = getNativeDb(),
+	runtime: ServerRuntimeServices = defaultServerRuntimeServices,
 ) {
-	const updatedAt = new Date().toISOString();
+	const updatedAt = runtime.now().toISOString();
 	db.prepare(
 		`
     insert into sync_cache (cache_key, value_json, updated_at)

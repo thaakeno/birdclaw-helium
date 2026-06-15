@@ -4,6 +4,10 @@ import {
 	readOpenAIResponseStreamEffect,
 	requestOpenAIResponseEffect,
 } from "./openai-response-runtime";
+import {
+	defaultRuntimeServices,
+	type RuntimeServices,
+} from "./runtime-services";
 
 const DEFAULT_MODEL = "gpt-5.5";
 const DEFAULT_REASONING_EFFORT = "medium";
@@ -39,17 +43,19 @@ function toError(error: unknown) {
 
 export function resolveAnalysisModelSettings(
 	options: AnalysisModelOptions,
+	runtime: RuntimeServices = defaultRuntimeServices,
 ): AnalysisModelSettings {
 	return {
-		model: options.model ?? process.env.BIRDCLAW_AI_MODEL ?? DEFAULT_MODEL,
+		model: options.model ?? runtime.env("BIRDCLAW_AI_MODEL") ?? DEFAULT_MODEL,
 		reasoningEffort:
 			options.reasoningEffort ??
-			(process.env
-				.BIRDCLAW_OPENAI_REASONING_EFFORT as AnalysisReasoningEffort) ??
+			(runtime.env(
+				"BIRDCLAW_OPENAI_REASONING_EFFORT",
+			) as AnalysisReasoningEffort) ??
 			DEFAULT_REASONING_EFFORT,
 		serviceTier:
 			options.serviceTier ??
-			(process.env.BIRDCLAW_OPENAI_SERVICE_TIER as AnalysisServiceTier) ??
+			(runtime.env("BIRDCLAW_OPENAI_SERVICE_TIER") as AnalysisServiceTier) ??
 			DEFAULT_SERVICE_TIER,
 	};
 }
@@ -164,6 +170,7 @@ export function readHybridAnalysisStreamEffect<T>(
 export function streamHybridAnalysisEffect<T>({
 	body,
 	signal,
+	runtime = defaultRuntimeServices,
 	parse,
 	fallback,
 	onDelta,
@@ -171,13 +178,18 @@ export function streamHybridAnalysisEffect<T>({
 }: {
 	body: unknown;
 	signal?: AbortSignal;
+	runtime?: RuntimeServices;
 	parse: (value: unknown) => T;
 	fallback: (markdown: string) => T;
 	onDelta?: (delta: string) => void;
 	delimiterPattern?: RegExp;
 }): Effect.Effect<HybridAnalysisResult<T>, Error> {
 	return Effect.gen(function* () {
-		const response = yield* requestOpenAIResponseEffect({ body, signal });
+		const response = yield* requestOpenAIResponseEffect({
+			body,
+			signal,
+			runtime,
+		});
 		return yield* readHybridAnalysisStreamEffect(response, {
 			parse,
 			fallback,
@@ -190,18 +202,24 @@ export function streamHybridAnalysisEffect<T>({
 export function requestHybridAnalysisEffect<T>({
 	body,
 	signal,
+	runtime = defaultRuntimeServices,
 	parse,
 	fallback,
 	delimiterPattern = DEFAULT_DELIMITER_PATTERN,
 }: {
 	body: unknown;
 	signal?: AbortSignal;
+	runtime?: RuntimeServices;
 	parse: (value: unknown) => T;
 	fallback: (markdown: string) => T;
 	delimiterPattern?: RegExp;
 }): Effect.Effect<HybridAnalysisResult<T>, Error> {
 	return Effect.gen(function* () {
-		const response = yield* requestOpenAIResponseEffect({ body, signal });
+		const response = yield* requestOpenAIResponseEffect({
+			body,
+			signal,
+			runtime,
+		});
 		const payload = (yield* tryPromise(() => response.json()).pipe(
 			Effect.mapError(toError),
 		)) as Record<string, unknown>;

@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resetBirdclawPathsForTests } from "./config";
 import { getNativeDb, resetDatabaseForTests } from "./db";
+import { createServerRuntimeServices } from "./server-runtime-services";
 import { deleteSyncCache, readSyncCache, writeSyncCache } from "./sync-cache";
 
 const tempDirs: string[] = [];
@@ -26,15 +27,24 @@ describe("sync cache", () => {
 		process.env.BIRDCLAW_HOME = tempDir;
 		const db = getNativeDb();
 
-		writeSyncCache("mentions:test", { ok: true, count: 2 }, db);
+		const updatedAt = writeSyncCache(
+			"mentions:test",
+			{ ok: true, count: 2 },
+			db,
+			createServerRuntimeServices({
+				now: () => new Date("2026-06-15T12:00:00.000Z"),
+			}),
+		);
 
 		expect(
 			readSyncCache<{ ok: boolean; count: number }>("mentions:test", db),
 		).toEqual(
 			expect.objectContaining({
 				value: { ok: true, count: 2 },
+				updatedAt: "2026-06-15T12:00:00.000Z",
 			}),
 		);
+		expect(updatedAt).toBe("2026-06-15T12:00:00.000Z");
 
 		deleteSyncCache("mentions:test", db);
 		expect(readSyncCache("mentions:test", db)).toBeNull();

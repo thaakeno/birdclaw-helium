@@ -13,6 +13,7 @@ import {
 	resetDatabaseRuntimeMetricsForTests,
 } from "./database-metrics";
 import { getNativeDb, resetDatabaseForTests } from "./db";
+import { createServerRuntimeServices } from "./server-runtime-services";
 import { NativeSqliteDatabase } from "./sqlite";
 
 let tempDir: string | undefined;
@@ -114,6 +115,30 @@ describe("database writer", () => {
 		expect(db.prepare("select name from writer_events").all()).toEqual([
 			{ name: "provided" },
 		]);
+	});
+
+	it("resolves the default database through injected services", async () => {
+		const db = setupDatabase();
+		const runtime = createServerRuntimeServices({
+			getDatabase: () => db,
+		});
+
+		await enqueueDatabaseWrite(
+			(writeDb) => {
+				expect(writeDb).toBe(db);
+				writeDb
+					.prepare(
+						"insert into writer_events (position, name) values (1, 'injected')",
+					)
+					.run();
+			},
+			undefined,
+			runtime,
+		);
+
+		expect(db.prepare("select name from writer_events").get()).toEqual({
+			name: "injected",
+		});
 	});
 
 	it("keeps independent queues for independent databases", async () => {
