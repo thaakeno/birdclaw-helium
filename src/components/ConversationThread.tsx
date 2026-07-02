@@ -1,4 +1,4 @@
-import { MessageCircle } from "lucide-react";
+import { ExternalLink, MessageCircle } from "lucide-react";
 import type { EmbeddedTweet } from "#/lib/types";
 import {
 	cx,
@@ -111,6 +111,17 @@ export function ConversationThread({
 											selected
 										</span>
 									) : null}
+									<a
+										aria-label="Open original post"
+										className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+										href={tweetUrl(tweet)}
+										onClick={(event) => event.stopPropagation()}
+										rel="noreferrer"
+										target="_blank"
+									>
+										<ExternalLink className="size-3.5" strokeWidth={1.8} />
+										Open
+									</a>
 								</header>
 								<TweetRichText
 									className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"

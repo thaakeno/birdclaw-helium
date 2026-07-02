@@ -79,6 +79,14 @@ export function useConversationSurface(surfaceId: string, tweetId = surfaceId) {
 	const prefetch = useCallback(() => {
 		void queryClient.prefetchQuery(conversationQueryOptions(tweetId));
 	}, [queryClient, tweetId]);
+	const refresh = useCallback(async () => {
+		await queryClient.invalidateQueries({
+			queryKey: [...queryKeys.conversations, tweetId],
+		});
+		if (isOpen) {
+			await query.refetch();
+		}
+	}, [isOpen, query, queryClient, tweetId]);
 	const status: ConversationStatus = query.isError
 		? "error"
 		: query.isFetching
@@ -93,6 +101,7 @@ export function useConversationSurface(surfaceId: string, tweetId = surfaceId) {
 		items: query.data ?? [],
 		loading: query.isFetching,
 		prefetch,
+		refresh,
 		status,
 		toggle,
 	};

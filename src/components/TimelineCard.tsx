@@ -2,12 +2,16 @@ import {
 	BookmarkCheck,
 	CheckCircle2,
 	Circle,
+	ExternalLink,
 	Heart,
 	Image,
+	LoaderCircle,
 	MessageCircle,
+	RefreshCw,
 	Repeat2,
 	UserSearch,
 } from "lucide-react";
+import { useState } from "react";
 import { formatCompactNumber } from "#/lib/present";
 import {
 	isTweetArticleUrlEntity,
@@ -295,6 +299,9 @@ export function TimelineCard({
 	onReply: (tweetId: string) => void;
 	showReplyControls?: boolean;
 }) {
+	const [threadSyncState, setThreadSyncState] = useState<
+		"idle" | "syncing" | "error"
+	>("idle");
 	const canReply =
 		showReplyControls && item.kind !== "like" && item.kind !== "bookmark";
 	const displayTweet = item.retweetedTweet ?? item;
@@ -304,6 +311,7 @@ export function TimelineCard({
 			? item.id
 			: displayTweetId;
 	const displayAuthor = displayTweet.author;
+	const displayTweetUrl = tweetUrl(displayTweet);
 	const conversation = useConversationSurface(item.id, interactionTweetId);
 	const visibleEntities = getVisibleEntities(
 		displayTweet.entities,
@@ -335,6 +343,35 @@ export function TimelineCard({
 			? displayTweet.replyToId
 			: item.replyToTweet || item.replyToId,
 	);
+	const syncThread = async () => {
+		setThreadSyncState("syncing");
+		try {
+			const response = await fetch("/api/thread-sync", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					tweetId: interactionTweetId,
+					accountId: item.accountId,
+					maxPages: 3,
+					timeoutMs: 20_000,
+				}),
+			});
+			if (!response.ok) {
+				throw new Error("Thread sync failed");
+			}
+			const payload = (await response.json()) as { ok?: boolean };
+			if (!payload.ok) {
+				throw new Error("Thread sync failed");
+			}
+			await conversation.refresh();
+			if (!conversation.isOpen) {
+				conversation.toggle();
+			}
+			setThreadSyncState("idle");
+		} catch {
+			setThreadSyncState("error");
+		}
+	};
 
 	return (
 		<article
@@ -430,7 +467,7 @@ export function TimelineCard({
 						<button
 							aria-expanded={conversation.isOpen}
 							aria-label={
-								conversation.isOpen ? "Hide conversation" : "Show conversation"
+								conversation.isOpen ? "Hide local thread" : "Show local thread"
 							}
 							className={feedActionButtonClass}
 							onClick={(event) => {
@@ -446,9 +483,60 @@ export function TimelineCard({
 								/>
 							</span>
 							<span className="text-[13px]">
-								{conversation.isOpen ? "Hide thread" : "Thread"}
+								{conversation.isOpen ? "Hide local" : "Local thread"}
 							</span>
 						</button>
+						<button
+							aria-label="Fetch thread"
+							className={feedActionButtonClass}
+							disabled={threadSyncState === "syncing"}
+							onClick={(event) => {
+								event.stopPropagation();
+								void syncThread();
+							}}
+							title="Fetch this thread through Bird and save visible replies locally"
+							type="button"
+						>
+							<span className={feedActionIconWrapClass}>
+								{threadSyncState === "syncing" ? (
+									<LoaderCircle
+										className={cx(feedActionIconClass, "animate-spin")}
+										strokeWidth={1.7}
+									/>
+								) : (
+									<RefreshCw
+										className={feedActionIconClass}
+										strokeWidth={1.7}
+									/>
+								)}
+							</span>
+							<span className="text-[13px]">
+								{threadSyncState === "syncing"
+									? "Fetching"
+									: threadSyncState === "error"
+										? "Fetch failed"
+										: "Fetch thread"}
+							</span>
+						</button>
+						<a
+							aria-label="Open on X"
+							className={feedActionButtonClass}
+							href={displayTweetUrl}
+							onClick={(event) => {
+								event.stopPropagation();
+							}}
+							rel="noreferrer"
+							target="_blank"
+							title="Open original post on X"
+						>
+							<span className={feedActionIconWrapClass}>
+								<ExternalLink
+									className={feedActionIconClass}
+									strokeWidth={1.7}
+								/>
+							</span>
+							<span className="text-[13px]">Open on X</span>
+						</a>
 						{canReply ? (
 							<button
 								className={feedActionButtonClass}

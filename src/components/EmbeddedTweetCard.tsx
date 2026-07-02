@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import type { EmbeddedTweet } from "#/lib/types";
 import {
 	embeddedCardBodyClass,
@@ -40,6 +41,17 @@ export function EmbeddedTweetCard({
 					className={feedRowTimestampClass}
 					value={item.createdAt}
 				/>
+				<a
+					aria-label="Open original post"
+					className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+					href={tweetUrl(item)}
+					onClick={(event) => event.stopPropagation()}
+					rel="noreferrer"
+					target="_blank"
+				>
+					<ExternalLink className="size-3.5" strokeWidth={1.8} />
+					Open
+				</a>
 			</header>
 			<TweetRichText
 				className={embeddedCardCopyClass}
