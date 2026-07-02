@@ -172,6 +172,7 @@ export interface TimelineItem {
 	text: string;
 	searchSnippet?: string;
 	createdAt: string;
+	savedAt?: string | null;
 	replyToId?: string | null;
 	isReplied: boolean;
 	likeCount: number;
@@ -343,6 +344,7 @@ export interface TimelineQuery {
 	account?: string;
 	search?: string;
 	replyFilter?: ReplyFilter;
+	sort?: "created-desc" | "created-asc" | "saved-desc" | "saved-asc";
 	since?: string;
 	until?: string;
 	untilId?: string;
@@ -352,6 +354,8 @@ export interface TimelineQuery {
 	includeQualityReason?: boolean;
 	likedOnly?: boolean;
 	bookmarkedOnly?: boolean;
+	mediaOnly?: boolean;
+	quotedOnly?: boolean;
 	limit?: number;
 }
 

@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 import {
 	FeedEmpty,
@@ -57,7 +57,7 @@ export function TimelineSearchField({
 	placeholder: string;
 }) {
 	return (
-		<div className="px-4 pb-3">
+		<div className="min-w-0 flex-1">
 			<label className={searchFieldShellClass}>
 				<Search className={searchFieldIconClass} strokeWidth={2} />
 				<input
@@ -66,6 +66,16 @@ export function TimelineSearchField({
 					placeholder={placeholder}
 					value={value}
 				/>
+				{value ? (
+					<button
+						aria-label="Clear search"
+						className="grid size-7 shrink-0 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--ink)]"
+						onClick={() => onChange("")}
+						type="button"
+					>
+						<X className="size-4" strokeWidth={2.2} />
+					</button>
+				) : null}
 			</label>
 		</div>
 	);

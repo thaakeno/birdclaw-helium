@@ -37,12 +37,13 @@ function parsePositiveInteger(value: unknown, max: number) {
 }
 
 function parseSyncOptions(kind: string, body: Record<string, unknown>) {
-	if (kind !== "dms") return {};
 	const options: WebSyncOptions = {};
-	const inbox = parseDmInbox(body.inbox);
 	const limit = parsePositiveInteger(body.limit, 1000);
 	const maxPages = parsePositiveInteger(body.maxPages, 250);
-	if (inbox) options.inbox = inbox;
+	if (kind === "dms") {
+		const inbox = parseDmInbox(body.inbox);
+		if (inbox) options.inbox = inbox;
+	}
 	if (limit) options.limit = limit;
 	if (maxPages) options.maxPages = maxPages;
 	if (typeof body.allPages === "boolean") options.allPages = body.allPages;

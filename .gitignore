@@ -19,3 +19,6 @@ coverage
 playwright-report
 test-results
 .pnpm-store/
+exports/
+local-data/
+logs/

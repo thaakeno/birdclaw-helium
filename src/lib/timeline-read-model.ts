@@ -2,7 +2,11 @@ import type { Database } from "./sqlite";
 import { getReadDb } from "./db";
 import { profileFromDbRow, profileHandleKey } from "./profile-row";
 import { displayUrlForLink, enrichFallbackUrlEntities } from "./tweet-render";
-import { parseJsonField, toFtsSearchQuery } from "./query-read-model-shared";
+import {
+	parseJsonField,
+	toFtsSearchQuery,
+	toSearchTerms,
+} from "./query-read-model-shared";
 import type {
 	EmbeddedTweet,
 	ProfileRecord,
@@ -487,11 +491,45 @@ function getTimelineQualityReason(
 
 const RECENT_TIMELINE_EDGE_CANDIDATES = 5000;
 
+type TimelineSort = NonNullable<TimelineQuery["sort"]>;
+
+function timelineSortSql(sort: TimelineSort) {
+	const savedOrder = "coalesce(e.collected_at, t.created_at)";
+	switch (sort) {
+		case "created-asc":
+			return {
+				keySql: "t.created_at",
+				orderSql: "t.created_at asc, t.id asc",
+				ascending: true,
+			};
+		case "saved-asc":
+			return {
+				keySql: savedOrder,
+				orderSql: `${savedOrder} asc, t.created_at asc, t.id asc`,
+				ascending: true,
+			};
+		case "saved-desc":
+			return {
+				keySql: savedOrder,
+				orderSql: `${savedOrder} desc, t.created_at desc, t.id desc`,
+				ascending: false,
+			};
+		case "created-desc":
+		default:
+			return {
+				keySql: "t.created_at",
+				orderSql: "t.created_at desc, t.id desc",
+				ascending: false,
+			};
+	}
+}
+
 export function listTimelineItems({
 	resource,
 	account,
 	search,
 	replyFilter = "all",
+	sort,
 	since,
 	until,
 	untilId,
@@ -501,6 +539,8 @@ export function listTimelineItems({
 	includeQualityReason = false,
 	likedOnly = false,
 	bookmarkedOnly = false,
+	mediaOnly = false,
+	quotedOnly = false,
 	limit = 18,
 }: TimelineQuery): TimelineItem[] {
 	const db = getReadDb();
@@ -509,9 +549,12 @@ export function listTimelineItems({
 	const normalizedLowQualityThreshold =
 		normalizeLowQualityThreshold(lowQualityThreshold);
 	const shouldDedupeAcrossAccounts = !account || account === "all";
+	const normalizedSort =
+		sort ?? (likedOnly || bookmarkedOnly ? "saved-desc" : "created-desc");
+	const timelineSort = timelineSortSql(normalizedSort);
 	let timelineEdgesCte = `
 	      with timeline_edges as (
-	        select account_id, tweet_id, kind, raw_json
+	        select account_id, tweet_id, kind, raw_json, null as collected_at
 	        from tweet_account_edges
 	        where kind = ?
 	      )
@@ -521,6 +564,8 @@ export function listTimelineItems({
 	let join = "";
 	let where = "where e.kind = ?";
 	let searchSnippetSelect = "";
+	let searchOrderSql = "";
+	const searchOrderParams: string[] = [];
 
 	const canUseRecentEdgeWindow =
 		!likedOnly &&
@@ -539,7 +584,12 @@ export function listTimelineItems({
 		if (likedOnly && bookmarkedOnly) {
 			timelineEdgesCte = `
         with timeline_edges as (
-          select likes.account_id, likes.tweet_id, 'home' as kind, likes.raw_json
+          select
+            likes.account_id,
+            likes.tweet_id,
+            'home' as kind,
+            likes.raw_json,
+            coalesce(likes.collected_at, bookmarks.collected_at) as collected_at
 	          from tweet_collections likes indexed by idx_tweet_collections_tweet
 	          join tweet_collections bookmarks indexed by idx_tweet_collections_tweet
             on bookmarks.account_id = likes.account_id
@@ -552,7 +602,7 @@ export function listTimelineItems({
 			const collectionKind = likedOnly ? "likes" : "bookmarks";
 			timelineEdgesCte = `
 	        with timeline_edges as (
-	          select account_id, tweet_id, 'home' as kind, raw_json
+	          select account_id, tweet_id, 'home' as kind, raw_json, collected_at
 	          from tweet_collections indexed by idx_tweet_collections_tweet
 	          where kind = ?
 	        )
@@ -564,7 +614,7 @@ export function listTimelineItems({
 		usedRecentEdgeWindow = true;
 		timelineEdgesCte = `
       with timeline_edges as (
-        select account_id, tweet_id, kind, raw_json
+        select account_id, tweet_id, kind, raw_json, null as collected_at
         from tweet_account_edges
         where kind = ?
 	          and tweet_id in (
@@ -621,6 +671,12 @@ export function listTimelineItems({
 	if (!includeReplies) {
 		where += " and t.text not like '@%'";
 	}
+	if (mediaOnly) {
+		where += " and (t.media_count > 0 or coalesce(qt.media_count, 0) > 0)";
+	}
+	if (quotedOnly) {
+		where += " and t.quoted_tweet_id is not null";
+	}
 
 	if (since?.trim()) {
 		where += " and t.created_at >= ?";
@@ -628,28 +684,65 @@ export function listTimelineItems({
 	}
 
 	if (until?.trim()) {
-		// Deterministic keyset cursor: page on (created_at, id) so rows that share
-		// the boundary timestamp are not skipped. Uses the same text comparison as
-		// the `order by t.created_at desc, t.id desc` below, which is a total order
-		// because t.id is unique.
+		// Deterministic keyset cursor for the active sort key so rows that share
+		// the boundary timestamp are not skipped.
+		const operator = timelineSort.ascending ? ">" : "<";
 		if (untilId?.trim()) {
-			where += " and (t.created_at < ? or (t.created_at = ? and t.id < ?))";
+			where += ` and (${timelineSort.keySql} ${operator} ? or (${timelineSort.keySql} = ? and t.id ${operator} ?))`;
 			params.push(until.trim(), until.trim(), untilId.trim());
 		} else {
-			where += " and t.created_at < ?";
+			where += ` and ${timelineSort.keySql} ${operator} ?`;
 			params.push(until.trim());
 		}
 	}
 
-	const ftsSearch = search?.trim() ? toFtsSearchQuery(search) : "";
+	const searchTerms = search?.trim() ? toSearchTerms(search) : [];
+	const ftsSearch =
+		searchTerms.length > 0 ? toFtsSearchQuery(search ?? "") : "";
 	if (ftsSearch) {
-		join += " join tweets_fts on tweets_fts.tweet_id = t.id ";
-		where += " and tweets_fts.text match ?";
-		searchSnippetSelect =
-			", snippet(tweets_fts, 1, '<mark>', '</mark>', '...', 16) as search_snippet";
-		params.push(ftsSearch);
+		where += `
+      and t.id in (
+        select tweet_search.tweet_id
+        from tweets_fts tweet_search
+        where tweet_search.text match ?
+        union
+        select parent_tweet.id
+        from tweets_fts quote_search
+        join tweets parent_tweet on parent_tweet.quoted_tweet_id = quote_search.tweet_id
+        where quote_search.text match ?
+      )
+    `;
+		params.push(ftsSearch, ftsSearch);
+		const normalizedSearch = search?.trim().toLowerCase() ?? "";
+		const exactNeedles = Array.from(
+			new Set([
+				normalizedSearch,
+				normalizedSearch.replace(/\s+/g, "-"),
+				normalizedSearch.replace(/\s+/g, ""),
+			]),
+		).filter((term) => term.length > 1);
+		if (exactNeedles.length > 0) {
+			const combinedText = `
+        lower(
+          coalesce(t.text, '') || ' ' ||
+          coalesce(qt.text, '') || ' ' ||
+          coalesce(p.handle, '') || ' ' ||
+          coalesce(p.display_name, '') || ' ' ||
+          coalesce(qp.handle, '') || ' ' ||
+          coalesce(qp.display_name, '')
+        )
+      `;
+			searchOrderSql = `
+        case
+          when ${exactNeedles.map(() => `${combinedText} like ?`).join(" or ")} then 0
+          else 1
+        end
+      `;
+			searchOrderParams.push(...exactNeedles.map((term) => `%${term}%`));
+		}
 	}
 
+	params.push(...searchOrderParams);
 	params.push(limit);
 
 	const buildTimelineSelectSql = (timelineEdgesSql: string) => `
@@ -660,6 +753,7 @@ export function listTimelineItems({
         a.handle as account_handle,
         e.kind,
         e.raw_json as edge_raw_json,
+        e.collected_at as edge_collected_at,
         t.text,
         t.created_at,
         t.reply_to_id,
@@ -741,7 +835,7 @@ export function listTimelineItems({
       left join profiles qp on qp.id = qt.author_profile_id
       ${join}
       ${where}
-      order by t.created_at desc, t.id desc
+      order by ${searchOrderSql ? `${searchOrderSql}, ` : ""}${timelineSort.orderSql}
       limit ?
       `;
 
@@ -824,6 +918,10 @@ export function listTimelineItems({
 				? { searchSnippet: row.search_snippet }
 				: {}),
 			createdAt: String(row.created_at),
+			savedAt:
+				typeof row.edge_collected_at === "string"
+					? String(row.edge_collected_at)
+					: null,
 			replyToId:
 				typeof row.reply_to_id === "string" ? String(row.reply_to_id) : null,
 			isReplied: Boolean(row.is_replied),

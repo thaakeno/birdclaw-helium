@@ -80,8 +80,9 @@ export function ingestTweetPayload(
 		? db.prepare(`
         insert into tweet_collections (
           account_id, tweet_id, kind, collected_at, source, raw_json, updated_at
-        ) values (?, ?, ?, null, ?, ?, ?)
+        ) values (?, ?, ?, ?, ?, ?, ?)
         on conflict(account_id, tweet_id, kind) do update set
+          collected_at = excluded.collected_at,
           source = excluded.source,
           raw_json = excluded.raw_json,
           updated_at = excluded.updated_at
@@ -92,6 +93,9 @@ export function ingestTweetPayload(
 	db.transaction(() => {
 		const observedAt = new Date().toISOString();
 		const primaryTweetIds = new Set(payload.data.map((tweet) => tweet.id));
+		const primaryTweetOrder = new Map(
+			payload.data.map((tweet, index) => [tweet.id, index]),
+		);
 		for (const tweet of toCanonicalTweets(payload)) {
 			const isPrimaryTweet = primaryTweetIds.has(tweet.id);
 			const author = usersById.get(tweet.author_id);
@@ -130,10 +134,15 @@ export function ingestTweetPayload(
 				});
 			}
 			if (isPrimaryTweet) {
+				const collectedAt = new Date(
+					new Date(observedAt).getTime() -
+						(primaryTweetOrder.get(tweet.id) ?? 0) * 1000,
+				).toISOString();
 				upsertCollection?.run(
 					accountId,
 					tweet.id,
 					collectionKind,
+					collectedAt,
 					source,
 					JSON.stringify(tweet),
 					observedAt,

@@ -125,13 +125,13 @@ export const feedRowStatePillOpenClass =
 
 /* Forms / inputs. */
 export const searchFieldShellClass =
-	"flex items-center gap-2 rounded-full border border-transparent bg-[var(--bg-active)] px-4 py-2 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--bg)] focus-within:shadow-[0_0_0_1px_var(--accent)]";
+	"flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_1px_var(--accent)]";
 
 export const searchFieldIconClass =
 	"size-[18px] text-[var(--ink-soft)] shrink-0";
 
 export const searchFieldInputClass =
-	"min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-soft)]";
+	"min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[14px] text-[var(--ink)] shadow-none outline-none placeholder:text-[var(--ink-soft)] focus:outline-none focus:ring-0";
 
 export const textFieldClass =
 	"w-full rounded-md border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-[14px] text-[var(--ink)] outline-none transition-colors duration-150 placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:shadow-[0_0_0_1px_var(--accent)] disabled:cursor-default disabled:opacity-55";

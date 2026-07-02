@@ -31,6 +31,20 @@ function countTimelineEdges(db: Database, kind: "home" | "mention") {
 	return Number(row?.count ?? 0);
 }
 
+function countTweetCollection(db: Database, kind: "bookmarks" | "likes") {
+	const row = db
+		.prepare(
+			`
+      select count(distinct tweet_id) as count
+      from tweet_collections collection
+      where collection.kind = ?
+        and exists (select 1 from tweets t where t.id = collection.tweet_id)
+      `,
+		)
+		.get(kind) as { count: number | bigint } | undefined;
+	return Number(row?.count ?? 0);
+}
+
 function getAccountProfileMeta(
 	db: Database,
 	account: { handle: string; external_user_id: string | null },
@@ -69,6 +83,12 @@ export function getQueryEnvelopeEffect({
 		);
 		const mentionCount = yield* trySync(() =>
 			countTimelineEdges(nativeDb, "mention"),
+		);
+		const bookmarkCount = yield* trySync(() =>
+			countTweetCollection(nativeDb, "bookmarks"),
+		);
+		const likeCount = yield* trySync(() =>
+			countTweetCollection(nativeDb, "likes"),
 		);
 		const counts = yield* Effect.all({
 			dms: trySync(
@@ -111,6 +131,8 @@ export function getQueryEnvelopeEffect({
 			stats: {
 				home: homeCount,
 				mentions: mentionCount,
+				bookmarks: bookmarkCount,
+				likes: likeCount,
 				dms: Number(counts.dms.count),
 				needsReply: Number(counts.needsReply.count),
 				inbox: mentionCount + Number(counts.needsReply.count),

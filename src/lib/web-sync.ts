@@ -201,14 +201,14 @@ const WEB_SYNC_PLANS: Record<WebSyncKind, WebSyncPlan> = {
 	likes: {
 		label: "Likes",
 		accountAware: true,
-		run: (account, _options, runtime) =>
-			syncSavedCollection("likes", account, runtime),
+		run: (account, options, runtime) =>
+			syncSavedCollection("likes", account, options, runtime),
 	},
 	bookmarks: {
 		label: "Bookmarks",
 		accountAware: true,
-		run: (account, _options, runtime) =>
-			syncSavedCollection("bookmarks", account, runtime),
+		run: (account, options, runtime) =>
+			syncSavedCollection("bookmarks", account, options, runtime),
 	},
 	dms: {
 		label: "Direct messages",
@@ -244,6 +244,7 @@ const WEB_SYNC_PLANS: Record<WebSyncKind, WebSyncPlan> = {
 function syncSavedCollection(
 	kind: "likes" | "bookmarks",
 	account: string | undefined,
+	options: WebSyncOptions,
 	runtime: ServerRuntimeServices,
 ): Effect.Effect<WebSyncStep[], unknown> {
 	return Effect.gen(function* () {
@@ -253,8 +254,9 @@ function syncSavedCollection(
 			kind,
 			account,
 			mode: isNonDefaultAccount ? "xurl" : "auto",
-			limit: 100,
-			maxPages: 5,
+			limit: options.limit ?? 100,
+			maxPages: options.maxPages ?? 5,
+			all: options.allPages ?? true,
 			refresh: true,
 			earlyStop: true,
 		});

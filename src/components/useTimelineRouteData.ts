@@ -11,7 +11,12 @@ import {
 	postAction,
 } from "#/lib/api-client";
 import { queryKeys } from "#/lib/query-client";
-import type { ReplyFilter, ResourceKind, TimelineItem } from "#/lib/types";
+import type {
+	ReplyFilter,
+	ResourceKind,
+	TimelineItem,
+	TimelineQuery,
+} from "#/lib/types";
 import { useSelectedAccountId } from "./account-selection";
 import { useDebouncedValue } from "./useDebouncedValue";
 
@@ -23,8 +28,12 @@ interface UseTimelineRouteDataOptions {
 	search: string;
 	errorFallback: string;
 	replyFilter?: ReplyFilter;
+	sort?: TimelineQuery["sort"];
 	likedOnly?: boolean;
 	bookmarkedOnly?: boolean;
+	mediaOnly?: boolean;
+	quotedOnly?: boolean;
+	originalsOnly?: boolean;
 }
 
 interface TimelinePageParam {
@@ -36,16 +45,24 @@ function buildTimelineQueryUrl({
 	resource,
 	search,
 	replyFilter,
+	sort,
 	likedOnly,
 	bookmarkedOnly,
+	mediaOnly,
+	quotedOnly,
+	originalsOnly,
 	selectedAccountId,
 	pageParam,
 }: {
 	resource: Exclude<ResourceKind, "dms">;
 	search: string;
 	replyFilter?: ReplyFilter;
+	sort?: TimelineQuery["sort"];
 	likedOnly: boolean;
 	bookmarkedOnly: boolean;
+	mediaOnly: boolean;
+	quotedOnly: boolean;
+	originalsOnly: boolean;
 	selectedAccountId?: string;
 	pageParam?: TimelinePageParam;
 }) {
@@ -55,8 +72,12 @@ function buildTimelineQueryUrl({
 	});
 	if (selectedAccountId) params.set("account", selectedAccountId);
 	if (replyFilter) params.set("replyFilter", replyFilter);
+	if (sort) params.set("sort", sort);
 	if (likedOnly) params.set("liked", "true");
 	if (bookmarkedOnly) params.set("bookmarked", "true");
+	if (mediaOnly) params.set("mediaOnly", "true");
+	if (quotedOnly) params.set("quotedOnly", "true");
+	if (originalsOnly) params.set("originalsOnly", "true");
 	if (search.trim()) params.set("search", search.trim());
 	if (pageParam) {
 		params.set("until", pageParam.until);
@@ -75,8 +96,12 @@ export function useTimelineRouteData({
 	search,
 	errorFallback,
 	replyFilter,
+	sort,
 	likedOnly = false,
 	bookmarkedOnly = false,
+	mediaOnly = false,
+	quotedOnly = false,
+	originalsOnly = false,
 }: UseTimelineRouteDataOptions) {
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery({
@@ -92,8 +117,12 @@ export function useTimelineRouteData({
 			resource,
 			search: debouncedSearch,
 			replyFilter: replyFilter ?? "all",
+			sort: sort ?? null,
 			likedOnly,
 			bookmarkedOnly,
+			mediaOnly,
+			quotedOnly,
+			originalsOnly,
 			selectedAccountId: selectedAccountId ?? null,
 		},
 	] as const;
@@ -106,8 +135,12 @@ export function useTimelineRouteData({
 					resource,
 					search: debouncedSearch,
 					replyFilter,
+					sort,
 					likedOnly,
 					bookmarkedOnly,
+					mediaOnly,
+					quotedOnly,
+					originalsOnly,
 					selectedAccountId,
 					pageParam,
 				}),
@@ -117,8 +150,12 @@ export function useTimelineRouteData({
 			if (lastPage.resource === "dms") return undefined;
 			const items = lastPage.items;
 			const lastItem = items.at(-1);
+			const cursorAt =
+				sort?.startsWith("saved") && lastItem?.savedAt
+					? lastItem.savedAt
+					: lastItem?.createdAt;
 			return items.length >= PAGE_SIZE && lastItem
-				? { until: lastItem.createdAt, untilId: lastItem.id }
+				? { until: cursorAt ?? lastItem.createdAt, untilId: lastItem.id }
 				: undefined;
 		},
 		staleTime: TIMELINE_STALE_TIME_MS,

@@ -164,6 +164,7 @@ export const timelineItemSchema: z.ZodType<TimelineItem> = z.object({
 	text: z.string(),
 	searchSnippet: z.string().optional(),
 	createdAt: z.string().default(""),
+	savedAt: z.string().nullable().optional(),
 	replyToId: z.string().nullable().optional(),
 	isReplied: z.boolean().default(false),
 	likeCount: z.number().default(0),
@@ -263,6 +264,8 @@ export const queryEnvelopeSchema = z.object({
 	stats: z.object({
 		home: z.number(),
 		mentions: z.number(),
+		bookmarks: z.number(),
+		likes: z.number(),
 		dms: z.number(),
 		needsReply: z.number(),
 		inbox: z.number(),

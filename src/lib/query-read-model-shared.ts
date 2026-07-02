@@ -11,10 +11,20 @@ export function parseJsonField<T>(value: unknown, fallback: T): T {
 }
 
 export function toFtsSearchQuery(value: string) {
-	const terms = value.match(/[\p{L}\p{N}_]+/gu) ?? [];
-	return terms
-		.map((term) => term.trim())
-		.filter((term) => term.length > 0)
+	return toSearchTerms(value)
 		.map((term) => `"${term.replaceAll('"', '""')}"`)
 		.join(" ");
+}
+
+export function toSearchTerms(value: string) {
+	const seen = new Set<string>();
+	const terms = value.match(/[\p{L}\p{N}_]+/gu) ?? [];
+	return terms
+		.map((term) => term.trim().toLowerCase())
+		.filter((term) => term.length > 0)
+		.filter((term) => {
+			if (seen.has(term)) return false;
+			seen.add(term);
+			return true;
+		});
 }

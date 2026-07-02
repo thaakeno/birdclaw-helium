@@ -13,6 +13,7 @@ import type {
 	DmQuery,
 	ReplyFilter,
 	ResourceKind,
+	TimelineQuery,
 	TimelineQualityFilter,
 } from "#/lib/types";
 
@@ -40,6 +41,18 @@ function parseQualityFilter(value: string | null): TimelineQualityFilter {
 	return value === "summary" ? "summary" : "all";
 }
 
+function parseTimelineSort(value: string | null): TimelineQuery["sort"] {
+	if (
+		value === "created-desc" ||
+		value === "created-asc" ||
+		value === "saved-desc" ||
+		value === "saved-asc"
+	) {
+		return value;
+	}
+	return undefined;
+}
+
 function parseDmInbox(value: string | null): NonNullable<DmQuery["inbox"]> {
 	if (value === "accepted" || value === "requests") return value;
 	return "all";
@@ -64,6 +77,7 @@ export const Route = createFileRoute("/api/query")({
 							replyFilter: parseReplyFilter(
 								url.searchParams.get("replyFilter"),
 							),
+							sort: parseTimelineSort(url.searchParams.get("sort")),
 							since: url.searchParams.get("since") ?? undefined,
 							until: url.searchParams.get("until") ?? undefined,
 							includeReplies: url.searchParams.get("originalsOnly") !== "true",
@@ -72,6 +86,8 @@ export const Route = createFileRoute("/api/query")({
 							),
 							likedOnly: url.searchParams.get("liked") === "true",
 							bookmarkedOnly: url.searchParams.get("bookmarked") === "true",
+							mediaOnly: url.searchParams.get("mediaOnly") === "true",
+							quotedOnly: url.searchParams.get("quotedOnly") === "true",
 							limit: parseBoundedInteger(url.searchParams.get("limit"), {
 								max: 200,
 							}),

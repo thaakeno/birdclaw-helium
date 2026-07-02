@@ -273,6 +273,13 @@ function makeBirdStdoutTempEffect() {
 	);
 }
 
+function getBirdShellCommand() {
+	if (process.platform !== "win32") return "/bin/bash";
+	return (
+		process.env.BIRDCLAW_BASH_COMMAND?.trim() || "D:/Programs/Git/bin/bash.exe"
+	);
+}
+
 export function runBirdJsonCommandEffect(args: string[], timeoutMs?: number) {
 	return Effect.scoped(
 		Effect.gen(function* () {
@@ -285,7 +292,7 @@ export function runBirdJsonCommandEffect(args: string[], timeoutMs?: number) {
 			yield* Effect.tryPromise({
 				try: () =>
 					execFileAsync(
-						"/bin/bash",
+						getBirdShellCommand(),
 						[
 							"-c",
 							BIRD_STDOUT_REDIRECT_SCRIPT,
@@ -321,7 +328,7 @@ function runBirdJsonCommandAllowFailureEffect(
 			yield* Effect.tryPromise({
 				try: () =>
 					execFileAsync(
-						"/bin/bash",
+						getBirdShellCommand(),
 						[
 							"-c",
 							BIRD_STDOUT_REDIRECT_SCRIPT,
