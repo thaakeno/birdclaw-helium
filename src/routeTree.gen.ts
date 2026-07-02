@@ -25,6 +25,7 @@ import { Route as BlocksRouteImport } from './routes/blocks'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfilesHandleRouteImport } from './routes/profiles.$handle'
 import { Route as ApiXurlRateLimitsRouteImport } from './routes/api/xurl-rate-limits'
+import { Route as ApiVideoRouteImport } from './routes/api/video'
 import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ApiSearchDiscussionRouteImport } from './routes/api/search-discussion'
@@ -120,6 +121,11 @@ const ProfilesHandleRoute = ProfilesHandleRouteImport.update({
 const ApiXurlRateLimitsRoute = ApiXurlRateLimitsRouteImport.update({
   id: '/api/xurl-rate-limits',
   path: '/api/xurl-rate-limits',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVideoRoute = ApiVideoRouteImport.update({
+  id: '/api/video',
+  path: '/api/video',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSyncRoute = ApiSyncRouteImport.update({
@@ -234,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
+  '/api/video': typeof ApiVideoRoute
   '/api/xurl-rate-limits': typeof ApiXurlRateLimitsRoute
   '/profiles/$handle': typeof ProfilesHandleRoute
 }
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
+  '/api/video': typeof ApiVideoRoute
   '/api/xurl-rate-limits': typeof ApiXurlRateLimitsRoute
   '/profiles/$handle': typeof ProfilesHandleRoute
 }
@@ -303,6 +311,7 @@ export interface FileRoutesById {
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
+  '/api/video': typeof ApiVideoRoute
   '/api/xurl-rate-limits': typeof ApiXurlRateLimitsRoute
   '/profiles/$handle': typeof ProfilesHandleRoute
 }
@@ -339,6 +348,7 @@ export interface FileRouteTypes {
     | '/api/search-discussion'
     | '/api/status'
     | '/api/sync'
+    | '/api/video'
     | '/api/xurl-rate-limits'
     | '/profiles/$handle'
   fileRoutesByTo: FileRoutesByTo
@@ -373,6 +383,7 @@ export interface FileRouteTypes {
     | '/api/search-discussion'
     | '/api/status'
     | '/api/sync'
+    | '/api/video'
     | '/api/xurl-rate-limits'
     | '/profiles/$handle'
   id:
@@ -407,6 +418,7 @@ export interface FileRouteTypes {
     | '/api/search-discussion'
     | '/api/status'
     | '/api/sync'
+    | '/api/video'
     | '/api/xurl-rate-limits'
     | '/profiles/$handle'
   fileRoutesById: FileRoutesById
@@ -442,6 +454,7 @@ export interface RootRouteChildren {
   ApiSearchDiscussionRoute: typeof ApiSearchDiscussionRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiSyncRoute: typeof ApiSyncRoute
+  ApiVideoRoute: typeof ApiVideoRoute
   ApiXurlRateLimitsRoute: typeof ApiXurlRateLimitsRoute
   ProfilesHandleRoute: typeof ProfilesHandleRoute
 }
@@ -558,6 +571,13 @@ declare module '@tanstack/react-router' {
       path: '/api/xurl-rate-limits'
       fullPath: '/api/xurl-rate-limits'
       preLoaderRoute: typeof ApiXurlRateLimitsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/video': {
+      id: '/api/video'
+      path: '/api/video'
+      fullPath: '/api/video'
+      preLoaderRoute: typeof ApiVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/sync': {
@@ -706,6 +726,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchDiscussionRoute: ApiSearchDiscussionRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiSyncRoute: ApiSyncRoute,
+  ApiVideoRoute: ApiVideoRoute,
   ApiXurlRateLimitsRoute: ApiXurlRateLimitsRoute,
   ProfilesHandleRoute: ProfilesHandleRoute,
 }

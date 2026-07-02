@@ -117,7 +117,7 @@ export function ConversationThread({
 									entities={tweet.entities}
 									text={tweet.text}
 								/>
-								<TweetMediaGrid items={tweet.media} />
+								<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
 								{tweet.entities.article ? (
 									<TweetArticleCard article={tweet.entities.article} />
 								) : null}
@@ -128,4 +128,11 @@ export function ConversationThread({
 			</div>
 		</section>
 	);
+}
+
+function tweetUrl(tweet: EmbeddedTweet) {
+	const handle = tweet.author.handle?.trim().replace(/^@/, "");
+	return handle
+		? `https://x.com/${handle}/status/${tweet.id}`
+		: `https://x.com/i/status/${tweet.id}`;
 }

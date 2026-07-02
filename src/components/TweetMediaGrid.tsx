@@ -1,10 +1,19 @@
-import { Maximize2, Play, X } from "lucide-react";
+import { ExternalLink, Maximize2, Play, X } from "lucide-react";
 import { useState } from "react";
 import type { TweetMediaItem } from "#/lib/types";
 import { cx, tweetMediaGridClass, tweetMediaTileClass } from "#/lib/ui";
 
-export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
+export function TweetMediaGrid({
+	items,
+	postUrl,
+}: {
+	items: TweetMediaItem[];
+	postUrl?: string;
+}) {
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+	const [failedVideoUrls, setFailedVideoUrls] = useState<Set<string>>(
+		() => new Set(),
+	);
 	if (items.length === 0) {
 		return null;
 	}
@@ -62,11 +71,18 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 										aspectRatio: `${String(item.width)} / ${String(item.height)}`,
 									}
 								: undefined;
-						const videoUrl =
+						const directVideoUrl =
 							item.type === "video" || item.type === "gif"
 								? playableVideoUrlForItem(item)
 								: null;
-						if (videoUrl) {
+						const videoUrl = directVideoUrl
+							? browserVideoUrl(directVideoUrl)
+							: null;
+						const videoFailed =
+							directVideoUrl !== null &&
+							directVideoUrl !== undefined &&
+							failedVideoUrls.has(directVideoUrl);
+						if (videoUrl && directVideoUrl && !videoFailed) {
 							return (
 								<div
 									key={item.url + String(index)}
@@ -86,23 +102,25 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 										playsInline
 										poster={item.thumbnailUrl}
 										preload="metadata"
-										src={videoUrl}
-									/>
-									<button
-										aria-label={`Open tweet media ${String(index + 1)}`}
-										className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
-										onClick={(event) => {
-											event.stopPropagation();
-											setSelectedIndex(index);
+										onError={() => {
+											setFailedVideoUrls((current) => {
+												const next = new Set(current);
+												next.add(directVideoUrl);
+												return next;
+											});
 										}}
-										type="button"
 									>
-										<Maximize2
-											aria-hidden="true"
-											className="size-4"
-											strokeWidth={2}
+										<source
+											src={videoUrl}
+											type={videoContentType(directVideoUrl)}
 										/>
-									</button>
+									</video>
+									<MediaTileActions
+										directVideoUrl={directVideoUrl}
+										index={index}
+										onOpen={() => setSelectedIndex(index)}
+										postUrl={postUrl}
+									/>
 								</div>
 							);
 						}
@@ -196,16 +214,13 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 								playsInline
 								poster={selectedItem.thumbnailUrl}
 								preload="metadata"
-								src={selectedVideoUrl}
-							/>
-							<a
-								className="justify-self-center rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-								href={selectedVideoUrl}
-								rel="noreferrer"
-								target="_blank"
 							>
-								Open video
-							</a>
+								<source
+									src={browserVideoUrl(selectedVideoUrl)}
+									type={videoContentType(selectedVideoUrl)}
+								/>
+							</video>
+							<MediaDialogLinks postUrl={postUrl} videoUrl={selectedVideoUrl} />
 						</div>
 					) : (
 						<div
@@ -227,6 +242,16 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 							>
 								Open media
 							</a>
+							{postUrl ? (
+								<a
+									className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+									href={postUrl}
+									rel="noreferrer"
+									target="_blank"
+								>
+									Open post
+								</a>
+							) : null}
 						</div>
 					)}
 				</div>
@@ -235,12 +260,118 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 	);
 }
 
+function MediaTileActions({
+	directVideoUrl,
+	index,
+	onOpen,
+	postUrl,
+}: {
+	directVideoUrl: string;
+	index: number;
+	onOpen: () => void;
+	postUrl?: string;
+}) {
+	return (
+		<div className="absolute right-2 top-2 flex gap-1.5">
+			<button
+				aria-label={`Open tweet media ${String(index + 1)}`}
+				className="grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
+				onClick={(event) => {
+					event.stopPropagation();
+					onOpen();
+				}}
+				type="button"
+			>
+				<Maximize2 aria-hidden="true" className="size-4" strokeWidth={2} />
+			</button>
+			<a
+				aria-label="Open video"
+				className="grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
+				href={directVideoUrl}
+				onClick={(event) => event.stopPropagation()}
+				rel="noreferrer"
+				target="_blank"
+			>
+				<Play
+					aria-hidden="true"
+					className="ml-0.5 size-4 fill-current"
+					strokeWidth={2}
+				/>
+			</a>
+			{postUrl ? (
+				<a
+					aria-label="Open original post"
+					className="grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
+					href={postUrl}
+					onClick={(event) => event.stopPropagation()}
+					rel="noreferrer"
+					target="_blank"
+				>
+					<ExternalLink
+						aria-hidden="true"
+						className="size-4"
+						strokeWidth={2}
+					/>
+				</a>
+			) : null}
+		</div>
+	);
+}
+
+function MediaDialogLinks({
+	postUrl,
+	videoUrl,
+}: {
+	postUrl?: string;
+	videoUrl: string;
+}) {
+	return (
+		<div className="flex flex-wrap justify-center gap-2">
+			<a
+				className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+				href={videoUrl}
+				rel="noreferrer"
+				target="_blank"
+			>
+				Open video
+			</a>
+			{postUrl ? (
+				<a
+					className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+					href={postUrl}
+					rel="noreferrer"
+					target="_blank"
+				>
+					Open post
+				</a>
+			) : null}
+		</div>
+	);
+}
+
 function mediaPreviewUrl(item: TweetMediaItem) {
 	return item.thumbnailUrl ?? (item.type === "image" ? item.url : undefined);
 }
 
 function playableVideoUrlForItem(item: TweetMediaItem) {
-	return item.variants?.[0]?.url ?? playableVideoUrl(item.url);
+	const mp4Variant = item.variants?.find((variant) =>
+		playableVideoUrl(variant.url),
+	);
+	return mp4Variant?.url ?? playableVideoUrl(item.url);
+}
+
+function browserVideoUrl(url: string) {
+	try {
+		const parsed = new URL(url);
+		if (parsed.hostname !== "video.twimg.com") return url;
+		return `/api/video?url=${encodeURIComponent(url)}`;
+	} catch {
+		return url;
+	}
+}
+
+function videoContentType(url: string) {
+	return /\.mp4(?:$|[?#])/i.test(url) ? "video/mp4" : undefined;
 }
 
 function singleImageStyle(item: TweetMediaItem) {

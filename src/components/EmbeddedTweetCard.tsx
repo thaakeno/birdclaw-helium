@@ -46,10 +46,17 @@ export function EmbeddedTweetCard({
 				entities={item.entities}
 				text={item.text}
 			/>
-			<TweetMediaGrid items={item.media} />
+			<TweetMediaGrid items={item.media} postUrl={tweetUrl(item)} />
 			{item.entities.article ? (
 				<TweetArticleCard article={item.entities.article} />
 			) : null}
 		</section>
 	);
+}
+
+function tweetUrl(tweet: EmbeddedTweet) {
+	const handle = tweet.author.handle?.trim().replace(/^@/, "");
+	return handle
+		? `https://x.com/${handle}/status/${tweet.id}`
+		: `https://x.com/i/status/${tweet.id}`;
 }

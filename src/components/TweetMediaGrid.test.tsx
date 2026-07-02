@@ -50,12 +50,12 @@ describe("TweetMediaGrid", () => {
 			"https://example.com/one-thumb.jpg",
 		);
 		expect(screen.getByLabelText("Tweet media 2")).toHaveAttribute(
-			"src",
-			"https://example.com/two.mp4",
-		);
-		expect(screen.getByLabelText("Tweet media 2")).toHaveAttribute(
 			"poster",
 			"https://example.com/two-thumb.jpg",
+		);
+		expect(container.querySelector("video source")).toHaveAttribute(
+			"src",
+			"https://example.com/two.mp4",
 		);
 		expect(screen.getByAltText("Tweet media 3")).toHaveAttribute(
 			"src",
@@ -65,7 +65,10 @@ describe("TweetMediaGrid", () => {
 		expect(
 			screen.getAllByRole("button", { name: /Open tweet media/ }),
 		).toHaveLength(4);
-		expect(screen.queryByRole("link")).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Open video" })).toHaveAttribute(
+			"href",
+			"https://example.com/two.mp4",
+		);
 	});
 
 	it("opens images in an inline viewer", () => {
@@ -117,6 +120,7 @@ describe("TweetMediaGrid", () => {
 	it("opens video media inline", () => {
 		const { container } = render(
 			<TweetMediaGrid
+				postUrl="https://x.com/alice/status/1"
 				items={[
 					{
 						url: "https://pbs.twimg.com/video-thumb.jpg",
@@ -136,14 +140,23 @@ describe("TweetMediaGrid", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
 		const video = container.querySelector("video");
-		expect(video).toHaveAttribute("src", "https://video.twimg.com/clip.mp4");
 		expect(video).toHaveAttribute(
 			"poster",
 			"https://pbs.twimg.com/video-thumb.jpg",
 		);
-		expect(screen.getByRole("link", { name: "Open video" })).toHaveAttribute(
+		expect(container.querySelector("video source")).toHaveAttribute(
+			"src",
+			"/api/video?url=https%3A%2F%2Fvideo.twimg.com%2Fclip.mp4",
+		);
+		expect(
+			screen.getAllByRole("link", { name: "Open video" })[0],
+		).toHaveAttribute("href", "https://video.twimg.com/clip.mp4");
+		expect(
+			screen.getByRole("link", { name: "Open original post" }),
+		).toHaveAttribute("href", "https://x.com/alice/status/1");
+		expect(screen.getByRole("link", { name: "Open post" })).toHaveAttribute(
 			"href",
-			"https://video.twimg.com/clip.mp4",
+			"https://x.com/alice/status/1",
 		);
 	});
 
@@ -161,9 +174,9 @@ describe("TweetMediaGrid", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
-		expect(container.querySelector("video")).toHaveAttribute(
+		expect(container.querySelector("video source")).toHaveAttribute(
 			"src",
-			"https://video.twimg.com/ext_tw_video/clip.mp4",
+			"/api/video?url=https%3A%2F%2Fvideo.twimg.com%2Fext_tw_video%2Fclip.mp4",
 		);
 	});
 
@@ -182,7 +195,10 @@ describe("TweetMediaGrid", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
 		const video = container.querySelector("video");
-		expect(video).toHaveAttribute("src", "/media/demo.mp4");
+		expect(container.querySelector("video source")).toHaveAttribute(
+			"src",
+			"/media/demo.mp4",
+		);
 		expect(video).toHaveAttribute("loop");
 		expect(video?.muted).toBe(true);
 	});

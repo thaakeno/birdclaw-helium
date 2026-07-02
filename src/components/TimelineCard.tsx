@@ -254,7 +254,7 @@ function TweetPresentation({
 				hiddenUrlRanges={hiddenUrlRanges}
 				text={tweet.text}
 			/>
-			<TweetMediaGrid items={tweet.media} />
+			<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
 			{tweet.entities.article ? (
 				<TweetArticleCard article={tweet.entities.article} />
 			) : null}
@@ -277,6 +277,13 @@ function TweetPresentation({
 			))}
 		</>
 	);
+}
+
+function tweetUrl(tweet: TimelineItem | EmbeddedTweet) {
+	const handle = tweet.author.handle?.trim().replace(/^@/, "");
+	return handle
+		? `https://x.com/${handle}/status/${tweet.id}`
+		: `https://x.com/i/status/${tweet.id}`;
 }
 
 export function TimelineCard({
