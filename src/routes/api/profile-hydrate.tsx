@@ -40,7 +40,9 @@ export const Route = createFileRoute("/api/profile-hydrate")({
 							);
 						}
 
-						const results = yield* resolveProfilesForHandlesEffect(handles);
+						const results = yield* resolveProfilesForHandlesEffect(handles, {
+							xurlFallback: false,
+						});
 						return jsonResponse(
 							profileHydrationResponseSchema.parse({
 								ok: true,

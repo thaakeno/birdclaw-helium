@@ -246,6 +246,11 @@ function formatBirdCommandError(error: unknown, birdCommand: string) {
 			`bird command unavailable: ${birdCommand}\nInstall bird on PATH, set BIRDCLAW_BIRD_COMMAND, or update ~/.birdclaw/config.json mentions.birdCommand.`,
 		);
 	}
+	if (/unknown command ['"]?dms['"]?/i.test(text)) {
+		return new Error(
+			"Live DM sync is not supported by the installed bird helper because it does not provide `bird dms`. Import an official X archive to view local DMs, or install a bird helper version that supports live DM reads.",
+		);
+	}
 
 	return error;
 }

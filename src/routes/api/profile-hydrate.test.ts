@@ -34,10 +34,12 @@ describe("api profile hydrate route", () => {
 			),
 		});
 
-		expect(resolveProfilesForHandlesMock).toHaveBeenCalledWith([
-			"fcoury",
-			"jxnLco",
-		]);
+		expect(resolveProfilesForHandlesMock).toHaveBeenCalledWith(
+			["fcoury", "jxnLco"],
+			{
+				xurlFallback: false,
+			},
+		);
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toMatchObject({
 			ok: true,

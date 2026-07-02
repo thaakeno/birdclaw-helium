@@ -241,9 +241,11 @@ describe("web sync dispatcher", () => {
 
 		expect(syncTimelineCollectionMock).toHaveBeenCalledWith({
 			kind: "bookmarks",
+			account: undefined,
 			mode: "auto",
 			limit: 100,
 			maxPages: 5,
+			all: true,
 			refresh: true,
 			earlyStop: true,
 		});
@@ -264,6 +266,7 @@ describe("web sync dispatcher", () => {
 			mode: "xurl",
 			limit: 100,
 			maxPages: 5,
+			all: true,
 			refresh: true,
 			earlyStop: true,
 		});
@@ -285,6 +288,7 @@ describe("web sync dispatcher", () => {
 			mode: "auto",
 			limit: 100,
 			maxPages: 5,
+			all: true,
 			refresh: true,
 			earlyStop: true,
 		});

@@ -39,7 +39,9 @@ function mockBirdRejectWithStdoutOnce(
 function expectBirdCommandCall(callNumber: number, args: string[]) {
 	const call = execFileAsyncMock.mock.calls[callNumber - 1];
 	expect(call).toBeDefined();
-	expect(call[0]).toBe("/bin/bash");
+	expect(call[0]).toBe(
+		process.platform === "win32" ? "D:/Programs/Git/bin/bash.exe" : "/bin/bash",
+	);
 	expect((call[1] as string[])[0]).toBe("-c");
 	expect((call[1] as string[]).slice(4)).toEqual(["/tmp/bird", ...args]);
 	expect(call[2]).toEqual(
@@ -403,6 +405,21 @@ describe("bird transport wrapper", () => {
 
 		await expect(listMentionsViaBird({ maxResults: 10 })).rejects.toThrow(
 			"bird command unavailable: /missing/bird",
+		);
+	});
+
+	it("explains when the installed bird helper does not support live DMs", async () => {
+		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
+		mockBirdRejectOnce(
+			Object.assign(new Error("Command failed"), {
+				stderr: "error: unknown command 'dms'",
+			}),
+		);
+
+		const { listDirectMessagesViaBird } = await import("./bird");
+
+		await expect(listDirectMessagesViaBird({ maxResults: 5 })).rejects.toThrow(
+			"Live DM sync is not supported by the installed bird helper",
 		);
 	});
 

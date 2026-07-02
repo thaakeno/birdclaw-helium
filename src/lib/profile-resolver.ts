@@ -80,6 +80,30 @@ function getProfile(profileId: string) {
 	return row ? profileFromDbRow(row) : null;
 }
 
+function getProfileByHandle(handle: string, db = getNativeDb()) {
+	const normalized = profileHandleKey(handle);
+	if (!normalized) return null;
+	const row = db
+		.prepare(
+			`
+      select id, handle, display_name, bio, followers_count, following_count,
+        avatar_hue, avatar_url, location, url, verified_type, entities_json, created_at
+      from profiles
+      where lower(handle) = lower(?)
+      order by
+        case
+          when id = 'profile_handle_' || lower(?) then 0
+          when id like 'profile_user_%' then 1
+          else 2
+        end
+      limit 1
+      `,
+		)
+		.get(normalized, normalized) as Record<string, unknown> | undefined;
+
+	return row ? profileFromDbRow(row) : null;
+}
+
 function isPlaceholderProfile(profile: ProfileRecord) {
 	const externalUserId = getExternalUserId(profile.id);
 	if (!externalUserId) {
@@ -143,13 +167,17 @@ function fetchProfileUserEffect(
 				return { status: "hit", source: "bird", user: birdUser };
 			}
 		} else if (!xurlFallback) {
+			const message =
+				birdResult.error instanceof Error
+					? birdResult.error.message
+					: String(birdResult.error);
+			if (/unknown command ['"]?(profiles|user)['"]?/i.test(message)) {
+				return { status: "miss", source: "bird" };
+			}
 			return {
 				status: "error",
 				source: "bird",
-				error:
-					birdResult.error instanceof Error
-						? birdResult.error.message
-						: String(birdResult.error),
+				error: message,
 			};
 		}
 
@@ -211,14 +239,20 @@ function fetchProfileUsersEffect(
 			}
 			unresolved = uniqueIds.filter((id) => !results.has(id));
 		} else if (!xurlFallback) {
+			const message =
+				birdResult.error instanceof Error
+					? birdResult.error.message
+					: String(birdResult.error);
 			for (const externalUserId of uniqueIds) {
 				results.set(externalUserId, {
-					status: "error",
+					status: /unknown command ['"]?(profiles|user)['"]?/i.test(message)
+						? "miss"
+						: "error",
 					source: "bird",
-					error:
-						birdResult.error instanceof Error
-							? birdResult.error.message
-							: String(birdResult.error),
+					...(message &&
+					!/unknown command ['"]?(profiles|user)['"]?/i.test(message)
+						? { error: message }
+						: {}),
 				});
 			}
 			return results;
@@ -441,7 +475,22 @@ export function resolveProfilesForHandlesEffect(
 		const results = new Map<string, HandleProfileResolveResult>();
 		let unresolved = targets;
 
-		const birdResult = yield* lookupProfilesViaBirdEffect(targets).pipe(
+		for (const handle of targets) {
+			const localProfile = yield* trySync(() => getProfileByHandle(handle, db));
+			if (!localProfile) continue;
+			results.set(handle, {
+				handle,
+				status: "hit",
+				source: "cache",
+				profile: localProfile,
+			});
+		}
+		unresolved = targets.filter((handle) => !results.has(handle));
+		if (unresolved.length === 0) {
+			return targets.map((handle) => results.get(handle)!);
+		}
+
+		const birdResult = yield* lookupProfilesViaBirdEffect(unresolved).pipe(
 			Effect.map((items) => ({ ok: true as const, items })),
 			Effect.catchAll((error) => Effect.succeed({ ok: false as const, error })),
 		);
@@ -472,15 +521,21 @@ export function resolveProfilesForHandlesEffect(
 			}
 			unresolved = targets.filter((handle) => !results.has(handle));
 		} else if (!xurlFallback) {
+			const message =
+				birdResult.error instanceof Error
+					? birdResult.error.message
+					: String(birdResult.error);
 			for (const handle of targets) {
 				results.set(handle, {
 					handle,
-					status: "error",
+					status: /unknown command ['"]?(profiles|user)['"]?/i.test(message)
+						? "miss"
+						: "error",
 					source: "bird",
-					error:
-						birdResult.error instanceof Error
-							? birdResult.error.message
-							: String(birdResult.error),
+					...(message &&
+					!/unknown command ['"]?(profiles|user)['"]?/i.test(message)
+						? { error: message }
+						: {}),
 				});
 			}
 			unresolved = [];

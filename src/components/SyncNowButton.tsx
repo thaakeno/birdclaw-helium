@@ -23,6 +23,7 @@ interface SyncNowButtonProps {
 	autoSyncBlocked?: boolean;
 	showAccountPicker?: boolean;
 	syncOptions?: WebSyncOptions;
+	disabledReason?: string;
 }
 
 const AUTO_SYNC_INTERVALS = [
@@ -78,6 +79,7 @@ export function SyncNowButton({
 	autoSyncBlocked = false,
 	showAccountPicker = false,
 	syncOptions,
+	disabledReason,
 }: SyncNowButtonProps) {
 	const [syncing, setSyncing] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
@@ -116,12 +118,16 @@ export function SyncNowButton({
 		accountId !== undefined &&
 		defaultAccountId !== undefined &&
 		accountId !== defaultAccountId;
-	const disabled = syncing || waitingForAccount || birdOnlyWrongAccount;
+	const externallyDisabled = Boolean(disabledReason);
+	const disabled =
+		syncing || waitingForAccount || birdOnlyWrongAccount || externallyDisabled;
 	const statusMessage = birdOnlyWrongAccount
 		? "Switch to default to sync"
-		: waitingForAccount
-			? "Loading account"
-			: (error ?? message ?? "");
+		: externallyDisabled
+			? (disabledReason ?? "")
+			: waitingForAccount
+				? "Loading account"
+				: (error ?? message ?? "");
 	const autoStatusMessage = autoSyncError
 		? `Auto sync failed: ${autoSyncError}`
 		: autoSyncing
@@ -159,6 +165,7 @@ export function SyncNowButton({
 				syncingRef.current ||
 				waitingForAccount ||
 				birdOnlyWrongAccount ||
+				externallyDisabled ||
 				(source === "auto" && autoSyncBlocked)
 			) {
 				return false;
@@ -222,6 +229,7 @@ export function SyncNowButton({
 			accountId,
 			autoSyncBlocked,
 			birdOnlyWrongAccount,
+			externallyDisabled,
 			kind,
 			syncOptions,
 			waitingForAccount,
@@ -235,7 +243,8 @@ export function SyncNowButton({
 			!autoSettings.enabled ||
 			autoSyncBlocked ||
 			waitingForAccount ||
-			birdOnlyWrongAccount
+			birdOnlyWrongAccount ||
+			externallyDisabled
 		) {
 			setNextAutoSyncAt(null);
 			return;
@@ -266,6 +275,7 @@ export function SyncNowButton({
 		autoSettingsReady,
 		autoSyncBlocked,
 		birdOnlyWrongAccount,
+		externallyDisabled,
 		syncNow,
 		waitingForAccount,
 	]);

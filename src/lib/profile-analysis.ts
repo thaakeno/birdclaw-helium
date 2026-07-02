@@ -24,11 +24,16 @@ import type {
 	XurlUserTweet,
 	XurlUserTweetsResponse,
 } from "./types";
+import { profileFromDbRow } from "./profile-row";
 import {
 	type TweetAccountEdgeKind,
 	upsertTweetAccountEdge,
 } from "./tweet-account-edges";
-import { buildExternalProfileId, upsertProfileFromXUser } from "./x-profile";
+import {
+	buildExternalProfileId,
+	getExternalUserId,
+	upsertProfileFromXUser,
+} from "./x-profile";
 import { recordXurlRateLimitEventSafe } from "./xurl-rate-limits";
 import type { XurlJsonCommandAttempt } from "./xurl";
 import {
@@ -36,6 +41,9 @@ import {
 	lookupUsersByHandlesEffect,
 	searchRecentByConversationIdEffect,
 } from "./xurl";
+import { getTransportStatusEffect } from "./xurl";
+import { resolveProfilesForHandlesEffect } from "./profile-resolver";
+import { parseJsonField } from "./query-read-model-shared";
 
 export interface ProfileAnalysisOptions {
 	handle: string;
@@ -506,6 +514,123 @@ function compactConversationTweet(
 	};
 }
 
+function compactLocalProfileTweet(
+	row: Record<string, unknown>,
+	profileHandle: string,
+): CompactProfileTweet {
+	const tweetId = String(row.id);
+	return {
+		id: tweetId,
+		url: tweetUrl(profileHandle, tweetId),
+		author: profileHandle,
+		createdAt: String(row.created_at ?? ""),
+		text: String(row.text ?? ""),
+		entities: parseJsonField<TweetEntities>(row.entities_json, {}),
+		...(typeof row.reply_to_id === "string" && row.reply_to_id
+			? { replyToId: row.reply_to_id }
+			: {}),
+		likeCount: Number(row.like_count ?? 0),
+		replyCount: 0,
+		retweetCount: 0,
+		quoteCount: 0,
+		bookmarkedCount: 0,
+	};
+}
+
+function getLocalProfileByHandle(db: Database, handle: string) {
+	const normalized = handle.trim().replace(/^@/, "");
+	const row = db
+		.prepare(
+			`
+      select id, handle, display_name, bio, followers_count, following_count,
+        avatar_hue, avatar_url, location, url, verified_type, entities_json, created_at
+      from profiles
+      where lower(handle) = lower(?)
+      order by
+        case
+          when id = 'profile_handle_' || lower(?) then 0
+          when id like 'profile_user_%' then 1
+          else 2
+        end
+      limit 1
+      `,
+		)
+		.get(normalized, normalized) as Record<string, unknown> | undefined;
+	return row ? profileFromDbRow(row) : null;
+}
+
+function buildLocalProfileContext({
+	account,
+	handle,
+	profile,
+	maxTweets,
+	fetchCached,
+}: {
+	account: { id: string; handle: string };
+	handle: string;
+	profile: ProfileRecord;
+	maxTweets: number;
+	fetchCached: boolean;
+}): ProfileAnalysisContext {
+	const db = getNativeDb();
+	const rows = db
+		.prepare(
+			`
+      select id, text, created_at, reply_to_id, like_count, entities_json
+      from tweets
+      where author_profile_id = ?
+      order by created_at desc, id desc
+      limit ?
+      `,
+		)
+		.all(profile.id, maxTweets) as Array<Record<string, unknown>>;
+	const profileHandle = profile.handle || handle;
+	const tweets = rows.map((row) =>
+		compactLocalProfileTweet(row, profileHandle),
+	);
+	const externalUserId = getExternalUserId(profile.id) ?? profile.id;
+	const withoutHash = {
+		handle: profileHandle,
+		accountId: account.id,
+		accountHandle: account.handle,
+		profile,
+		externalUserId,
+		tweets,
+		conversations: [],
+		counts: {
+			tweets: tweets.length,
+			tweetPages: tweets.length > 0 ? 1 : 0,
+			conversationsScanned: 0,
+			conversationTweets: 0,
+			conversationPages: 0,
+		},
+		fetchCached,
+	} satisfies Omit<ProfileAnalysisContext, "hash">;
+	return {
+		...withoutHash,
+		hash: contextHash(withoutHash),
+	};
+}
+
+function resolveProfileLocallyOrViaBirdEffect(handle: string) {
+	return Effect.gen(function* () {
+		const db = yield* tryProfileSync(() => getNativeDb());
+		const local = yield* tryProfileSync(() =>
+			getLocalProfileByHandle(db, handle),
+		);
+		if (local) return local;
+		const [resolved] = yield* resolveProfilesForHandlesEffect([handle], {
+			xurlFallback: false,
+		}).pipe(Effect.mapError(toError));
+		if (resolved?.status === "hit" && resolved.profile) {
+			return resolved.profile;
+		}
+		throw new Error(
+			resolved?.error || `Could not resolve @${handle} via bird/local`,
+		);
+	});
+}
+
 function contextCacheKey(options: {
 	accountId: string;
 	handle: string;
@@ -753,6 +878,26 @@ export function collectProfileAnalysisContextEffect(
 		if (!options.refresh && cached && ageMs <= cacheTtlMs) {
 			emitStatus(handlers, "Using cached profile backfill", `@${handle}`);
 			return { ...cached.value, fetchCached: true };
+		}
+
+		const transport = yield* getTransportStatusEffect().pipe(
+			Effect.mapError(toError),
+		);
+		if (transport.availableTransport !== "xurl") {
+			emitStatus(handlers, "Resolving profile", `@${handle}`);
+			const profile = yield* resolveProfileLocallyOrViaBirdEffect(handle);
+			emitStatus(handlers, "Using local profile archive", `@${profile.handle}`);
+			const context = yield* tryProfileSync(() =>
+				buildLocalProfileContext({
+					account,
+					handle: profile.handle || handle,
+					profile,
+					maxTweets,
+					fetchCached: false,
+				}),
+			);
+			yield* tryProfileSync(() => writeSyncCache(contextKey, context, db));
+			return context;
 		}
 
 		const recordTimelineAttempt = (attempt: XurlJsonCommandAttempt) =>

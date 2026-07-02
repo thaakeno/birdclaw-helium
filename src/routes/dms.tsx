@@ -308,6 +308,7 @@ export function DmsRouteView({
 					</div>
 					<SyncNowButton
 						accounts={meta?.accounts}
+						disabledReason="Live DM sync unavailable with this Bird helper"
 						kind="dms"
 						label="Sync DMs"
 						onSynced={refreshLocalView}
@@ -458,7 +459,7 @@ export function DmsRouteView({
 				/>
 			) : items.length === 0 ? (
 				<FeedEmpty
-					detail="Sync DMs or broaden the filters to find a conversation."
+					detail="Import an official X archive to populate local conversations, or broaden the filters."
 					label="No conversations in this view"
 				/>
 			) : (
