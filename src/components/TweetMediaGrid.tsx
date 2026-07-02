@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Maximize2, Play, X } from "lucide-react";
 import { useState } from "react";
 import type { TweetMediaItem } from "#/lib/types";
 import { cx, tweetMediaGridClass, tweetMediaTileClass } from "#/lib/ui";
@@ -14,7 +14,7 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 		selectedIndex === null ? null : (visibleItems[selectedIndex] ?? null);
 	const selectedVideoUrl =
 		selectedItem?.type === "video" || selectedItem?.type === "gif"
-			? (selectedItem.variants?.[0]?.url ?? playableVideoUrl(selectedItem.url))
+			? playableVideoUrlForItem(selectedItem)
 			: null;
 	const singleImage =
 		visibleItems.length === 1 && visibleItems[0]?.type === "image"
@@ -55,42 +55,103 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 				</button>
 			) : (
 				<div className={tweetMediaGridClass(Math.min(items.length, 4))}>
-					{visibleItems.map((item, index) => (
-						<button
-							key={item.url + String(index)}
-							aria-label={`Open tweet media ${String(index + 1)}`}
-							className={tweetMediaTileClass(index, Math.min(items.length, 4))}
-							onClick={(event) => {
-								event.stopPropagation();
-								setSelectedIndex(index);
-							}}
-							style={
-								visibleItems.length === 1 && item.width && item.height
-									? {
-											aspectRatio: `${String(item.width)} / ${String(item.height)}`,
-										}
-									: undefined
-							}
-							type="button"
-						>
-							{item.type === "image" ? (
-								<img
-									alt={item.altText ?? `Tweet media ${String(index + 1)}`}
-									className="tweet-media-image block size-full object-contain"
-									loading="lazy"
-									src={item.thumbnailUrl ?? item.url}
-								/>
-							) : (
-								<span className="tweet-media-fallback grid min-h-40 place-items-center font-semibold text-[var(--ink-soft)]">
-									{item.type === "video"
-										? "Video"
-										: item.type === "gif"
-											? "GIF"
-											: "Media"}
-								</span>
-							)}
-						</button>
-					))}
+					{visibleItems.map((item, index) => {
+						const tileStyle =
+							visibleItems.length === 1 && item.width && item.height
+								? {
+										aspectRatio: `${String(item.width)} / ${String(item.height)}`,
+									}
+								: undefined;
+						const videoUrl =
+							item.type === "video" || item.type === "gif"
+								? playableVideoUrlForItem(item)
+								: null;
+						if (videoUrl) {
+							return (
+								<div
+									key={item.url + String(index)}
+									className={tweetMediaTileClass(
+										index,
+										Math.min(items.length, 4),
+									)}
+									style={tileStyle}
+								>
+									<video
+										aria-label={`Tweet media ${String(index + 1)}`}
+										className="block size-full object-contain"
+										controls
+										loop={item.type === "gif"}
+										muted={item.type === "gif"}
+										onClick={(event) => event.stopPropagation()}
+										playsInline
+										poster={item.thumbnailUrl}
+										preload="metadata"
+										src={videoUrl}
+									/>
+									<button
+										aria-label={`Open tweet media ${String(index + 1)}`}
+										className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
+										onClick={(event) => {
+											event.stopPropagation();
+											setSelectedIndex(index);
+										}}
+										type="button"
+									>
+										<Maximize2
+											aria-hidden="true"
+											className="size-4"
+											strokeWidth={2}
+										/>
+									</button>
+								</div>
+							);
+						}
+
+						return (
+							<button
+								key={item.url + String(index)}
+								aria-label={`Open tweet media ${String(index + 1)}`}
+								className={tweetMediaTileClass(index, Math.min(items.length, 4))}
+								onClick={(event) => {
+									event.stopPropagation();
+									setSelectedIndex(index);
+								}}
+								style={tileStyle}
+								type="button"
+							>
+								{item.type === "image" || mediaPreviewUrl(item) ? (
+									<img
+										alt={item.altText ?? `Tweet media ${String(index + 1)}`}
+										className="tweet-media-image block size-full object-contain"
+										loading="lazy"
+										src={mediaPreviewUrl(item) ?? item.url}
+									/>
+								) : (
+									<span className="tweet-media-fallback grid min-h-40 place-items-center font-semibold text-[var(--ink-soft)]">
+										{item.type === "video"
+											? "Video"
+											: item.type === "gif"
+												? "GIF"
+												: "Media"}
+									</span>
+								)}
+								{item.type === "video" || item.type === "gif" ? (
+									<span className="absolute inset-0 grid place-items-center bg-black/10">
+										<span className="grid size-12 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/25">
+											<Play
+												aria-hidden="true"
+												className="ml-0.5 size-5 fill-current"
+												strokeWidth={2.2}
+											/>
+										</span>
+										<span className="sr-only">
+											{item.type === "gif" ? "GIF" : "Video"}
+										</span>
+									</span>
+								) : null}
+							</button>
+						);
+					})}
 				</div>
 			)}
 			{selectedItem ? (
@@ -122,17 +183,30 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 							src={selectedItem.url}
 						/>
 					) : selectedVideoUrl ? (
-						<video
-							autoPlay={selectedItem.type === "gif"}
-							className="max-h-[92vh] max-w-[92vw]"
-							controls
-							loop={selectedItem.type === "gif"}
-							muted={selectedItem.type === "gif"}
+						<div
+							className="grid max-h-[92vh] max-w-[92vw] gap-3"
 							onClick={(event) => event.stopPropagation()}
-							playsInline
-							poster={selectedItem.thumbnailUrl}
-							src={selectedVideoUrl}
-						/>
+						>
+							<video
+								autoPlay={selectedItem.type === "gif"}
+								className="max-h-[88vh] max-w-[92vw]"
+								controls
+								loop={selectedItem.type === "gif"}
+								muted={selectedItem.type === "gif"}
+								playsInline
+								poster={selectedItem.thumbnailUrl}
+								preload="metadata"
+								src={selectedVideoUrl}
+							/>
+							<a
+								className="justify-self-center rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+								href={selectedVideoUrl}
+								rel="noreferrer"
+								target="_blank"
+							>
+								Open video
+							</a>
+						</div>
 					) : (
 						<div
 							className="grid min-h-64 min-w-80 place-items-center gap-3 rounded-2xl border border-white/20 bg-black p-6 text-white"
@@ -159,6 +233,14 @@ export function TweetMediaGrid({ items }: { items: TweetMediaItem[] }) {
 			) : null}
 		</>
 	);
+}
+
+function mediaPreviewUrl(item: TweetMediaItem) {
+	return item.thumbnailUrl ?? (item.type === "image" ? item.url : undefined);
+}
+
+function playableVideoUrlForItem(item: TweetMediaItem) {
+	return item.variants?.[0]?.url ?? playableVideoUrl(item.url);
 }
 
 function singleImageStyle(item: TweetMediaItem) {

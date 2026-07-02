@@ -13,7 +13,7 @@ describe("TweetMediaGrid", () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("renders images, fallback media labels, and caps the grid at four items", () => {
+	it("renders image and video previews, fallback media labels, and caps the grid at four items", () => {
 		const { container } = render(
 			<TweetMediaGrid
 				items={[
@@ -25,10 +25,12 @@ describe("TweetMediaGrid", () => {
 					{
 						url: "https://example.com/two.mp4",
 						type: "video",
+						thumbnailUrl: "https://example.com/two-thumb.jpg",
 					},
 					{
 						url: "https://example.com/three.gif",
 						type: "gif",
+						thumbnailUrl: "https://example.com/three-thumb.jpg",
 					},
 					{
 						url: "https://example.com/four.bin",
@@ -47,8 +49,18 @@ describe("TweetMediaGrid", () => {
 			"src",
 			"https://example.com/one-thumb.jpg",
 		);
-		expect(screen.getByText("Video")).toBeInTheDocument();
-		expect(screen.getByText("GIF")).toBeInTheDocument();
+		expect(screen.getByLabelText("Tweet media 2")).toHaveAttribute(
+			"src",
+			"https://example.com/two.mp4",
+		);
+		expect(screen.getByLabelText("Tweet media 2")).toHaveAttribute(
+			"poster",
+			"https://example.com/two-thumb.jpg",
+		);
+		expect(screen.getByAltText("Tweet media 3")).toHaveAttribute(
+			"src",
+			"https://example.com/three-thumb.jpg",
+		);
 		expect(screen.getByText("Media")).toBeInTheDocument();
 		expect(
 			screen.getAllByRole("button", { name: /Open tweet media/ }),
@@ -128,6 +140,10 @@ describe("TweetMediaGrid", () => {
 		expect(video).toHaveAttribute(
 			"poster",
 			"https://pbs.twimg.com/video-thumb.jpg",
+		);
+		expect(screen.getByRole("link", { name: "Open video" })).toHaveAttribute(
+			"href",
+			"https://video.twimg.com/clip.mp4",
 		);
 	});
 
