@@ -1,10 +1,5 @@
 import { type ReactNode, useMemo, useState } from "react";
-import {
-	Image,
-	MessageSquareQuote,
-	Rows3,
-	SlidersHorizontal,
-} from "lucide-react";
+import { Image, MessageSquareQuote, Rows3, UserRound } from "lucide-react";
 import { SyncNowButton } from "#/components/SyncNowButton";
 import { TimelineCard } from "#/components/TimelineCard";
 import {
@@ -87,6 +82,7 @@ export function SavedTimelineView({
 	const [mediaOnly, setMediaOnly] = useState(false);
 	const [quotedOnly, setQuotedOnly] = useState(false);
 	const [originalsOnly, setOriginalsOnly] = useState(false);
+	const [author, setAuthor] = useState("");
 	const {
 		meta,
 		items,
@@ -109,6 +105,7 @@ export function SavedTimelineView({
 		mediaOnly,
 		quotedOnly,
 		originalsOnly,
+		author,
 	});
 
 	const subtitle = useMemo(() => {
@@ -123,6 +120,22 @@ export function SavedTimelineView({
 	}, [filter, items.length, loadingLabel, meta]);
 	const syncKind = filter === "liked" ? "likes" : "bookmarks";
 	const accounts = meta?.accounts ?? [];
+	const authorOptions = useMemo(() => {
+		const seen = new Set<string>();
+		return items
+			.map((item) => ({
+				handle: item.author.handle,
+				label: `${item.author.displayName} (@${item.author.handle})`,
+			}))
+			.filter((item) => {
+				const key = item.handle.toLowerCase();
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
+			.slice(0, 80);
+	}, [items]);
+	const authorListId = `${filter}-author-options`;
 
 	return (
 		<TimelineFeedShell
@@ -189,14 +202,32 @@ export function SavedTimelineView({
 									>
 										{accounts.map((account) => (
 											<option key={account.id} value={account.id}>
-												@{account.handle || account.name || account.id}
+												{account.handle || account.name || account.id}
 											</option>
 										))}
 									</select>
 								) : null}
-								<span className="grid size-9 place-items-center rounded-full border border-[var(--line)] text-[var(--ink-soft)]">
-									<SlidersHorizontal className="size-4" strokeWidth={2.1} />
-								</span>
+								<label className="inline-flex h-9 min-w-[190px] items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[13px] text-[var(--ink)] focus-within:border-[color:color-mix(in_srgb,var(--accent)_55%,var(--line))] focus-within:shadow-[0_0_0_1px_var(--accent-soft)]">
+									<UserRound
+										className="size-4 shrink-0 text-[var(--ink-soft)]"
+										strokeWidth={2.1}
+									/>
+									<input
+										aria-label="Filter saved posts by user"
+										className="min-w-0 flex-1 border-0 bg-transparent outline-none placeholder:text-[var(--ink-soft)]"
+										list={authorListId}
+										onChange={(event) => setAuthor(event.target.value)}
+										placeholder="@user"
+										value={author}
+									/>
+								</label>
+								<datalist id={authorListId}>
+									{authorOptions.map((option) => (
+										<option key={option.handle} value={`@${option.handle}`}>
+											{option.label}
+										</option>
+									))}
+								</datalist>
 								<SavedFilterButton
 									active={mediaOnly}
 									onClick={() => setMediaOnly((value) => !value)}
@@ -221,11 +252,16 @@ export function SavedTimelineView({
 									<Rows3 className="size-4" strokeWidth={2.1} />
 									Originals
 								</SavedFilterButton>
-								{mediaOnly || quotedOnly || originalsOnly || search ? (
+								{mediaOnly ||
+								quotedOnly ||
+								originalsOnly ||
+								search ||
+								author ? (
 									<button
 										className={cx(secondaryButtonClass, "h-9 px-3 text-[13px]")}
 										onClick={() => {
 											setSearch("");
+											setAuthor("");
 											setMediaOnly(false);
 											setQuotedOnly(false);
 											setOriginalsOnly(false);

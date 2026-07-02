@@ -342,6 +342,7 @@ export interface DmConversationItem {
 export interface TimelineQuery {
 	resource: Exclude<ResourceKind, "dms">;
 	account?: string;
+	author?: string;
 	search?: string;
 	replyFilter?: ReplyFilter;
 	sort?: "created-desc" | "created-asc" | "saved-desc" | "saved-asc";

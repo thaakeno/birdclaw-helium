@@ -527,6 +527,7 @@ function timelineSortSql(sort: TimelineSort) {
 export function listTimelineItems({
 	resource,
 	account,
+	author,
 	search,
 	replyFilter = "all",
 	sort,
@@ -571,6 +572,7 @@ export function listTimelineItems({
 		!likedOnly &&
 		!bookmarkedOnly &&
 		!account &&
+		!author?.trim() &&
 		!search?.trim() &&
 		replyFilter === "all" &&
 		!since?.trim() &&
@@ -641,6 +643,12 @@ export function listTimelineItems({
 	if (account && account !== "all") {
 		where += " and e.account_id = ?";
 		params.push(account);
+	}
+
+	if (author?.trim()) {
+		const normalizedAuthor = author.trim().replace(/^@/, "").toLowerCase();
+		where += " and (lower(p.handle) like ? or lower(p.display_name) like ?)";
+		params.push(`%${normalizedAuthor}%`, `%${normalizedAuthor}%`);
 	}
 
 	if (shouldDedupeAcrossAccounts) {

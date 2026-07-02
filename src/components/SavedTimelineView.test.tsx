@@ -160,6 +160,67 @@ describe("SavedTimelineView", () => {
 		});
 	});
 
+	it("filters saved posts by author handle", async () => {
+		const queryUrls: URL[] = [];
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.endsWith("/api/status")) {
+				return new Response(
+					JSON.stringify({
+						stats: {
+							home: 3,
+							mentions: 1,
+							bookmarks: 2,
+							likes: 0,
+							dms: 4,
+							needsReply: 2,
+							inbox: 3,
+						},
+						transport: { statusText: "local" },
+						accounts: [],
+						archives: [],
+					}),
+				);
+			}
+			if (url.includes("/api/query")) {
+				queryUrls.push(new URL(url));
+				return new Response(
+					JSON.stringify({
+						resource: "home",
+						items: [
+							{
+								id: "bookmark_author",
+								text: "author thing",
+								author: { handle: "ChenTessler", displayName: "Chen" },
+							},
+						],
+					}),
+				);
+			}
+			throw new Error(`Unexpected fetch ${url}`);
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(
+			<SavedTimelineView
+				eyebrow="bookmarks"
+				filter="bookmarked"
+				loadingLabel="Loading bookmarks..."
+				searchPlaceholder="Search bookmarks"
+				title="Bookmarks"
+			/>,
+		);
+
+		expect(await screen.findByText("author thing")).toBeInTheDocument();
+		fireEvent.change(screen.getByLabelText("Filter saved posts by user"), {
+			target: { value: "@ChenTessler" },
+		});
+
+		await waitFor(() => {
+			expect(queryUrls.at(-1)?.searchParams.get("author")).toBe("@ChenTessler");
+		});
+	});
+
 	it("syncs the matching saved collection and reloads local data", async () => {
 		const queryUrls: URL[] = [];
 		const syncBodies: unknown[] = [];
@@ -169,7 +230,15 @@ describe("SavedTimelineView", () => {
 				if (url.endsWith("/api/status")) {
 					return new Response(
 						JSON.stringify({
-							stats: { home: 3, mentions: 1, dms: 4, needsReply: 2, inbox: 3 },
+							stats: {
+								home: 3,
+								mentions: 1,
+								bookmarks: 1,
+								likes: 1,
+								dms: 4,
+								needsReply: 2,
+								inbox: 3,
+							},
 							transport: { statusText: "local" },
 							accounts: [],
 							archives: [],
@@ -224,7 +293,9 @@ describe("SavedTimelineView", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Sync likes" }));
 
 		await waitFor(() => {
-			expect(syncBodies).toEqual([{ kind: "likes" }]);
+			expect(syncBodies).toEqual([
+				{ allPages: true, kind: "likes", limit: 100, maxPages: 5 },
+			]);
 			expect(queryUrls.length).toBeGreaterThan(initialQueryCount);
 		});
 	});

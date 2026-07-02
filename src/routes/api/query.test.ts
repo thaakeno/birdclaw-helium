@@ -67,7 +67,7 @@ describe("api query route", () => {
 		queryResourceMock.mockReturnValue({ resource: "home", items: [] });
 		await GET({
 			request: new Request(
-				"http://localhost/api/query?resource=home&replyFilter=bad&since=2020-01-01&until=2021-01-01&qualityFilter=summary&originalsOnly=true",
+				"http://localhost/api/query?resource=home&replyFilter=bad&author=@ChenTessler&since=2020-01-01&until=2021-01-01&qualityFilter=summary&originalsOnly=true",
 			),
 		});
 
@@ -76,6 +76,7 @@ describe("api query route", () => {
 			expect.objectContaining({
 				replyFilter: "all",
 				resource: "home",
+				author: "@ChenTessler",
 				since: "2020-01-01",
 				until: "2021-01-01",
 				includeReplies: false,

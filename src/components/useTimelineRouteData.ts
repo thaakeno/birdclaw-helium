@@ -34,6 +34,7 @@ interface UseTimelineRouteDataOptions {
 	mediaOnly?: boolean;
 	quotedOnly?: boolean;
 	originalsOnly?: boolean;
+	author?: string;
 }
 
 interface TimelinePageParam {
@@ -51,6 +52,7 @@ function buildTimelineQueryUrl({
 	mediaOnly,
 	quotedOnly,
 	originalsOnly,
+	author,
 	selectedAccountId,
 	pageParam,
 }: {
@@ -63,6 +65,7 @@ function buildTimelineQueryUrl({
 	mediaOnly: boolean;
 	quotedOnly: boolean;
 	originalsOnly: boolean;
+	author?: string;
 	selectedAccountId?: string;
 	pageParam?: TimelinePageParam;
 }) {
@@ -78,6 +81,7 @@ function buildTimelineQueryUrl({
 	if (mediaOnly) params.set("mediaOnly", "true");
 	if (quotedOnly) params.set("quotedOnly", "true");
 	if (originalsOnly) params.set("originalsOnly", "true");
+	if (author?.trim()) params.set("author", author.trim());
 	if (search.trim()) params.set("search", search.trim());
 	if (pageParam) {
 		params.set("until", pageParam.until);
@@ -102,6 +106,7 @@ export function useTimelineRouteData({
 	mediaOnly = false,
 	quotedOnly = false,
 	originalsOnly = false,
+	author,
 }: UseTimelineRouteDataOptions) {
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery({
@@ -123,6 +128,7 @@ export function useTimelineRouteData({
 			mediaOnly,
 			quotedOnly,
 			originalsOnly,
+			author: author?.trim() ?? "",
 			selectedAccountId: selectedAccountId ?? null,
 		},
 	] as const;
@@ -141,6 +147,7 @@ export function useTimelineRouteData({
 					mediaOnly,
 					quotedOnly,
 					originalsOnly,
+					author,
 					selectedAccountId,
 					pageParam,
 				}),
