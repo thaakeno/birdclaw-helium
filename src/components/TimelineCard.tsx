@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import {
 	BookmarkCheck,
 	CheckCircle2,
@@ -13,7 +12,6 @@ import {
 	UserSearch,
 } from "lucide-react";
 import { useState } from "react";
-import { queryKeys } from "#/lib/query-client";
 import { formatCompactNumber } from "#/lib/present";
 import {
 	isTweetArticleUrlEntity,
@@ -242,14 +240,12 @@ function isInteractiveTarget(target: EventTarget | null) {
 function TweetPresentation({
 	tweet,
 	hiddenUrlRanges,
-	onHydrateVideo,
 	visibleUrlCards,
 	replyToTweet,
 	quotedTweet,
 }: {
 	tweet: TimelineItem | EmbeddedTweet;
 	hiddenUrlRanges: Array<{ start: number; end: number }>;
-	onHydrateVideo?: () => Promise<void> | void;
 	visibleUrlCards: TweetUrlEntity[];
 	replyToTweet?: EmbeddedTweet | null;
 	quotedTweet?: EmbeddedTweet | null;
@@ -262,11 +258,7 @@ function TweetPresentation({
 				hiddenUrlRanges={hiddenUrlRanges}
 				text={tweet.text}
 			/>
-			<TweetMediaGrid
-				items={tweet.media}
-				onHydrateVideo={onHydrateVideo}
-				postUrl={tweetUrl(tweet)}
-			/>
+			<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
 			{tweet.entities.article ? (
 				<TweetArticleCard article={tweet.entities.article} />
 			) : null}
@@ -307,7 +299,6 @@ export function TimelineCard({
 	onReply: (tweetId: string) => void;
 	showReplyControls?: boolean;
 }) {
-	const queryClient = useQueryClient();
 	const [threadSyncState, setThreadSyncState] = useState<
 		"idle" | "syncing" | "error"
 	>("idle");
@@ -377,7 +368,6 @@ export function TimelineCard({
 				throw new Error("Thread sync failed");
 			}
 			await conversation.refresh();
-			await queryClient.invalidateQueries({ queryKey: queryKeys.timelines });
 			if (!conversation.isOpen) {
 				conversation.toggle();
 			}
@@ -471,7 +461,6 @@ export function TimelineCard({
 				</header>
 				<TweetPresentation
 					hiddenUrlRanges={hiddenMediaUrlRanges}
-					onHydrateVideo={syncThread}
 					quotedTweet={item.retweetedTweet ? null : item.quotedTweet}
 					replyToTweet={item.retweetedTweet ? null : item.replyToTweet}
 					tweet={displayTweet}
@@ -566,11 +555,7 @@ export function TimelineCard({
 									className={feedActionIconClass}
 									strokeWidth={1.7}
 								/>
-								<span>
-									{formatCompactNumber(
-										displayReplyCount || displayLocalReplyCount,
-									)}
-								</span>
+								<span>{formatCompactNumber(displayReplyCount || displayLocalReplyCount)}</span>
 							</span>
 						) : null}
 						{canReply ? (
