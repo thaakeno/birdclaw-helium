@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { AvatarChip } from "#/components/AvatarChip";
 import { TweetRichText } from "#/components/TweetRichText";
 import {
 	cleanProfileHandle,
+	DEFAULT_PROFILE_ANALYSIS_LIMITS,
 	formatProfileAnalysisCounts,
 	ProfileAnalysisOutput,
 	ProfileAnalysisStatusLine,
 	useProfileAnalysisStream,
 } from "#/components/ProfileAnalysisStream";
+import { profileContextUrl } from "#/components/ProfileAnalysisClient";
 import { formatCompactNumber } from "#/lib/present";
 import type { ProfileAnalysisContext } from "#/lib/profile-analysis";
 import { profileDescriptionEntitiesFromXurl } from "#/lib/tweet-render";
@@ -108,21 +110,47 @@ function ProfileBioText({
 export function ProfileRouteView({ handle }: { handle: string }) {
 	const cleanHandle = cleanProfileHandle(handle);
 	const analysis = useProfileAnalysisStream(cleanHandle);
+	const [context, setContext] = useState<ProfileAnalysisContext | null>(null);
+	const [contextLoading, setContextLoading] = useState(false);
+	const [contextError, setContextError] = useState<string | null>(null);
 	const autoRunHandleRef = useRef("");
-	const runAnalysisRef = useRef(analysis.run);
-	const profile = analysis.context?.profile;
+	const profile = analysis.context?.profile ?? context?.profile;
 	const displayName = profile?.displayName || `@${cleanHandle}`;
 	const bio = profile?.bio ?? "";
-	const profilesByHandle = profilesByHandleFromContext(analysis.context);
+	const activeContext = analysis.context ?? context;
+	const profilesByHandle = profilesByHandleFromContext(activeContext);
 
-	useEffect(() => {
-		runAnalysisRef.current = analysis.run;
-	}, [analysis.run]);
+	async function fetchProfileContext(refresh: boolean) {
+		if (!cleanHandle) return;
+		setContextLoading(true);
+		setContextError(null);
+		try {
+			const response = await fetch(
+				profileContextUrl(cleanHandle, {
+					refresh,
+					...DEFAULT_PROFILE_ANALYSIS_LIMITS,
+				}),
+			);
+			if (!response.ok) throw new Error(await response.text());
+			const payload = (await response.json()) as {
+				context?: ProfileAnalysisContext;
+			};
+			if (!payload.context)
+				throw new Error("Profile fetch returned no context.");
+			setContext(payload.context);
+		} catch (error) {
+			setContextError(
+				error instanceof Error ? error.message : "Profile fetch failed",
+			);
+		} finally {
+			setContextLoading(false);
+		}
+	}
 
 	useEffect(() => {
 		if (cleanHandle && autoRunHandleRef.current !== cleanHandle) {
 			autoRunHandleRef.current = cleanHandle;
-			runAnalysisRef.current(false, cleanHandle);
+			void fetchProfileContext(false);
 		}
 	}, [cleanHandle]);
 
@@ -169,6 +197,22 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 								</a>
 								<button
 									className={profileHeaderButtonClass}
+									disabled={!cleanHandle || contextLoading}
+									onClick={() => void fetchProfileContext(true)}
+									type="button"
+								>
+									{contextLoading ? (
+										<Loader2
+											className="size-4 animate-spin"
+											strokeWidth={1.8}
+										/>
+									) : (
+										<RefreshCw className="size-4" strokeWidth={1.8} />
+									)}
+									Refresh
+								</button>
+								<button
+									className={profileHeaderButtonClass}
 									disabled={!cleanHandle || analysis.loading}
 									onClick={() => analysis.run(true, cleanHandle)}
 									type="button"
@@ -179,9 +223,9 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 											strokeWidth={1.8}
 										/>
 									) : (
-										<RefreshCw className="size-4" strokeWidth={1.8} />
+										<Sparkles className="size-4" strokeWidth={1.8} />
 									)}
-									Refresh
+									Analyze
 								</button>
 							</div>
 						</div>
@@ -210,19 +254,107 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 									</span>
 								</>
 							) : null}
-							<span>{formatProfileAnalysisCounts(analysis.context)}</span>
+							<span>{formatProfileAnalysisCounts(activeContext)}</span>
 						</div>
 					</div>
 				</div>
 			</header>
 
 			<div className="flex flex-col gap-5 px-4 py-5">
-				<ProfileAnalysisStatusLine analysis={analysis} />
-				<ProfileAnalysisOutput
-					analysis={analysis}
-					emptyLabel={`Preparing @${cleanHandle}.`}
-				/>
+				{contextLoading ? (
+					<div className="flex items-center gap-2 text-[13px] font-medium text-[var(--ink-soft)]">
+						<Loader2 className="size-4 animate-spin" strokeWidth={1.8} />
+						<span>Fetching @{cleanHandle} posts</span>
+					</div>
+				) : null}
+				{contextError ? (
+					<div className="rounded-[8px] border border-[var(--alert)] bg-[var(--alert-soft)] px-3 py-2 text-[14px] text-[var(--alert)]">
+						{contextError}
+					</div>
+				) : null}
+				<ProfilePostPreview context={activeContext} handle={cleanHandle} />
+				{analysis.loading || analysis.markdown || analysis.error ? (
+					<>
+						<ProfileAnalysisStatusLine analysis={analysis} />
+						<ProfileAnalysisOutput
+							analysis={analysis}
+							emptyLabel={`Analyzing @${cleanHandle}.`}
+						/>
+					</>
+				) : null}
 			</div>
 		</section>
+	);
+}
+
+function ProfilePostPreview({
+	context,
+	handle,
+}: {
+	context: ProfileAnalysisContext | null;
+	handle: string;
+}) {
+	if (!context) {
+		return (
+			<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-6 text-[14px] text-[var(--ink-soft)]">
+				Preparing @{handle}.
+			</div>
+		);
+	}
+	const tweets = context.tweets.slice(0, 35);
+	return (
+		<div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--panel)]">
+			<div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+				<div>
+					<h2 className="m-0 text-[16px] font-bold text-[var(--ink)]">
+						Fetched posts
+					</h2>
+					<p className="m-0 text-[13px] text-[var(--ink-soft)]">
+						{formatProfileAnalysisCounts(context)}
+					</p>
+				</div>
+				<a
+					className="rounded-full border border-[var(--line)] px-3 py-1.5 text-[13px] font-bold text-[var(--ink)] hover:bg-[var(--bg-hover)]"
+					href={`https://x.com/${encodeURIComponent(context.profile.handle)}`}
+					rel="noreferrer"
+					target="_blank"
+				>
+					Open profile
+				</a>
+			</div>
+			<div className="max-h-[62vh] overflow-y-auto overscroll-contain [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
+				{tweets.length > 0 ? (
+					tweets.map((tweet) => (
+						<article
+							className="border-b border-[var(--line)] px-4 py-3 last:border-b-0"
+							key={tweet.id}
+						>
+							<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--ink-soft)]">
+								<span>{new Date(tweet.createdAt).toLocaleString()}</span>
+								<span>likes {formatCompactNumber(tweet.likeCount)}</span>
+								<span>replies {formatCompactNumber(tweet.replyCount)}</span>
+								<a
+									className="font-semibold text-[var(--accent)] hover:underline"
+									href={tweet.url}
+									rel="noreferrer"
+									target="_blank"
+								>
+									Open on X
+								</a>
+							</div>
+							<TweetRichText
+								className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
+								entities={tweet.entities ?? {}}
+								text={tweet.text}
+							/>
+						</article>
+					))
+				) : (
+					<div className="px-4 py-8 text-center text-[14px] text-[var(--ink-soft)]">
+						No fetched posts for @{handle} yet.
+					</div>
+				)}
+			</div>
+		</div>
 	);
 }

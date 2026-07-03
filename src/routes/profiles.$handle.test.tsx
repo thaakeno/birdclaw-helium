@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ProfileAnalysisContext } from "#/lib/profile-analysis";
 import { ndjsonBody } from "#/test/ndjson";
 import { renderWithQueryClient as render } from "#/test/render";
 import { ProfileRouteView } from "./profiles.$handle";
@@ -9,7 +10,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function profileContext() {
+function profileContext(): ProfileAnalysisContext {
 	return {
 		handle: "steipete",
 		accountId: "account_steipete",
@@ -46,7 +47,21 @@ function profileContext() {
 			createdAt: "2009-03-19T22:54:05.000Z",
 		},
 		externalUserId: "123",
-		tweets: [],
+		profiles: [],
+		tweets: [
+			{
+				id: "tweet_profile_1",
+				url: "https://x.com/steipete/status/tweet_profile_1",
+				author: "steipete",
+				createdAt: "2026-05-31T12:00:00.000Z",
+				text: "Peter ships agent tools with practical taste.",
+				likeCount: 12,
+				replyCount: 3,
+				retweetCount: 2,
+				quoteCount: 1,
+				bookmarkedCount: 0,
+			},
+		],
 		conversations: [],
 		counts: {
 			tweets: 42,
@@ -61,7 +76,7 @@ function profileContext() {
 }
 
 describe("profile route", () => {
-	it("loads /profiles/:handle as a profile header with analysis", async () => {
+	it("loads /profiles/:handle as a profile header with fetched posts", async () => {
 		const context = profileContext();
 		const hydratedProfiles = [
 			{
@@ -110,8 +125,14 @@ describe("profile route", () => {
 				createdAt: "2009-01-01T00:00:00.000Z",
 			},
 		];
+		context.profiles = hydratedProfiles;
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(String(input), "http://localhost");
+			if (url.pathname === "/api/profile-context") {
+				return new Response(JSON.stringify({ ok: true, context }), {
+					headers: { "content-type": "application/json" },
+				});
+			}
 			if (url.pathname === "/api/profile-hydrate") {
 				return new Response(
 					JSON.stringify({
@@ -213,16 +234,13 @@ describe("profile route", () => {
 			const firstInput = calls[0]?.[0];
 			expect(firstInput).toBeDefined();
 			const url = new URL(String(firstInput), "http://localhost");
-			expect(url.pathname).toBe("/api/profile-analysis");
+			expect(url.pathname).toBe("/api/profile-context");
 			expect(url.searchParams.get("handle")).toBe("steipete");
 		});
-		const hydrateCall = fetchMock.mock.calls.find(([input]) =>
-			String(input).includes("/api/profile-hydrate"),
-		);
-		expect(hydrateCall).toBeDefined();
-		const hydrateUrl = new URL(String(hydrateCall?.[0]), "http://localhost");
-		expect(hydrateUrl.searchParams.get("handles")).toBe(
-			"openclaw,forbes,mit,microsoft,qantas",
-		);
+		expect(
+			fetchMock.mock.calls.some(([input]) =>
+				String(input).includes("/api/profile-analysis"),
+			),
+		).toBe(false);
 	});
 });
