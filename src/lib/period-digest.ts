@@ -966,13 +966,46 @@ function cachedDigestResult(
 	return {
 		context: enrichContextWithCitedTweets(context, digest),
 		digest,
-		markdown: cached.value.markdown,
+		markdown: safeDigestMarkdown(cached.value.markdown, digest),
 		model: cached.value.model,
 		reasoningEffort: cached.value.reasoningEffort,
 		serviceTier: cached.value.serviceTier,
 		cached: true,
 		updatedAt: cached.value.updatedAt ?? cached.updatedAt,
 	};
+}
+
+function looksLikeRawTweetIdDump(markdown: string) {
+	const normalized = markdown.trim();
+	if (!normalized) return true;
+	const withoutIds = normalized
+		.replace(/tweet_?\d{8,}/gi, "")
+		.replace(/\d{12,}/g, "")
+		.replace(/[`'",\s[\](){}:.-]/g, "");
+	return withoutIds.length < 24 && /\d{12,}/.test(normalized);
+}
+
+function safeDigestMarkdown(markdown: string, digest: PeriodDigest) {
+	if (!looksLikeRawTweetIdDump(markdown)) return markdown;
+	const sections = [
+		`# ${digest.title}`,
+		digest.summary,
+		...(digest.keyTopics.length > 0
+			? [
+					"## Key topics",
+					...digest.keyTopics.map(
+						(topic) => `- **${topic.title}:** ${topic.summary}`,
+					),
+				]
+			: []),
+		...(digest.actionItems.length > 0
+			? [
+					"## Action items",
+					...digest.actionItems.map((item) => `- ${item.label}`),
+				]
+			: []),
+	];
+	return sections.filter((section) => section.trim()).join("\n\n");
 }
 
 function isFreshDigestCache(updatedAt: string) {
@@ -1180,6 +1213,7 @@ function completeOpenAIStreamEffect(
 	handlers: PeriodDigestStreamHandlers,
 ): Effect.Effect<PeriodDigestRunResult, Error> {
 	return Effect.gen(function* () {
+		const markdown = safeDigestMarkdown(stream.markdown, stream.value);
 		const enrichedContext = yield* tryDigestSync(() =>
 			enrichContextWithCitedTweets(context, stream.value),
 		);
@@ -1187,7 +1221,7 @@ function completeOpenAIStreamEffect(
 		const updatedAt = yield* tryDigestSync(() =>
 			writeSyncCache(cacheKey, {
 				digest: stream.value,
-				markdown: stream.markdown,
+				markdown,
 				model: modelFromOptions(options),
 				reasoningEffort: reasoningEffortFromOptions(options),
 				serviceTier: serviceTierFromOptions(options),
@@ -1198,7 +1232,7 @@ function completeOpenAIStreamEffect(
 		const result: PeriodDigestRunResult = {
 			context: enrichedContext,
 			digest: stream.value,
-			markdown: stream.markdown,
+			markdown,
 			model: modelFromOptions(options),
 			reasoningEffort: reasoningEffortFromOptions(options),
 			serviceTier: serviceTierFromOptions(options),
@@ -1365,6 +1399,7 @@ export const __test__ = {
 	digestCacheKey,
 	languageFromOptions,
 	normalizeDigestLanguage,
+	safeDigestMarkdown,
 	readOpenAIStreamEffect,
 	parseDigestFromHybridText,
 	processSseChunk,

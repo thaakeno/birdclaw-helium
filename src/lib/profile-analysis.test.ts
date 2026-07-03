@@ -10,12 +10,15 @@ import { streamProfileAnalysis } from "./profile-analysis";
 import { listTimelineItems } from "./queries";
 
 const mocks = vi.hoisted(() => ({
+	getTransportStatusEffect: vi.fn(),
 	listUserTweetsEffect: vi.fn(),
 	lookupUsersByHandlesEffect: vi.fn(),
 	searchRecentByConversationIdEffect: vi.fn(),
 }));
 
 vi.mock("./xurl", () => ({
+	getTransportStatusEffect: (...args: unknown[]) =>
+		mocks.getTransportStatusEffect(...args),
 	listUserTweetsEffect: (...args: unknown[]) =>
 		mocks.listUserTweetsEffect(...args),
 	lookupUsersByHandlesEffect: (...args: unknown[]) =>
@@ -50,9 +53,13 @@ beforeEach(() => {
 	process.env.BIRDCLAW_PROFILE_ANALYSIS_CONVERSATION_DELAY_MS = "0";
 	process.env.BIRDCLAW_PROFILE_ANALYSIS_RATE_LIMIT_RETRY_MS = "0";
 	process.env.BIRDCLAW_PROFILE_ANALYSIS_RATE_LIMIT_MAX_RETRIES = "0";
+	mocks.getTransportStatusEffect.mockReset();
 	mocks.lookupUsersByHandlesEffect.mockReset();
 	mocks.listUserTweetsEffect.mockReset();
 	mocks.searchRecentByConversationIdEffect.mockReset();
+	mocks.getTransportStatusEffect.mockReturnValue(
+		Effect.succeed({ availableTransport: "xurl" }),
+	);
 	mocks.lookupUsersByHandlesEffect.mockReturnValue(
 		Effect.succeed([profileUser]),
 	);

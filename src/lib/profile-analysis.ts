@@ -36,6 +36,7 @@ import {
 	upsertProfileFromXUser,
 } from "./x-profile";
 import { recordXurlRateLimitEventSafe } from "./xurl-rate-limits";
+import { listUserTweetsViaBirdEffect } from "./bird";
 import type { XurlJsonCommandAttempt } from "./xurl";
 import {
 	listUserTweetsEffect,
@@ -912,16 +913,41 @@ export function collectProfileAnalysisContextEffect(
 		if (transport.availableTransport !== "xurl") {
 			emitStatus(handlers, "Resolving profile", `@${handle}`);
 			const profile = yield* resolveProfileLocallyOrViaBirdEffect(handle);
-			emitStatus(handlers, "Using local profile archive", `@${profile.handle}`);
-			const context = yield* tryProfileSync(() =>
-				buildLocalProfileContext({
-					account,
-					handle: profile.handle || handle,
-					profile,
-					maxTweets,
-					fetchCached: false,
-				}),
+			emitStatus(
+				handlers,
+				"Fetching profile tweets with Bird",
+				`@${profile.handle}`,
 			);
+			const birdPayload = yield* listUserTweetsViaBirdEffect({
+				handle: profile.handle || handle,
+				maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
+				all: maxPages > 1,
+				maxPages,
+			}).pipe(Effect.mapError(toError));
+			const externalUserId = getExternalUserId(profile.id) ?? profile.id;
+			const context =
+				birdPayload.data.length > 0
+					? buildContextFromPayloads({
+							account,
+							handle: profile.handle || handle,
+							profile,
+							externalUserId,
+							tweetResponses: [birdPayload],
+							conversationResponses: [],
+							conversationRoots: [],
+							tweetPages: Number(birdPayload.meta?.page_count ?? 1),
+							conversationPages: 0,
+							fetchCached: false,
+						})
+					: yield* tryProfileSync(() =>
+							buildLocalProfileContext({
+								account,
+								handle: profile.handle || handle,
+								profile,
+								maxTweets,
+								fetchCached: false,
+							}),
+						);
 			yield* tryProfileSync(() => writeSyncCache(contextKey, context, db));
 			return context;
 		}

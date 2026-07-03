@@ -885,6 +885,40 @@ export function listHomeTimelineViaBird(options: {
 	return runEffectPromise(listHomeTimelineViaBirdEffect(options));
 }
 
+export function listUserTweetsViaBirdEffect({
+	handle,
+	maxResults,
+	all,
+	maxPages,
+}: {
+	handle: string;
+	maxResults: number;
+	all?: boolean;
+	maxPages?: number;
+}): Effect.Effect<XurlMentionsResponse, unknown> {
+	return Effect.gen(function* () {
+		const args = ["user-tweets", handle, "-n", String(maxResults)];
+		if (all) {
+			args.push("--all");
+		}
+		if (maxPages !== undefined) {
+			args.push("--max-pages", String(maxPages));
+		}
+		const stdout = yield* runBirdTweetJsonCommandEffect(args);
+		const payload = yield* parseBirdJsonEffect(stdout);
+		return yield* normalizeBirdTweetsPayloadEffect(payload, "user-tweets");
+	});
+}
+
+export function listUserTweetsViaBird(options: {
+	handle: string;
+	maxResults: number;
+	all?: boolean;
+	maxPages?: number;
+}): Promise<XurlMentionsResponse> {
+	return runEffectPromise(listUserTweetsViaBirdEffect(options));
+}
+
 function normalizeBirdFollowUsers(
 	payload: unknown,
 	command: "followers" | "following",
