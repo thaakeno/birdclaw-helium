@@ -6,7 +6,8 @@ import {
 	Play,
 	X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import { createPortal } from "react-dom";
 import type { TweetMediaItem } from "#/lib/types";
 import { cx, tweetMediaGridClass, tweetMediaTileClass } from "#/lib/ui";
 
@@ -63,6 +64,26 @@ export function TweetMediaGrid({
 	if (items.length === 0) {
 		return null;
 	}
+
+	const modal =
+		selectedItem && typeof document !== "undefined"
+			? createPortal(
+					<MediaViewerModal
+						hasCarousel={hasCarousel}
+						items={visibleItems}
+						onClose={() => setSelectedIndex(null)}
+						onNext={showNext}
+						onPrevious={showPrevious}
+						onSelect={setSelectedIndex}
+						postUrl={postUrl}
+						selectedIndex={selectedIndex}
+						selectedItem={selectedItem}
+						selectedVideoUrl={selectedVideoUrl ?? null}
+						touchStartXRef={touchStartXRef}
+					/>,
+					document.body,
+				)
+			: null;
 
 	return (
 		<>
@@ -225,180 +246,208 @@ export function TweetMediaGrid({
 					})}
 				</div>
 			)}
-			{selectedItem ? (
-				<div
-					aria-modal="true"
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 backdrop-blur-xl sm:p-5"
-					onClick={(event) => {
-						event.stopPropagation();
-						setSelectedIndex(null);
-					}}
-					onTouchEnd={(event) => {
-						if (!hasCarousel || touchStartXRef.current === null) return;
-						const delta =
-							event.changedTouches[0]?.clientX ?? touchStartXRef.current;
-						const distance = delta - touchStartXRef.current;
-						touchStartXRef.current = null;
-						if (Math.abs(distance) < 42) return;
-						if (distance > 0) showPrevious();
-						else showNext();
-					}}
-					onTouchStart={(event) => {
-						touchStartXRef.current = event.touches[0]?.clientX ?? null;
-					}}
-					role="dialog"
-				>
+			{modal}
+		</>
+	);
+}
+
+function MediaViewerModal({
+	hasCarousel,
+	items,
+	onClose,
+	onNext,
+	onPrevious,
+	onSelect,
+	postUrl,
+	selectedIndex,
+	selectedItem,
+	selectedVideoUrl,
+	touchStartXRef,
+}: {
+	hasCarousel: boolean;
+	items: TweetMediaItem[];
+	onClose: () => void;
+	onNext: () => void;
+	onPrevious: () => void;
+	onSelect: (index: number) => void;
+	postUrl?: string;
+	selectedIndex: number | null;
+	selectedItem: TweetMediaItem;
+	selectedVideoUrl: string | null;
+	touchStartXRef: MutableRefObject<number | null>;
+}) {
+	return (
+		<div
+			aria-modal="true"
+			className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-xl sm:p-5"
+			onClick={(event) => {
+				event.stopPropagation();
+				onClose();
+			}}
+			onTouchEnd={(event) => {
+				if (!hasCarousel || touchStartXRef.current === null) return;
+				const delta =
+					event.changedTouches[0]?.clientX ?? touchStartXRef.current;
+				const distance = delta - touchStartXRef.current;
+				touchStartXRef.current = null;
+				if (Math.abs(distance) < 42) return;
+				if (distance > 0) onPrevious();
+				else onNext();
+			}}
+			onTouchStart={(event) => {
+				touchStartXRef.current = event.touches[0]?.clientX ?? null;
+			}}
+			role="dialog"
+		>
+			<button
+				aria-label="Close media viewer"
+				className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+				onClick={(event) => {
+					event.stopPropagation();
+					onClose();
+				}}
+				type="button"
+			>
+				<X className="size-5" strokeWidth={1.8} />
+			</button>
+			{hasCarousel ? (
+				<>
 					<button
-						aria-label="Close media viewer"
-						className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+						aria-label="Previous media"
+						className="absolute left-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
 						onClick={(event) => {
 							event.stopPropagation();
-							setSelectedIndex(null);
+							onPrevious();
 						}}
 						type="button"
 					>
-						<X className="size-5" strokeWidth={1.8} />
+						<ChevronLeft className="size-6" strokeWidth={2} />
 					</button>
-					{hasCarousel ? (
-						<>
-							<button
-								aria-label="Previous media"
-								className="absolute left-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
-								onClick={(event) => {
-									event.stopPropagation();
-									showPrevious();
-								}}
-								type="button"
-							>
-								<ChevronLeft className="size-6" strokeWidth={2} />
-							</button>
-							<button
-								aria-label="Next media"
-								className="absolute right-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
-								onClick={(event) => {
-									event.stopPropagation();
-									showNext();
-								}}
-								type="button"
-							>
-								<ChevronRight className="size-6" strokeWidth={2} />
-							</button>
-						</>
-					) : null}
-					{selectedItem.type === "image" ? (
-						<div
-							className="grid max-h-[94vh] max-w-[96vw] gap-3"
-							onClick={(event) => event.stopPropagation()}
-						>
-							<img
-								alt={selectedItem.altText ?? "Tweet media"}
-								className="max-h-[84vh] max-w-[96vw] rounded-xl object-contain shadow-2xl"
-								src={selectedItem.url}
-							/>
-							{postUrl ? (
-								<div className="flex justify-center">
-									<a
-										className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-										href={postUrl}
-										rel="noreferrer"
-										target="_blank"
-									>
-										Open post
-									</a>
-								</div>
-							) : null}
-						</div>
-					) : selectedVideoUrl ? (
-						<div
-							className="grid max-h-[94vh] max-w-[96vw] gap-3"
-							onClick={(event) => event.stopPropagation()}
-						>
-							<video
-								autoPlay={selectedItem.type === "gif"}
-								className="max-h-[84vh] max-w-[96vw] rounded-xl bg-black object-contain shadow-2xl"
-								controls
-								loop={selectedItem.type === "gif"}
-								muted={selectedItem.type === "gif"}
-								playsInline
-								poster={selectedItem.thumbnailUrl}
-								preload="metadata"
-							>
-								<source
-									src={browserVideoUrl(selectedVideoUrl)}
-									type={videoContentType(selectedVideoUrl)}
-								/>
-							</video>
-							<MediaDialogLinks postUrl={postUrl} videoUrl={selectedVideoUrl} />
-						</div>
-					) : (
-						<div
-							className="grid min-h-64 min-w-80 place-items-center gap-3 rounded-2xl border border-white/20 bg-black p-6 text-white"
-							onClick={(event) => event.stopPropagation()}
-						>
-							<span>
-								{selectedItem.type === "video"
-									? "Video"
-									: selectedItem.type === "gif"
-										? "GIF"
-										: "Media"}
-							</span>
+					<button
+						aria-label="Next media"
+						className="absolute right-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+						onClick={(event) => {
+							event.stopPropagation();
+							onNext();
+						}}
+						type="button"
+					>
+						<ChevronRight className="size-6" strokeWidth={2} />
+					</button>
+				</>
+			) : null}
+			{selectedItem.type === "image" ? (
+				<div
+					className="grid max-h-[94vh] max-w-[96vw] gap-3"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<img
+						alt={selectedItem.altText ?? "Tweet media"}
+						className="max-h-[84vh] max-w-[96vw] rounded-xl object-contain shadow-2xl"
+						src={selectedItem.url}
+					/>
+					{postUrl ? (
+						<div className="flex justify-center">
 							<a
 								className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-								href={selectedItem.url}
+								href={postUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
-								Open media
+								Open post
 							</a>
-							{postUrl ? (
-								<a
-									className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-									href={postUrl}
-									rel="noreferrer"
-									target="_blank"
-								>
-									Open post
-								</a>
-							) : null}
-						</div>
-					)}
-					{hasCarousel ? (
-						<div
-							className="absolute bottom-4 left-1/2 flex max-w-[92vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
-							onClick={(event) => event.stopPropagation()}
-						>
-							{visibleItems.map((item, index) => (
-								<button
-									aria-label={`Show media ${String(index + 1)}`}
-									aria-pressed={selectedIndex === index}
-									className={cx(
-										"relative size-12 shrink-0 overflow-hidden rounded-md ring-2 transition-transform hover:scale-105",
-										selectedIndex === index
-											? "ring-white"
-											: "ring-white/20 opacity-75",
-									)}
-									key={`${item.url}:${String(index)}`}
-									onClick={() => setSelectedIndex(index)}
-									type="button"
-								>
-									{mediaPreviewUrl(item) ? (
-										<img
-											alt=""
-											className="size-full object-cover"
-											src={mediaPreviewUrl(item)}
-										/>
-									) : (
-										<span className="grid size-full place-items-center bg-white/10 text-[10px] font-bold text-white">
-											{item.type}
-										</span>
-									)}
-								</button>
-							))}
 						</div>
 					) : null}
 				</div>
+			) : selectedVideoUrl ? (
+				<div
+					className="grid max-h-[94vh] max-w-[96vw] gap-3"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<video
+						autoPlay={selectedItem.type === "gif"}
+						className="max-h-[84vh] max-w-[96vw] rounded-xl bg-black object-contain shadow-2xl"
+						controls
+						loop={selectedItem.type === "gif"}
+						muted={selectedItem.type === "gif"}
+						playsInline
+						poster={selectedItem.thumbnailUrl}
+						preload="metadata"
+					>
+						<source
+							src={browserVideoUrl(selectedVideoUrl)}
+							type={videoContentType(selectedVideoUrl)}
+						/>
+					</video>
+					<MediaDialogLinks postUrl={postUrl} videoUrl={selectedVideoUrl} />
+				</div>
+			) : (
+				<div
+					className="grid min-h-64 min-w-80 place-items-center gap-3 rounded-2xl border border-white/20 bg-black p-6 text-white"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<span>
+						{selectedItem.type === "video"
+							? "Video"
+							: selectedItem.type === "gif"
+								? "GIF"
+								: "Media"}
+					</span>
+					<a
+						className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+						href={selectedItem.url}
+						rel="noreferrer"
+						target="_blank"
+					>
+						Open media
+					</a>
+					{postUrl ? (
+						<a
+							className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+							href={postUrl}
+							rel="noreferrer"
+							target="_blank"
+						>
+							Open post
+						</a>
+					) : null}
+				</div>
+			)}
+			{hasCarousel ? (
+				<div
+					className="absolute bottom-4 left-1/2 flex max-w-[92vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
+					onClick={(event) => event.stopPropagation()}
+				>
+					{items.map((item, index) => (
+						<button
+							aria-label={`Show media ${String(index + 1)}`}
+							aria-pressed={selectedIndex === index}
+							className={cx(
+								"relative size-12 shrink-0 overflow-hidden rounded-md ring-2 transition-transform hover:scale-105",
+								selectedIndex === index
+									? "ring-white"
+									: "ring-white/20 opacity-75",
+							)}
+							key={`${item.url}:${String(index)}`}
+							onClick={() => onSelect(index)}
+							type="button"
+						>
+							{mediaPreviewUrl(item) ? (
+								<img
+									alt=""
+									className="size-full object-cover"
+									src={mediaPreviewUrl(item)}
+								/>
+							) : (
+								<span className="grid size-full place-items-center bg-white/10 text-[10px] font-bold text-white">
+									{item.type}
+								</span>
+							)}
+						</button>
+					))}
+				</div>
 			) : null}
-		</>
+		</div>
 	);
 }
 

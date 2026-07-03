@@ -71,23 +71,28 @@ describe("TweetMediaGrid", () => {
 		);
 	});
 
-	it("opens images in an inline viewer", () => {
-		render(
-			<TweetMediaGrid
-				items={[
-					{
-						url: "https://example.com/one.jpg",
-						type: "image",
-						width: 1200,
-						height: 800,
-					},
-				]}
-			/>,
+	it("opens images in a document-level modal viewer", () => {
+		const { container } = render(
+			<div data-testid="clipping-parent">
+				<TweetMediaGrid
+					items={[
+						{
+							url: "https://example.com/one.jpg",
+							type: "image",
+							width: 1200,
+							height: 800,
+						},
+					]}
+				/>
+			</div>,
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		const dialog = screen.getByRole("dialog");
+		expect(dialog).toBeInTheDocument();
+		expect(container).not.toContainElement(dialog);
+		expect(dialog.parentElement).toBe(document.body);
 		expect(screen.getByRole("img", { name: "Tweet media" })).toHaveAttribute(
 			"src",
 			"https://example.com/one.jpg",
@@ -118,7 +123,7 @@ describe("TweetMediaGrid", () => {
 	});
 
 	it("opens video media inline", () => {
-		const { container } = render(
+		render(
 			<TweetMediaGrid
 				postUrl="https://x.com/alice/status/1"
 				items={[
@@ -139,12 +144,12 @@ describe("TweetMediaGrid", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
-		const video = container.querySelector("video");
+		const video = document.querySelector("video");
 		expect(video).toHaveAttribute(
 			"poster",
 			"https://pbs.twimg.com/video-thumb.jpg",
 		);
-		expect(container.querySelector("video source")).toHaveAttribute(
+		expect(document.querySelector("video source")).toHaveAttribute(
 			"src",
 			"/api/video?url=https%3A%2F%2Fvideo.twimg.com%2Fclip.mp4",
 		);
@@ -161,7 +166,7 @@ describe("TweetMediaGrid", () => {
 	});
 
 	it("opens direct video CDN URLs inline without a variant", () => {
-		const { container } = render(
+		render(
 			<TweetMediaGrid
 				items={[
 					{
@@ -174,14 +179,14 @@ describe("TweetMediaGrid", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
-		expect(container.querySelector("video source")).toHaveAttribute(
+		expect(document.querySelector("video source")).toHaveAttribute(
 			"src",
 			"/api/video?url=https%3A%2F%2Fvideo.twimg.com%2Fext_tw_video%2Fclip.mp4",
 		);
 	});
 
 	it("opens gif mp4 fallbacks inline as looping muted video", () => {
-		const { container } = render(
+		render(
 			<TweetMediaGrid
 				items={[
 					{
@@ -194,8 +199,8 @@ describe("TweetMediaGrid", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Open tweet media 1" }));
 
-		const video = container.querySelector("video");
-		expect(container.querySelector("video source")).toHaveAttribute(
+		const video = document.querySelector("video");
+		expect(document.querySelector("video source")).toHaveAttribute(
 			"src",
 			"/media/demo.mp4",
 		);
