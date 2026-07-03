@@ -140,6 +140,22 @@ export function profileAnalysisUrl(
 	return `/api/profile-analysis?${params.toString()}`;
 }
 
+export function profileContextUrl(
+	handle: string,
+	options: ProfileAnalysisRequestOptions,
+) {
+	const params = new URLSearchParams();
+	params.set("handle", handle);
+	params.set("maxTweets", String(options.maxTweets));
+	params.set("maxPages", String(options.maxPages));
+	params.set("maxConversations", String(options.maxConversations));
+	params.set("maxConversationPages", String(options.maxConversationPages));
+	if (options.refresh) {
+		params.set("refresh", "true");
+	}
+	return `/api/profile-context?${params.toString()}`;
+}
+
 export async function profileAnalysisRequestError(response: Response) {
 	return responseError(response, { label: "Profile analysis failed" });
 }
@@ -147,9 +163,9 @@ export async function profileAnalysisRequestError(response: Response) {
 export function formatProfileAnalysisCounts(
 	context: ProfileAnalysisContext | null,
 ) {
-	if (!context) return "xurl profile backfill with cached AI analysis.";
+	if (!context) return "Fetch profile posts locally, then optionally analyze.";
 	return [
-		context.fetchCached ? "cached backfill" : "fresh xurl backfill",
+		context.fetchCached ? "cached backfill" : "fresh backfill",
 		`${String(context.counts.tweets)} tweets`,
 		`${String(context.counts.conversationTweets)} conversation tweets`,
 		`${String(context.counts.conversationsScanned)} conversations`,

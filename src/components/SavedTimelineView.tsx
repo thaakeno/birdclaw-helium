@@ -83,6 +83,7 @@ export function SavedTimelineView({
 	const [quotedOnly, setQuotedOnly] = useState(false);
 	const [originalsOnly, setOriginalsOnly] = useState(false);
 	const [author, setAuthor] = useState("");
+	const [syncMaxPages, setSyncMaxPages] = useState(5);
 	const {
 		meta,
 		items,
@@ -149,13 +150,33 @@ export function SavedTimelineView({
 						</>
 					}
 					action={
-						<SyncNowButton
-							accounts={meta?.accounts}
-							kind={syncKind}
-							label={filter === "liked" ? "Sync likes" : "Sync bookmarks"}
-							syncOptions={{ allPages: true, limit: 100, maxPages: 5 }}
-							onSynced={refreshLocalView}
-						/>
+						<div className="flex flex-wrap items-center justify-end gap-2">
+							<select
+								aria-label="Sync page depth"
+								className={cx(selectFieldClass, "h-9 w-[120px]!")}
+								onChange={(event) =>
+									setSyncMaxPages(Number(event.target.value))
+								}
+								title="More pages fetch more history but hits X harder"
+								value={syncMaxPages}
+							>
+								<option value={5}>5 pages</option>
+								<option value={25}>25 pages</option>
+								<option value={100}>100 pages</option>
+								<option value={250}>250 pages</option>
+							</select>
+							<SyncNowButton
+								accounts={meta?.accounts}
+								kind={syncKind}
+								label={filter === "liked" ? "Sync likes" : "Sync bookmarks"}
+								syncOptions={{
+									allPages: true,
+									limit: 100,
+									maxPages: syncMaxPages,
+								}}
+								onSynced={refreshLocalView}
+							/>
+						</div>
 					}
 					controls={
 						<div className="flex flex-col gap-2 px-4 pb-3">
