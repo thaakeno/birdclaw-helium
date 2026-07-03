@@ -327,12 +327,12 @@ describe("TimelineCard", () => {
 		);
 		expect(
 			within(first as HTMLElement).getByRole("button", {
-				name: "Hide conversation",
+				name: "Hide local thread",
 			}),
 		).toHaveAttribute("aria-expanded", "true");
 		expect(
 			within(second as HTMLElement).getByRole("button", {
-				name: "Show conversation",
+				name: "Show local thread",
 			}),
 		).toHaveAttribute("aria-expanded", "false");
 		expect(
@@ -989,7 +989,7 @@ describe("TimelineCard", () => {
 
 		expect(fetchMock).toHaveBeenCalledWith("/api/conversation?tweetId=tweet_1");
 		expect(await screen.findByText("Parent in thread")).toBeInTheDocument();
-		expect(screen.getByText("2 tweets in conversation")).toBeInTheDocument();
+		expect(screen.getByText("2 tweets in local thread")).toBeInTheDocument();
 		expect(screen.getByText("selected")).toBeInTheDocument();
 	});
 

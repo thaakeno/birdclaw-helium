@@ -5,15 +5,18 @@ import { cx, tweetMediaGridClass, tweetMediaTileClass } from "#/lib/ui";
 
 export function TweetMediaGrid({
 	items,
+	onHydrateVideo,
 	postUrl,
 }: {
 	items: TweetMediaItem[];
+	onHydrateVideo?: () => Promise<void> | void;
 	postUrl?: string;
 }) {
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [failedVideoUrls, setFailedVideoUrls] = useState<Set<string>>(
 		() => new Set(),
 	);
+	const [hydratingVideo, setHydratingVideo] = useState(false);
 	if (items.length === 0) {
 		return null;
 	}
@@ -26,9 +29,21 @@ export function TweetMediaGrid({
 			? playableVideoUrlForItem(selectedItem)
 			: null;
 	const singleImage =
-		visibleItems.length === 1 && visibleItems[0]?.type === "image"
+		visibleItems.length === 1 &&
+		visibleItems[0]?.type === "image" &&
+		!isVideoLikeMedia(visibleItems[0])
 			? visibleItems[0]
 			: null;
+
+	async function hydrateVideo() {
+		if (!onHydrateVideo || hydratingVideo) return;
+		setHydratingVideo(true);
+		try {
+			await onHydrateVideo();
+		} finally {
+			setHydratingVideo(false);
+		}
+	}
 
 	return (
 		<>
@@ -72,10 +87,9 @@ export function TweetMediaGrid({
 										aspectRatio: `${String(item.width)} / ${String(item.height)}`,
 									}
 								: undefined;
-						const directVideoUrl =
-							itemLooksLikeVideo
-								? playableVideoUrlForItem(item)
-								: null;
+						const directVideoUrl = itemLooksLikeVideo
+							? playableVideoUrlForItem(item)
+							: null;
 						const videoUrl = directVideoUrl
 							? browserVideoUrl(directVideoUrl)
 							: null;
@@ -129,10 +143,21 @@ export function TweetMediaGrid({
 						return (
 							<button
 								key={item.url + String(index)}
-								aria-label={`Open tweet media ${String(index + 1)}`}
-								className={tweetMediaTileClass(index, Math.min(items.length, 4))}
+								aria-label={
+									itemLooksLikeVideo && !directVideoUrl && onHydrateVideo
+										? `Fetch tweet video ${String(index + 1)}`
+										: `Open tweet media ${String(index + 1)}`
+								}
+								className={tweetMediaTileClass(
+									index,
+									Math.min(items.length, 4),
+								)}
 								onClick={(event) => {
 									event.stopPropagation();
+									if (itemLooksLikeVideo && !directVideoUrl && onHydrateVideo) {
+										void hydrateVideo();
+										return;
+									}
 									setSelectedIndex(index);
 								}}
 								style={tileStyle}
@@ -165,6 +190,13 @@ export function TweetMediaGrid({
 										</span>
 										<span className="sr-only">
 											{item.type === "gif" ? "GIF" : "Video"}
+										</span>
+									</span>
+								) : null}
+								{itemLooksLikeVideo && !directVideoUrl && onHydrateVideo ? (
+									<span className="absolute inset-x-2 bottom-2 flex justify-center">
+										<span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[13px] font-bold text-white shadow-lg ring-1 ring-white/20">
+											{hydratingVideo ? "Fetching video" : "Fetch video"}
 										</span>
 									</span>
 								) : null}
@@ -340,11 +372,7 @@ function MediaTileActions({
 					rel="noreferrer"
 					target="_blank"
 				>
-					<ExternalLink
-						aria-hidden="true"
-						className="size-4"
-						strokeWidth={2}
-					/>
+					<ExternalLink aria-hidden="true" className="size-4" strokeWidth={2} />
 				</a>
 			) : null}
 		</div>
@@ -395,7 +423,10 @@ function playableVideoUrlForItem(item: TweetMediaItem) {
 
 function isVideoLikeMedia(item: TweetMediaItem) {
 	if (item.type === "video" || item.type === "gif") return true;
-	return looksLikeVideoThumbnail(item.url) || looksLikeVideoThumbnail(item.thumbnailUrl);
+	return (
+		looksLikeVideoThumbnail(item.url) ||
+		looksLikeVideoThumbnail(item.thumbnailUrl)
+	);
 }
 
 function looksLikeVideoThumbnail(url: string | undefined) {
