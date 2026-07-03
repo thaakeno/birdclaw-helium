@@ -5,6 +5,7 @@ import {
 	ExternalLink,
 	FileDown,
 	Loader2,
+	PlayCircle,
 	RefreshCw,
 	Sparkles,
 } from "lucide-react";
@@ -52,6 +53,7 @@ import {
 	pageHeaderRowClass,
 	pageSubtitleClass,
 	pageTitleClass,
+	primaryButtonClass,
 	secondaryButtonClass,
 	segmentAccentActiveClass,
 	segmentClass,
@@ -480,13 +482,17 @@ function DigestReport({
 	);
 }
 
-function useDigestStream(period: PeriodOption, includeDms: boolean) {
+function useDigestStream(
+	period: PeriodOption,
+	includeDms: boolean,
+	autoDigest: boolean,
+) {
 	const queryClient = useQueryClient();
 	const [markdown, setMarkdown] = useState("");
 	const [context, setContext] = useState<PeriodDigestContext | null>(null);
 	const [result, setResult] = useState<PeriodDigestRunResult | null>(null);
-	const [status, setStatus] = useState("Starting digest");
-	const latestStatusRef = useRef("Starting digest");
+	const [status, setStatus] = useState("Ready");
+	const latestStatusRef = useRef("Ready");
 
 	const onStart = useCallback(() => {
 		setMarkdown("");
@@ -524,6 +530,13 @@ function useDigestStream(period: PeriodOption, includeDms: boolean) {
 		}
 	}, []);
 	const onError = useCallback(() => setStatus("Digest failed"), []);
+	const resetIdle = useCallback(() => {
+		setMarkdown("");
+		setContext(null);
+		setResult(null);
+		setStatus("Ready");
+		latestStatusRef.current = "Ready";
+	}, []);
 	const prematureEofError = useCallback(
 		() =>
 			new Error(
@@ -550,8 +563,12 @@ function useDigestStream(period: PeriodOption, includeDms: boolean) {
 	});
 
 	useEffect(() => {
-		run(false);
-	}, [run]);
+		if (autoDigest) {
+			run(false);
+			return;
+		}
+		resetIdle();
+	}, [autoDigest, run, resetIdle]);
 
 	useEffect(() => {
 		if (!result) return;
@@ -634,9 +651,9 @@ export function TodayRouteView({
 	const searchState = controlledSearch ?? localSearch;
 	const updateSearch: RouteSearchChange<TodayRouteSearch> = (next, options) =>
 		onSearchChange ? onSearchChange(next, options) : setLocalSearch(next);
-	const { period, includeDms } = searchState;
+	const { period, includeDms, autoDigest } = searchState;
 	const { context, error, loading, markdown, result, run, status } =
-		useDigestStream(period, includeDms);
+		useDigestStream(period, includeDms, autoDigest);
 	useEffect(() => {
 		const root = document.documentElement;
 		root.classList.add("today-pdf-route");
@@ -672,6 +689,16 @@ export function TodayRouteView({
 						<p className={pageSubtitleClass}>{sourceLabel}</p>
 					</div>
 					<div className={cx("today-screen-only", pageHeaderActionsClass)}>
+						{!loading && !markdown ? (
+							<button
+								type="button"
+								className={primaryButtonClass}
+								onClick={() => run(false)}
+							>
+								<PlayCircle className="size-4" aria-hidden="true" />
+								Start digest
+							</button>
+						) : null}
 						{canExportPdf ? (
 							<button
 								type="button"
@@ -739,6 +766,19 @@ export function TodayRouteView({
 						/>
 						DMs
 					</label>
+					<label className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] px-3 py-1 text-[13px] font-medium text-[var(--ink-soft)]">
+						<input
+							type="checkbox"
+							checked={autoDigest}
+							onChange={(event) =>
+								updateSearch({
+									...searchState,
+									autoDigest: event.currentTarget.checked,
+								})
+							}
+						/>
+						Auto digest
+					</label>
 				</div>
 			</header>
 
@@ -792,7 +832,7 @@ export function TodayRouteView({
 						? status
 						: error
 							? "No digest was generated. Retry to start a new run."
-							: "Waiting for the first tokens..."}
+							: "Start a digest to summarize this period."}
 				</div>
 			)}
 		</div>

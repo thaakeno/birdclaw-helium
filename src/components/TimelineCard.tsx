@@ -541,23 +541,27 @@ export function TimelineCard({
 							</span>
 							<span className="text-[13px]">Open on X</span>
 						</a>
-						{displayReplyCount > 0 || displayLocalReplyCount > 0 ? (
-							<span
-								aria-label={`${formatCompactNumber(displayReplyCount || displayLocalReplyCount)} comments`}
-								className="inline-flex items-center gap-1 px-2 py-1 text-[13px]"
-								title={
-									displayLocalReplyCount > 0
+						<span
+							aria-label={`${formatCompactNumber(displayReplyCount || displayLocalReplyCount)} comments`}
+							className="inline-flex items-center gap-1 px-2 py-1 text-[13px]"
+							title={
+								displayReplyCount > 0
+									? `${formatCompactNumber(displayReplyCount)} comments reported by X`
+									: displayLocalReplyCount > 0
 										? `${formatCompactNumber(displayLocalReplyCount)} archived locally`
-										: `${formatCompactNumber(displayReplyCount)} comments reported by X`
-								}
-							>
-								<MessageCircle
-									className={feedActionIconClass}
-									strokeWidth={1.7}
-								/>
-								<span>{formatCompactNumber(displayReplyCount || displayLocalReplyCount)}</span>
+										: "No reply count available locally"
+							}
+						>
+							<MessageCircle
+								className={feedActionIconClass}
+								strokeWidth={1.7}
+							/>
+							<span>
+								{formatCompactNumber(
+									displayReplyCount || displayLocalReplyCount,
+								)}
 							</span>
-						) : null}
+						</span>
 						{canReply ? (
 							<button
 								className={feedActionButtonClass}

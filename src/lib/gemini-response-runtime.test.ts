@@ -112,12 +112,16 @@ describe("Gemini response runtime", () => {
 		).rejects.toThrow("GEMINI_API_KEY");
 
 		process.env.GEMINI_API_KEY = "test";
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockResolvedValue(new Response("bad request", { status: 400 })),
-		);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(new Response("bad request", { status: 400 }));
+		vi.stubGlobal("fetch", fetchMock);
 		await expect(
 			Effect.runPromise(requestGeminiResponseEffect({ body: {} })),
 		).rejects.toThrow("400 bad request");
+		const requestBody = JSON.parse(
+			String((fetchMock.mock.calls[0]?.[1] as RequestInit).body),
+		) as { tools?: unknown };
+		expect(requestBody.tools).toEqual([{ google_search: {} }]);
 	});
 });

@@ -152,6 +152,7 @@ describe("today route", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByLabelText("Auto digest"));
 
 		expect(
 			await screen.findByRole("heading", { name: "Today", level: 1 }),
@@ -267,6 +268,7 @@ describe("today route", () => {
 		);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByRole("button", { name: "Start digest" }));
 
 		await screen.findByRole("heading", { name: "Today", level: 1 });
 		const exportButton = screen.getByRole("button", { name: "Export PDF" });
@@ -291,6 +293,7 @@ describe("today route", () => {
 		);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByRole("button", { name: "Start digest" }));
 
 		await screen.findByRole("heading", { name: "Partial digest", level: 1 });
 		await screen.findByRole("alert");
@@ -318,6 +321,7 @@ describe("today route", () => {
 		);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByRole("button", { name: "Start digest" }));
 
 		expect(
 			await screen.findByText(
@@ -333,6 +337,7 @@ describe("today route", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByRole("button", { name: "Start digest" }));
 
 		expect(
 			await screen.findByText(
@@ -383,6 +388,7 @@ describe("today route", () => {
 		);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByRole("button", { name: "Start digest" }));
 
 		expect(
 			await screen.findAllByText("Fetching home timeline from X"),
@@ -419,6 +425,7 @@ describe("today route", () => {
 		);
 
 		render(<TodayRoute />);
+		fireEvent.click(screen.getByRole("button", { name: "Start digest" }));
 
 		expect(await screen.findByText("model failed")).toBeInTheDocument();
 	});

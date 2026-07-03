@@ -1,5 +1,12 @@
-import { ExternalLink, Maximize2, Play, X } from "lucide-react";
-import { useState } from "react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	ExternalLink,
+	Maximize2,
+	Play,
+	X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { TweetMediaItem } from "#/lib/types";
 import { cx, tweetMediaGridClass, tweetMediaTileClass } from "#/lib/ui";
 
@@ -14,10 +21,7 @@ export function TweetMediaGrid({
 	const [failedVideoUrls, setFailedVideoUrls] = useState<Set<string>>(
 		() => new Set(),
 	);
-	if (items.length === 0) {
-		return null;
-	}
-
+	const touchStartXRef = useRef<number | null>(null);
 	const visibleItems = items.slice(0, 4);
 	const selectedItem =
 		selectedIndex === null ? null : (visibleItems[selectedIndex] ?? null);
@@ -25,10 +29,40 @@ export function TweetMediaGrid({
 		selectedItem?.type === "video" || selectedItem?.type === "gif"
 			? playableVideoUrlForItem(selectedItem)
 			: null;
+	const hasCarousel = visibleItems.length > 1;
+	const showPrevious = () =>
+		setSelectedIndex((current) =>
+			current === null
+				? null
+				: (current - 1 + visibleItems.length) % visibleItems.length,
+		);
+	const showNext = () =>
+		setSelectedIndex((current) =>
+			current === null ? null : (current + 1) % visibleItems.length,
+		);
 	const singleImage =
 		visibleItems.length === 1 && visibleItems[0]?.type === "image"
 			? visibleItems[0]
 			: null;
+
+	useEffect(() => {
+		if (selectedIndex === null) return;
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				setSelectedIndex(null);
+			} else if (event.key === "ArrowLeft" && hasCarousel) {
+				showPrevious();
+			} else if (event.key === "ArrowRight" && hasCarousel) {
+				showNext();
+			}
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, [hasCarousel, selectedIndex, visibleItems.length]);
+
+	if (items.length === 0) {
+		return null;
+	}
 
 	return (
 		<>
@@ -72,10 +106,9 @@ export function TweetMediaGrid({
 										aspectRatio: `${String(item.width)} / ${String(item.height)}`,
 									}
 								: undefined;
-						const directVideoUrl =
-							itemLooksLikeVideo
-								? playableVideoUrlForItem(item)
-								: null;
+						const directVideoUrl = itemLooksLikeVideo
+							? playableVideoUrlForItem(item)
+							: null;
 						const videoUrl = directVideoUrl
 							? browserVideoUrl(directVideoUrl)
 							: null;
@@ -130,7 +163,10 @@ export function TweetMediaGrid({
 							<button
 								key={item.url + String(index)}
 								aria-label={`Open tweet media ${String(index + 1)}`}
-								className={tweetMediaTileClass(index, Math.min(items.length, 4))}
+								className={tweetMediaTileClass(
+									index,
+									Math.min(items.length, 4),
+								)}
 								onClick={(event) => {
 									event.stopPropagation();
 									setSelectedIndex(index);
@@ -192,10 +228,23 @@ export function TweetMediaGrid({
 			{selectedItem ? (
 				<div
 					aria-modal="true"
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-5"
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 backdrop-blur-xl sm:p-5"
 					onClick={(event) => {
 						event.stopPropagation();
 						setSelectedIndex(null);
+					}}
+					onTouchEnd={(event) => {
+						if (!hasCarousel || touchStartXRef.current === null) return;
+						const delta =
+							event.changedTouches[0]?.clientX ?? touchStartXRef.current;
+						const distance = delta - touchStartXRef.current;
+						touchStartXRef.current = null;
+						if (Math.abs(distance) < 42) return;
+						if (distance > 0) showPrevious();
+						else showNext();
+					}}
+					onTouchStart={(event) => {
+						touchStartXRef.current = event.touches[0]?.clientX ?? null;
 					}}
 					role="dialog"
 				>
@@ -210,14 +259,40 @@ export function TweetMediaGrid({
 					>
 						<X className="size-5" strokeWidth={1.8} />
 					</button>
+					{hasCarousel ? (
+						<>
+							<button
+								aria-label="Previous media"
+								className="absolute left-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+								onClick={(event) => {
+									event.stopPropagation();
+									showPrevious();
+								}}
+								type="button"
+							>
+								<ChevronLeft className="size-6" strokeWidth={2} />
+							</button>
+							<button
+								aria-label="Next media"
+								className="absolute right-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+								onClick={(event) => {
+									event.stopPropagation();
+									showNext();
+								}}
+								type="button"
+							>
+								<ChevronRight className="size-6" strokeWidth={2} />
+							</button>
+						</>
+					) : null}
 					{selectedItem.type === "image" ? (
 						<div
-							className="grid max-h-[92vh] max-w-[94vw] gap-3"
+							className="grid max-h-[94vh] max-w-[96vw] gap-3"
 							onClick={(event) => event.stopPropagation()}
 						>
 							<img
 								alt={selectedItem.altText ?? "Tweet media"}
-								className="max-h-[88vh] max-w-[94vw] rounded-xl object-contain"
+								className="max-h-[84vh] max-w-[96vw] rounded-xl object-contain shadow-2xl"
 								src={selectedItem.url}
 							/>
 							{postUrl ? (
@@ -235,12 +310,12 @@ export function TweetMediaGrid({
 						</div>
 					) : selectedVideoUrl ? (
 						<div
-							className="grid max-h-[92vh] max-w-[92vw] gap-3"
+							className="grid max-h-[94vh] max-w-[96vw] gap-3"
 							onClick={(event) => event.stopPropagation()}
 						>
 							<video
 								autoPlay={selectedItem.type === "gif"}
-								className="max-h-[88vh] max-w-[94vw] rounded-xl bg-black"
+								className="max-h-[84vh] max-w-[96vw] rounded-xl bg-black object-contain shadow-2xl"
 								controls
 								loop={selectedItem.type === "gif"}
 								muted={selectedItem.type === "gif"}
@@ -287,6 +362,40 @@ export function TweetMediaGrid({
 							) : null}
 						</div>
 					)}
+					{hasCarousel ? (
+						<div
+							className="absolute bottom-4 left-1/2 flex max-w-[92vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
+							onClick={(event) => event.stopPropagation()}
+						>
+							{visibleItems.map((item, index) => (
+								<button
+									aria-label={`Show media ${String(index + 1)}`}
+									aria-pressed={selectedIndex === index}
+									className={cx(
+										"relative size-12 shrink-0 overflow-hidden rounded-md ring-2 transition-transform hover:scale-105",
+										selectedIndex === index
+											? "ring-white"
+											: "ring-white/20 opacity-75",
+									)}
+									key={`${item.url}:${String(index)}`}
+									onClick={() => setSelectedIndex(index)}
+									type="button"
+								>
+									{mediaPreviewUrl(item) ? (
+										<img
+											alt=""
+											className="size-full object-cover"
+											src={mediaPreviewUrl(item)}
+										/>
+									) : (
+										<span className="grid size-full place-items-center bg-white/10 text-[10px] font-bold text-white">
+											{item.type}
+										</span>
+									)}
+								</button>
+							))}
+						</div>
+					) : null}
 				</div>
 			) : null}
 		</>
@@ -340,11 +449,7 @@ function MediaTileActions({
 					rel="noreferrer"
 					target="_blank"
 				>
-					<ExternalLink
-						aria-hidden="true"
-						className="size-4"
-						strokeWidth={2}
-					/>
+					<ExternalLink aria-hidden="true" className="size-4" strokeWidth={2} />
 				</a>
 			) : null}
 		</div>
@@ -395,7 +500,10 @@ function playableVideoUrlForItem(item: TweetMediaItem) {
 
 function isVideoLikeMedia(item: TweetMediaItem) {
 	if (item.type === "video" || item.type === "gif") return true;
-	return looksLikeVideoThumbnail(item.url) || looksLikeVideoThumbnail(item.thumbnailUrl);
+	return (
+		looksLikeVideoThumbnail(item.url) ||
+		looksLikeVideoThumbnail(item.thumbnailUrl)
+	);
 }
 
 function looksLikeVideoThumbnail(url: string | undefined) {

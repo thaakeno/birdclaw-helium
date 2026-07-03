@@ -1109,25 +1109,29 @@ Until: ${context.window.until}
 Sources: ${JSON.stringify(context.counts)}
 Prompt tweets: ${String(tweetCount)} of ${String(context.tweets.length)} selected context tweets
 
-Write a high-signal "what happened" report from this local Twitter/X dataset.
+Write a high-signal "what happened" report from this local Twitter/X dataset. Treat this as an analyst briefing for Peter: explain what crossed his feed, what he explicitly bookmarked or liked, why the strongest sources matter, and what your overall read is.
 
 Requirements:
 - Stream one readable Markdown report first. The UI will show this text directly; do not rely on separate cards or structured summaries.
 - Target 700-1100 words when there is enough data.
-- Start with a 2-3 sentence lead that immediately says what people are talking about.
-- Use sections named "What people are talking about", "Important links shared", and "Worth opening". Add "Worth replying to" only if there are clearly high-signal replies. Translate these section titles when a report language is requested.
+- Start with a 2-3 sentence lead that immediately says what people are talking about and what Peter saved or liked in this window.
+- Use sections named "What people are talking about", "What Peter bookmarked", "What Peter liked", "Important links shared", "Worth opening", and "Overall read". Omit a bookmarked/liked section only when that source count is zero. Add "Worth replying to" only if there are clearly high-signal replies. Translate these section titles when a report language is requested.
+- Use the source field: home is the FY/home archive, bookmarks are explicit saves, likes are lighter interest signals, mentions/replies are direct conversations, and authored tweets are Peter's own posts.
 - When a tweet has replyToTweet, use that parent context to understand what the author was replying to and whether Peter already joined the conversation.
-- Use bullets under each section. Each bullet should be specific and explain why it matters.
+- Use bullets under each section. Each bullet should be specific, explain what the source is about, why it matters, and what evidence supports the read.
 - For tweets: cite every claim with inline tweet ids at the end of the relevant sentence or bullet, e.g. (tweet_123, tweet_456). These citations become hoverable source links.
 - For links: emit normal Markdown links with no space between the label and URL, e.g. [title](https://example.com), then cite the sharing tweet ids in the same bullet.
+- If the model has web/search grounding available, use it only to contextualize public facts and recent events. Clearly separate local archive evidence from web-grounded context, and never pretend a web result was in Peter's archive.
 - Prefer synthesis over chronology. Group repeated chatter into one bullet.
 - Mention handles when useful, but do not make the report a list of handles.
+- Avoid generic intros, outros, horoscope language, motivational filler, and vague "the community is discussing" phrasing. Be concrete.
 - Do not include a generic "Action items" section.
 - If there is no data, say that plainly in one short paragraph.
 - DMs are private context and only present when explicitly included.
 - After the Markdown, output a blank line, then a line containing only three hyphens, then one compact JSON object.
 - Keep actionItems empty unless you wrote a "Worth replying to" section.
 - Put every tweet id cited in the Markdown into sourceTweetIds.
+- In keyTopics, make each summary stand alone: one sentence for what happened, one sentence for why the cited sources matter, and one sentence for your analyst read.
 - JSON shape: { "title": string, "summary": string, "keyTopics": [{ "title": string, "summary": string, "tweetIds": string[], "handles": string[] }], "notableLinks": [{ "title": string, "url": string, "why": string, "sourceTweetIds": string[] }], "people": [{ "handle": string, "name"?: string, "why": string }], "actionItems": [{ "kind": "reply"|"follow_up"|"read"|"sync", "label": string, "tweetId"?: string, "dmConversationId"?: string }], "sourceTweetIds": string[] }
 ${language ? `- Write all human-readable prose, including section titles and JSON prose fields, in ${language}.\n- Preserve handles, URLs, tweet ids, and JSON property names exactly.` : ""}
 
@@ -1198,7 +1202,7 @@ function createOpenAIRequestBody(
 	return createAnalysisRequestBody({
 		settings: resolveAnalysisModelSettings(options),
 		system:
-			"You are a precise local Twitter archive analyst. Stream Markdown first, then emit the requested JSON object after the delimiter. Do not invent events not present in the dataset.",
+			"You are a precise local Twitter/X archive analyst. Stream source-grounded Markdown first, then emit the requested JSON object after the delimiter. Do not invent local events not present in the dataset. If web grounding is available, use it only to contextualize public facts and clearly distinguish that context from the user's local archive.",
 		prompt: buildPrompt(context, {
 			language: languageFromOptions(options),
 		}),

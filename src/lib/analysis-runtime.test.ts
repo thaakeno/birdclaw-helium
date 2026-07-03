@@ -152,5 +152,9 @@ describe("analysis runtime", () => {
 		expect(fetch.mock.calls[0]?.[0]).toContain(
 			"/models/gemini-3.5-flash:generateContent",
 		);
+		const requestBody = JSON.parse(
+			String((fetch.mock.calls[0]?.[1] as RequestInit).body),
+		) as { tools?: unknown };
+		expect(requestBody.tools).toEqual([{ google_search: {} }]);
 	});
 });

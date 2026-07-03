@@ -85,6 +85,7 @@ function createGeminiRequestBody(body: unknown) {
 				? { maxOutputTokens: request.max_output_tokens }
 				: {}),
 		},
+		tools: [{ google_search: {} }],
 	};
 }
 

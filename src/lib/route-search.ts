@@ -136,6 +136,7 @@ export type PeriodRouteSearch = "today" | "24h" | "yesterday" | "week";
 export interface TodayRouteSearch {
 	period: PeriodRouteSearch;
 	includeDms: boolean;
+	autoDigest: boolean;
 }
 
 export function validateTodaySearch(
@@ -148,6 +149,7 @@ export function validateTodaySearch(
 			"today",
 		),
 		includeDms: booleanValue(search.includeDms),
+		autoDigest: booleanValue(search.autoDigest),
 	};
 }
 
