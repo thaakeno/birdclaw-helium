@@ -146,7 +146,7 @@ describe("bird transport wrapper", () => {
 					}),
 				}),
 			],
-			includes: {
+			includes: expect.objectContaining({
 				users: [
 					{
 						id: "42",
@@ -156,7 +156,7 @@ describe("bird transport wrapper", () => {
 							"https://pbs.twimg.com/profile_images/42/avatar_normal.jpg",
 					},
 				],
-			},
+			}),
 			meta: expect.objectContaining({
 				result_count: 1,
 				page_count: 1,
@@ -355,12 +355,12 @@ describe("bird transport wrapper", () => {
 					},
 				}),
 			],
-			includes: {
+			includes: expect.objectContaining({
 				users: [
 					{ id: "unknown", username: "user_unknown", name: "user_unknown" },
 					{ id: "max", username: "max", name: "max" },
 				],
-			},
+			}),
 			meta: {
 				result_count: 2,
 				page_count: 1,
@@ -773,6 +773,63 @@ describe("bird transport wrapper", () => {
 		);
 	});
 
+	it("maps bird video media into xurl media includes", async () => {
+		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
+		mockBirdStdoutOnce(
+			JSON.stringify({
+				tweets: [
+					{
+						id: "video_1",
+						text: "video post",
+						createdAt: "2026-05-04T07:19:34.000Z",
+						authorId: "46",
+						author: { username: "casey", name: "Casey" },
+						media: [
+							{
+								type: "video",
+								url: "https://pbs.twimg.com/ext_tw_video_thumb/video.jpg",
+								previewUrl:
+									"https://pbs.twimg.com/ext_tw_video_thumb/video.jpg:small",
+								videoUrl: "https://video.twimg.com/ext_tw_video/video.mp4",
+								width: 1920,
+								height: 1080,
+								durationMs: 1200,
+							},
+						],
+					},
+				],
+			}),
+		);
+		const { listThreadViaBird } = await import("./bird");
+
+		await expect(listThreadViaBird({ tweetId: "video_1" })).resolves.toEqual(
+			expect.objectContaining({
+				data: [
+					expect.objectContaining({
+						id: "video_1",
+						attachments: { media_keys: ["bird_media_0"] },
+					}),
+				],
+				includes: expect.objectContaining({
+					media: [
+						expect.objectContaining({
+							media_key: "bird_media_0",
+							type: "video",
+							preview_image_url:
+								"https://pbs.twimg.com/ext_tw_video_thumb/video.jpg:small",
+							variants: [
+								{
+									url: "https://video.twimg.com/ext_tw_video/video.mp4",
+									content_type: "video/mp4",
+								},
+							],
+						}),
+					],
+				}),
+			}),
+		);
+	});
+
 	it("accepts current bird collection objects", async () => {
 		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
 		mockBirdStdoutOnce(
@@ -1030,7 +1087,7 @@ describe("bird transport wrapper", () => {
 			"bird read returned unexpected JSON",
 		);
 		expect(__test__.toMediaEntities(undefined)).toBeUndefined();
-		expect(__test__.toMediaEntities([{ type: "photo" }])).toEqual({ urls: [] });
+		expect(__test__.toMediaEntities([{ type: "photo" }])).toBeUndefined();
 		expect(
 			__test__.toReferencedTweets({
 				id: "1",

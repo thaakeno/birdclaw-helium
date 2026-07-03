@@ -17,6 +17,7 @@ import { tweetEntitiesFromXurl } from "./tweet-render";
 import type {
 	ProfileRecord,
 	TweetEntities,
+	TweetMediaItem,
 	XurlMediaItem,
 	XurlMentionUser,
 	XurlTweetData,
@@ -75,6 +76,8 @@ export interface CompactProfileTweet {
 	createdAt: string;
 	text: string;
 	entities?: TweetEntities;
+	media?: TweetMediaItem[];
+	mediaCount?: number;
 	conversationId?: string;
 	replyToId?: string;
 	likeCount: number;
@@ -472,7 +475,11 @@ function mergeResponses(responses: XurlTweetsResponse[]): XurlTweetsResponse {
 function compactProfileTweet(
 	tweet: XurlTweetData,
 	profileHandle: string,
+	mediaByKey: Map<string, XurlMediaItem> = new Map(),
 ): CompactProfileTweet {
+	const media = JSON.parse(
+		buildMediaJsonFromIncludes(tweet, [...mediaByKey.values()]),
+	) as TweetMediaItem[];
 	return {
 		id: tweet.id,
 		url: tweetUrl(profileHandle, tweet.id),
@@ -480,6 +487,8 @@ function compactProfileTweet(
 		createdAt: tweet.created_at,
 		text: tweet.text,
 		entities: tweetEntitiesFromXurl(tweet.entities),
+		media,
+		mediaCount: countTweetMedia(tweet),
 		...(tweet.conversation_id ? { conversationId: tweet.conversation_id } : {}),
 		...(tweet.referenced_tweets?.find((item) => item.type === "replied_to")?.id
 			? {
@@ -500,11 +509,12 @@ function compactConversationTweet(
 	tweet: XurlTweetData,
 	usersById: Map<string, XurlMentionUser>,
 	conversationRootId: string,
+	mediaByKey: Map<string, XurlMediaItem> = new Map(),
 ): CompactConversationTweet | null {
 	const user = usersById.get(tweet.author_id);
 	if (!user) return null;
 	return {
-		...compactProfileTweet(tweet, user.username),
+		...compactProfileTweet(tweet, user.username, mediaByKey),
 		conversationRootId,
 		profileId: buildExternalProfileId(user.id),
 		name: user.name,
@@ -526,6 +536,8 @@ function compactLocalProfileTweet(
 		createdAt: String(row.created_at ?? ""),
 		text: String(row.text ?? ""),
 		entities: parseJsonField<TweetEntities>(row.entities_json, {}),
+		media: parseJsonField<TweetMediaItem[]>(row.media_json, []),
+		mediaCount: Number(row.media_count ?? 0),
 		...(typeof row.reply_to_id === "string" && row.reply_to_id
 			? { replyToId: row.reply_to_id }
 			: {}),
@@ -576,7 +588,7 @@ function buildLocalProfileContext({
 	const rows = db
 		.prepare(
 			`
-      select id, text, created_at, reply_to_id, like_count, entities_json
+      select id, text, created_at, reply_to_id, like_count, media_count, entities_json, media_json
       from tweets
       where author_profile_id = ?
       order by created_at desc, id desc
@@ -737,8 +749,17 @@ function buildContextFromPayloads({
 }): ProfileAnalysisContext {
 	const tweetPayload = mergeResponses(tweetResponses);
 	const conversationPayload = mergeResponses(conversationResponses);
+	const profileMediaByKey = new Map(
+		(tweetPayload.includes?.media ?? []).map((item) => [item.media_key, item]),
+	);
+	const conversationMediaByKey = new Map(
+		(conversationPayload.includes?.media ?? []).map((item) => [
+			item.media_key,
+			item,
+		]),
+	);
 	const profileTweets = tweetPayload.data
-		.map((tweet) => compactProfileTweet(tweet, handle))
+		.map((tweet) => compactProfileTweet(tweet, handle, profileMediaByKey))
 		.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 	const usersById = new Map(
 		(conversationPayload.includes?.users ?? []).map((user) => [user.id, user]),
@@ -750,7 +771,12 @@ function buildContextFromPayloads({
 				tweet.conversation_id && conversationSet.has(tweet.conversation_id),
 		)
 		.map((tweet) =>
-			compactConversationTweet(tweet, usersById, tweet.conversation_id ?? ""),
+			compactConversationTweet(
+				tweet,
+				usersById,
+				tweet.conversation_id ?? "",
+				conversationMediaByKey,
+			),
 		)
 		.filter((tweet): tweet is CompactConversationTweet => tweet !== null)
 		.sort((left, right) => right.createdAt.localeCompare(left.createdAt));

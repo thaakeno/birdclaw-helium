@@ -182,12 +182,15 @@ export function processGeminiResponseSseChunk(
 	} = {},
 ) {
 	state.eventBuffer += chunk;
-	let boundary = state.eventBuffer.indexOf("\n\n");
+	let boundaryMatch = state.eventBuffer.match(/\r?\n\r?\n/);
+	let boundary = boundaryMatch?.index === undefined ? -1 : boundaryMatch.index;
 	while (boundary >= 0) {
 		const block = state.eventBuffer.slice(0, boundary);
-		state.eventBuffer = state.eventBuffer.slice(boundary + 2);
+		state.eventBuffer = state.eventBuffer.slice(
+			boundary + (boundaryMatch?.[0].length ?? 2),
+		);
 		const data = block
-			.split("\n")
+			.split(/\r?\n/)
 			.filter((line) => line.startsWith("data:"))
 			.map((line) => line.slice(5).trimStart())
 			.join("\n");
@@ -204,8 +207,23 @@ export function processGeminiResponseSseChunk(
 				// The feature parser decides whether partial output remains usable.
 			}
 		}
-		boundary = state.eventBuffer.indexOf("\n\n");
+		boundaryMatch = state.eventBuffer.match(/\r?\n\r?\n/);
+		boundary = boundaryMatch?.index === undefined ? -1 : boundaryMatch.index;
 	}
+}
+
+function flushGeminiResponseSseBuffer(
+	state: GeminiStreamState,
+	options: {
+		onDelta?: (delta: string) => void;
+		delimiterPattern?: RegExp;
+		delimiterHold?: number;
+	} = {},
+) {
+	const remaining = state.eventBuffer.trim();
+	if (!remaining) return;
+	state.eventBuffer = "";
+	processGeminiResponseSseChunk(state, `${remaining}\n\n`, options);
 }
 
 export function readGeminiResponseStreamEffect(
@@ -236,6 +254,7 @@ export function readGeminiResponseStreamEffect(
 				);
 				continue;
 			}
+			flushGeminiResponseSseBuffer(state, options);
 			if (!state.jsonMode && state.pendingVisible) {
 				options.onDelta?.(state.pendingVisible);
 			}

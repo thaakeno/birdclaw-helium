@@ -9,6 +9,7 @@ import { runEffectPromise } from "./effect-runtime";
 import type {
 	XurlMentionData,
 	XurlFollowUsersResponse,
+	XurlMediaItem,
 	XurlMentionsResponse,
 	XurlMentionUser,
 	XurlReferencedTweet,
@@ -22,6 +23,19 @@ const BIRD_STDOUT_REDIRECT_SCRIPT = 'out="$1"; shift; exec "$@" > "$out"';
 interface BirdTweetMedia {
 	type?: string;
 	url?: string;
+	previewUrl?: string;
+	videoUrl?: string;
+	width?: number;
+	height?: number;
+	durationMs?: number;
+	altText?: string;
+	variants?: Array<{
+		url?: string;
+		contentType?: string;
+		content_type?: string;
+		bitRate?: number;
+		bit_rate?: number;
+	}>;
 }
 
 interface BirdTweetAuthor {
@@ -399,22 +413,90 @@ function getBirdTweetItem(payload: unknown, command: string) {
 }
 
 function toMediaEntities(media: BirdTweetMedia[] | undefined) {
-	if (!Array.isArray(media) || media.length === 0) {
+	const includes = toMediaIncludes(media);
+	if (includes.length === 0) {
 		return undefined;
 	}
 
 	return {
-		urls: media
-			.filter((item) => typeof item?.url === "string" && item.url.length > 0)
+		urls: includes
+			.filter((item) => item.url || item.preview_image_url)
 			.map((item, index) => ({
 				start: index,
 				end: index,
-				url: item.url as string,
-				expanded_url: item.url as string,
-				display_url: item.url as string,
-				media_key: `bird_media_${index}`,
+				url: (item.url ?? item.preview_image_url) as string,
+				expanded_url: (item.url ?? item.preview_image_url) as string,
+				display_url: (item.url ?? item.preview_image_url) as string,
+				media_key: item.media_key,
 			})),
 	};
+}
+
+function toMediaKey(index: number) {
+	return `bird_media_${index}`;
+}
+
+function toXurlMediaType(type: string | undefined): XurlMediaItem["type"] {
+	if (type === "photo" || type === "image") return "photo";
+	if (type === "animated_gif" || type === "gif") return "animated_gif";
+	if (type === "video") return "video";
+	return type ?? "unknown";
+}
+
+function toMediaIncludes(media: BirdTweetMedia[] | undefined) {
+	if (!Array.isArray(media) || media.length === 0) {
+		return [];
+	}
+	const items: XurlMediaItem[] = [];
+	for (const item of media) {
+		const url = item.url?.trim();
+		const preview = item.previewUrl?.trim();
+		const videoUrl = item.videoUrl?.trim();
+		const type = toXurlMediaType(item.type);
+		if (!url && !preview && !videoUrl) continue;
+		const variants = [
+			...(item.variants ?? [])
+				.map((variant) => {
+					const variantUrl = variant.url?.trim();
+					if (!variantUrl) return null;
+					return {
+						url: variantUrl,
+						content_type:
+							variant.contentType ?? variant.content_type ?? "video/mp4",
+						...(Number.isFinite(Number(variant.bitRate ?? variant.bit_rate))
+							? { bit_rate: Number(variant.bitRate ?? variant.bit_rate) }
+							: {}),
+					};
+				})
+				.filter((variant): variant is NonNullable<typeof variant> =>
+					Boolean(variant),
+				),
+			...(videoUrl ? [{ url: videoUrl, content_type: "video/mp4" }] : []),
+		];
+		items.push({
+			media_key: toMediaKey(items.length),
+			type,
+			...(type === "photo" && url ? { url } : {}),
+			...(type !== "photo" && (preview || url)
+				? { preview_image_url: preview ?? url }
+				: {}),
+			...(type === "photo" && preview && preview !== url
+				? { preview_image_url: preview }
+				: {}),
+			...(Number.isFinite(Number(item.width))
+				? { width: Number(item.width) }
+				: {}),
+			...(Number.isFinite(Number(item.height))
+				? { height: Number(item.height) }
+				: {}),
+			...(Number.isFinite(Number(item.durationMs))
+				? { duration_ms: Number(item.durationMs) }
+				: {}),
+			...(item.altText ? { alt_text: item.altText } : {}),
+			...(variants.length > 0 ? { variants } : {}),
+		});
+	}
+	return items;
 }
 
 function toTweetEntities(item: BirdTweetItem) {
@@ -514,6 +596,7 @@ function isHydratedBirdTweetItem(value: unknown): value is BirdTweetItem {
 function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 	const users = new Map<string, XurlMentionUser>();
 	const includedTweets = new Map<string, XurlMentionData>();
+	const media = new Map<string, XurlMediaItem>();
 	const normalizeItem = (
 		item: BirdTweetItem,
 		preserveMissingMetrics = false,
@@ -545,12 +628,24 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 			}
 		}
 
+		const itemMedia = toMediaIncludes(item.media);
+		for (const mediaItem of itemMedia) {
+			media.set(mediaItem.media_key, mediaItem);
+		}
+
 		return {
 			id: item.id,
 			author_id: authorId,
 			text: item.text,
 			created_at: toIsoTimestamp(item.createdAt),
 			conversation_id: item.conversationId ?? item.id,
+			...(itemMedia.length > 0
+				? {
+						attachments: {
+							media_keys: itemMedia.map((entry) => entry.media_key),
+						},
+					}
+				: {}),
 			entities: toTweetEntities(item),
 			referenced_tweets: toReferencedTweets(item),
 			public_metrics: preserveMissingMetrics
@@ -580,6 +675,9 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 	}
 	if (includedTweets.size > 0) {
 		includes.tweets = Array.from(includedTweets.values());
+	}
+	if (media.size > 0) {
+		includes.media = Array.from(media.values());
 	}
 
 	return {

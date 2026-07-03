@@ -75,6 +75,37 @@ describe("Gemini response runtime", () => {
 		expect(state.rawText).toBe("ok");
 	});
 
+	it("handles CRLF SSE frames and final unterminated frames", async () => {
+		const visible: string[] = [];
+		const stream = new ReadableStream({
+			start(controller) {
+				controller.enqueue(
+					new TextEncoder().encode(
+						`data: ${JSON.stringify({
+							candidates: [{ content: { parts: [{ text: "Hi" }] } }],
+						})}\r\n\r\n`,
+					),
+				);
+				controller.enqueue(
+					new TextEncoder().encode(
+						`data: ${JSON.stringify({
+							candidates: [{ content: { parts: [{ text: " there" }] } }],
+						})}`,
+					),
+				);
+				controller.close();
+			},
+		});
+		const result = await Effect.runPromise(
+			readGeminiResponseStreamEffect(new Response(stream), {
+				onDelta: (delta) => visible.push(delta),
+			}),
+		);
+
+		expect(visible.join("")).toBe("Hi there");
+		expect(result.rawText).toBe("Hi there");
+	});
+
 	it("checks credentials and HTTP failures centrally", async () => {
 		await expect(
 			Effect.runPromise(requestGeminiResponseEffect({ body: {} })),

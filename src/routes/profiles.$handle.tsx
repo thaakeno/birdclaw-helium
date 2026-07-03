@@ -2,7 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AvatarChip } from "#/components/AvatarChip";
+import { SmartTimestamp } from "#/components/SmartTimestamp";
+import { TweetMediaGrid } from "#/components/TweetMediaGrid";
 import { TweetRichText } from "#/components/TweetRichText";
+import {
+	feedRowBodyClass,
+	feedRowClass,
+	feedRowDotClass,
+	feedRowHandleClass,
+	feedRowHeaderClass,
+	feedRowNameClass,
+	feedRowTextClass,
+	feedRowTimestampClass,
+	secondaryButtonClass,
+	timestampClass,
+} from "#/lib/ui";
 import {
 	cleanProfileHandle,
 	DEFAULT_PROFILE_ANALYSIS_LIMITS,
@@ -301,9 +315,9 @@ function ProfilePostPreview({
 			</div>
 		);
 	}
-	const tweets = context.tweets.slice(0, 35);
+	const tweets = context.tweets.slice(0, 100);
 	return (
-		<div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--panel)]">
+		<div className="overflow-hidden border-y border-[var(--line)] bg-[var(--bg)]">
 			<div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
 				<div>
 					<h2 className="m-0 text-[16px] font-bold text-[var(--ink)]">
@@ -314,39 +328,60 @@ function ProfilePostPreview({
 					</p>
 				</div>
 				<a
-					className="rounded-full border border-[var(--line)] px-3 py-1.5 text-[13px] font-bold text-[var(--ink)] hover:bg-[var(--bg-hover)]"
+					className={secondaryButtonClass}
 					href={`https://x.com/${encodeURIComponent(context.profile.handle)}`}
 					rel="noreferrer"
 					target="_blank"
 				>
+					<ExternalLink className="size-4" strokeWidth={1.8} />
 					Open profile
 				</a>
 			</div>
-			<div className="max-h-[62vh] overflow-y-auto overscroll-contain [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
+			<div className="max-h-[70vh] overflow-y-auto overscroll-contain [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
 				{tweets.length > 0 ? (
 					tweets.map((tweet) => (
-						<article
-							className="border-b border-[var(--line)] px-4 py-3 last:border-b-0"
-							key={tweet.id}
-						>
-							<div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--ink-soft)]">
-								<span>{new Date(tweet.createdAt).toLocaleString()}</span>
-								<span>likes {formatCompactNumber(tweet.likeCount)}</span>
-								<span>replies {formatCompactNumber(tweet.replyCount)}</span>
-								<a
-									className="font-semibold text-[var(--accent)] hover:underline"
-									href={tweet.url}
-									rel="noreferrer"
-									target="_blank"
-								>
-									Open on X
-								</a>
-							</div>
-							<TweetRichText
-								className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
-								entities={tweet.entities ?? {}}
-								text={tweet.text}
+						<article className={feedRowClass} key={tweet.id}>
+							<AvatarChip
+								avatarUrl={context.profile.avatarUrl}
+								hue={context.profile.avatarHue}
+								name={context.profile.displayName}
+								profileId={context.profile.id}
 							/>
+							<div className={feedRowBodyClass}>
+								<header className={feedRowHeaderClass}>
+									<span className={feedRowNameClass}>
+										{context.profile.displayName}
+									</span>
+									<span className={feedRowHandleClass}>
+										@{context.profile.handle}
+									</span>
+									<span className={feedRowDotClass}>·</span>
+									<SmartTimestamp
+										className={feedRowTimestampClass}
+										value={tweet.createdAt}
+									/>
+									<a
+										aria-label="Open on X"
+										className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+										href={tweet.url}
+										rel="noreferrer"
+										target="_blank"
+									>
+										<ExternalLink className="size-3.5" strokeWidth={1.8} />
+										Open
+									</a>
+								</header>
+								<TweetRichText
+									className={feedRowTextClass}
+									entities={tweet.entities ?? {}}
+									text={tweet.text}
+								/>
+								<TweetMediaGrid items={tweet.media ?? []} postUrl={tweet.url} />
+								<div className={timestampClass}>
+									{formatCompactNumber(tweet.replyCount)} replies ·{" "}
+									{formatCompactNumber(tweet.likeCount)} likes
+								</div>
+							</div>
 						</article>
 					))
 				) : (
