@@ -1,6 +1,11 @@
 import { Effect } from "effect";
 import { tryPromise } from "./effect-runtime";
 import {
+	extractGeminiResponseText,
+	readGeminiResponseStreamEffect,
+	requestGeminiResponseEffect,
+} from "./gemini-response-runtime";
+import {
 	readOpenAIResponseStreamEffect,
 	requestOpenAIResponseEffect,
 } from "./openai-response-runtime";
@@ -10,10 +15,12 @@ import {
 } from "./runtime-services";
 
 const DEFAULT_MODEL = "gpt-5.5";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 const DEFAULT_REASONING_EFFORT = "medium";
 const DEFAULT_SERVICE_TIER = "priority";
 const DEFAULT_DELIMITER_PATTERN = /\n---\s*\n/;
 
+export type AnalysisProvider = "openai" | "gemini";
 export type AnalysisReasoningEffort = "minimal" | "low" | "medium" | "high";
 export type AnalysisServiceTier = "default" | "flex" | "priority";
 
@@ -24,6 +31,7 @@ export interface AnalysisModelOptions {
 }
 
 export interface AnalysisModelSettings {
+	provider: AnalysisProvider;
 	model: string;
 	reasoningEffort: AnalysisReasoningEffort;
 	serviceTier: AnalysisServiceTier;
@@ -41,12 +49,21 @@ function toError(error: unknown) {
 	return error instanceof Error ? error : new Error(String(error));
 }
 
+function resolveAnalysisProvider(runtime: RuntimeServices): AnalysisProvider {
+	return runtime.env("BIRDCLAW_AI_PROVIDER") === "gemini" ? "gemini" : "openai";
+}
+
 export function resolveAnalysisModelSettings(
 	options: AnalysisModelOptions,
 	runtime: RuntimeServices = defaultRuntimeServices,
 ): AnalysisModelSettings {
+	const provider = resolveAnalysisProvider(runtime);
 	return {
-		model: options.model ?? runtime.env("BIRDCLAW_AI_MODEL") ?? DEFAULT_MODEL,
+		provider,
+		model:
+			options.model ??
+			runtime.env("BIRDCLAW_AI_MODEL") ??
+			(provider === "gemini" ? DEFAULT_GEMINI_MODEL : DEFAULT_MODEL),
 		reasoningEffort:
 			options.reasoningEffort ??
 			(runtime.env(
@@ -185,6 +202,30 @@ export function streamHybridAnalysisEffect<T>({
 	delimiterPattern?: RegExp;
 }): Effect.Effect<HybridAnalysisResult<T>, Error> {
 	return Effect.gen(function* () {
+		const provider = resolveAnalysisProvider(runtime);
+		if (provider === "gemini") {
+			const response = yield* requestGeminiResponseEffect({
+				body,
+				signal,
+				stream: true,
+				runtime,
+			});
+			const stream = yield* readGeminiResponseStreamEffect(response, {
+				delimiterPattern,
+				onDelta,
+			});
+			const parsed = parseHybridAnalysis({
+				rawText: stream.rawText,
+				parse,
+				fallback,
+				delimiterPattern,
+			});
+			return {
+				...parsed,
+				rawText: stream.rawText,
+				...(stream.usage === undefined ? {} : { usage: stream.usage }),
+			};
+		}
 		const response = yield* requestOpenAIResponseEffect({
 			body,
 			signal,
@@ -215,17 +256,30 @@ export function requestHybridAnalysisEffect<T>({
 	delimiterPattern?: RegExp;
 }): Effect.Effect<HybridAnalysisResult<T>, Error> {
 	return Effect.gen(function* () {
-		const response = yield* requestOpenAIResponseEffect({
-			body,
-			signal,
-			runtime,
-		});
+		const provider = resolveAnalysisProvider(runtime);
+		const response =
+			provider === "gemini"
+				? yield* requestGeminiResponseEffect({ body, signal, runtime })
+				: yield* requestOpenAIResponseEffect({
+						body,
+						signal,
+						runtime,
+					});
 		const payload = (yield* tryPromise(() => response.json()).pipe(
 			Effect.mapError(toError),
 		)) as Record<string, unknown>;
-		const rawText = extractOpenAIResponseText(payload);
+		const rawText =
+			provider === "gemini"
+				? extractGeminiResponseText(payload)
+				: extractOpenAIResponseText(payload);
 		if (!rawText) {
-			return yield* Effect.fail(new Error("OpenAI returned no output text"));
+			return yield* Effect.fail(
+				new Error(
+					provider === "gemini"
+						? "Gemini returned no output text"
+						: "OpenAI returned no output text",
+				),
+			);
 		}
 		const parsed = parseHybridAnalysis({
 			rawText,

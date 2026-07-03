@@ -24,6 +24,19 @@ Prefer:
 2. Installed `birdclaw`
 3. SQLite DB `~/.birdclaw/birdclaw.sqlite`
 
+For Ali's local Windows archive, prefer the local repo and DB:
+
+```powershell
+Set-Location "D:\Project Archive\birdclaw"
+$env:BIRDCLAW_HOME = "D:\Project Archive\birdclaw\local-data"
+```
+
+The local SQLite DB is:
+
+```text
+D:\Project Archive\birdclaw\local-data\birdclaw.sqlite
+```
+
 Check basic health/freshness before analysis:
 
 ```bash
@@ -33,6 +46,52 @@ birdclaw --json db stats
 ```bash
 sqlite3 ~/.birdclaw/birdclaw.sqlite "pragma quick_check;"
 ```
+
+## Local Agent Workflows
+
+Use Birdclaw like a personal X vault: query SQLite/API first, then use live fetches only when the user asks for fresh replies, missing thread context, or newly saved posts.
+
+For "what did I bookmark yesterday?", use exact local date bounds before summarizing:
+
+```powershell
+$since = "2026-07-02T00:00:00.000Z"
+$until = "2026-07-03T00:00:00.000Z"
+Invoke-RestMethod "http://127.0.0.1:3000/api/query?resource=home&bookmarkedOnly=true&sort=saved-desc&since=$since&until=$until&limit=100"
+```
+
+For fuzzy memory search, search bookmarks first, then broaden to home/likes:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:3000/api/query?resource=home&bookmarkedOnly=true&q=robot%20parkour%20sim&limit=50"
+Invoke-RestMethod "http://127.0.0.1:3000/api/query?resource=home&q=robot%20parkour%20sim&limit=50"
+```
+
+For local home timeline searches:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:3000/api/query?resource=home&sort=created-desc&limit=50"
+```
+
+For a specific saved post/thread, fetch conversation context through Birdclaw instead of handing browser cookies to the agent:
+
+```powershell
+$body = @{ tweetId = "2072102077510369639"; maxPages = 3; timeoutMs = 20000 } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/thread-sync" -ContentType "application/json" -Body $body
+Invoke-RestMethod "http://127.0.0.1:3000/api/conversation?tweetId=2072102077510369639"
+```
+
+If the web server is unavailable but the Bird helper is installed, direct thread fallback is:
+
+```powershell
+& "C:\Users\alier\AppData\Roaming\npm\birdclaw-bird.exe" thread 2072102077510369639 --max-pages 3 --json-full
+```
+
+Privacy rules for agents:
+
+- Never ask for, print, or copy browser cookies, `auth_token`, `ct0`, Helium profiles, or raw Bird env files.
+- Do not feed raw DMs or private account data to a cloud model unless the user explicitly asks.
+- Prefer small, task-specific exports with tweet IDs, handles, dates, and relevant text snippets.
+- Use live thread/profile fetch sparingly and cache results locally.
 
 ## Picking the Right Approach
 

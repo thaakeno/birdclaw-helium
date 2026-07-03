@@ -181,6 +181,7 @@ Notes:
 - `xurl` optional for live reads / writes
 - `bird` optional for cookie-backed likes, bookmarks, mentions, DMs, and write fallback
 - OpenAI API key optional for inbox scoring
+- Gemini API key optional for shared analysis/digest/discussion flows
 
 ## Install
 
@@ -395,7 +396,7 @@ birdclaw research --account acct_primary --out ~/research/codex.md
 
 ### Discuss keyword searches
 
-`birdclaw discuss` fetches live keyword matches through `bird` or `xurl`, stores them as local `search` tweets, then streams an OpenAI Markdown summary and discussion. DMs are excluded unless explicitly included.
+`birdclaw discuss` fetches live keyword matches through `bird` or `xurl`, stores them as local `search` tweets, then streams an AI Markdown summary and discussion. DMs are excluded unless explicitly included.
 
 ```bash
 birdclaw discuss "local-first" --mode bird
@@ -420,7 +421,7 @@ birdclaw profile-analyse openai --max-pages 20 --max-conversations 40 --conversa
 
 ### What happened today
 
-`birdclaw today` streams a local "what happened" digest from the SQLite store. It uses the OpenAI Responses API with `gpt-5.5`, medium reasoning, and priority service tier by default. Set `OPENAI_API_KEY`; override with `BIRDCLAW_AI_MODEL`, `BIRDCLAW_OPENAI_REASONING_EFFORT`, or `BIRDCLAW_OPENAI_SERVICE_TIER` when needed. Use `--language <locale-id>` or `BIRDCLAW_DIGEST_LANGUAGE` for localized reports.
+`birdclaw today` streams a local "what happened" digest from the SQLite store. It uses the OpenAI Responses API with `gpt-5.5`, medium reasoning, and priority service tier by default. Set `OPENAI_API_KEY`; override with `BIRDCLAW_AI_MODEL`, `BIRDCLAW_OPENAI_REASONING_EFFORT`, or `BIRDCLAW_OPENAI_SERVICE_TIER` when needed. Set `BIRDCLAW_AI_PROVIDER=gemini` plus `GEMINI_API_KEY` to use Gemini instead; the Gemini default model is `gemini-3.5-flash`. Use `--language <locale-id>` or `BIRDCLAW_DIGEST_LANGUAGE` for localized reports.
 
 ```bash
 birdclaw today

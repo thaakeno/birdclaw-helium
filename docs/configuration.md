@@ -93,8 +93,31 @@ See [Backup](backup.md). When `autoSync` is enabled, read commands pull + merge 
 | `BIRDCLAW_BACKUP_AUTO_SYNC`    | Set to `0` to disable auto-sync for one process                                                                                                      |
 | `NO_COLOR`                     | Disable ANSI color in human output                                                                                                                   |
 | `OPENAI_API_KEY`               | Enable inbox scoring and low-signal filtering                                                                                                        |
+| `BIRDCLAW_AI_PROVIDER`         | Set to `gemini` to use Gemini for shared analysis/digest/discussion flows instead of OpenAI                                                          |
+| `GEMINI_API_KEY`               | Gemini API key used when `BIRDCLAW_AI_PROVIDER=gemini`                                                                                               |
+| `GOOGLE_API_KEY`               | Accepted fallback for `GEMINI_API_KEY`                                                                                                               |
+| `BIRDCLAW_AI_MODEL`            | Override the analysis model (`gpt-5.5` for OpenAI, `gemini-3.5-flash` for Gemini by default)                                                         |
 
 `BIRDCLAW_DISABLE_LIVE_WRITES=1` is set automatically in CI and Playwright runs so test code can never publish a tweet, send a DM, or block an account.
+
+## AI provider
+
+OpenAI remains the default for AI summaries:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+Use Gemini for shared Markdown+JSON analysis flows:
+
+```bash
+export BIRDCLAW_AI_PROVIDER=gemini
+export GEMINI_API_KEY="..."
+export BIRDCLAW_AI_MODEL=gemini-3.5-flash
+```
+
+This covers the shared profile analysis, discussion, and digest runtime. Legacy
+inbox-scoring helpers still require `OPENAI_API_KEY`.
 
 ## Multi-account
 

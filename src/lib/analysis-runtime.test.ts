@@ -11,6 +11,8 @@ import { createRuntimeServices } from "./runtime-services";
 
 afterEach(() => {
 	delete process.env.OPENAI_API_KEY;
+	delete process.env.GEMINI_API_KEY;
+	delete process.env.BIRDCLAW_AI_PROVIDER;
 	delete process.env.BIRDCLAW_AI_MODEL;
 	delete process.env.BIRDCLAW_OPENAI_REASONING_EFFORT;
 	delete process.env.BIRDCLAW_OPENAI_SERVICE_TIER;
@@ -28,6 +30,7 @@ describe("analysis runtime", () => {
 			}),
 		);
 		expect(settings).toEqual({
+			provider: "openai",
 			model: "env-model",
 			reasoningEffort: "high",
 			serviceTier: "priority",
@@ -96,5 +99,58 @@ describe("analysis runtime", () => {
 			markdown: "Profile",
 			value: { title: "ok" },
 		});
+	});
+
+	it("can request hybrid analysis through Gemini", async () => {
+		const fetch = vi.fn().mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					candidates: [
+						{
+							content: {
+								parts: [{ text: 'Profile\n---\n{"title":"ok"}' }],
+							},
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+		);
+		const runtime = createRuntimeServices({
+			env: (name) =>
+				name === "BIRDCLAW_AI_PROVIDER"
+					? "gemini"
+					: name === "GEMINI_API_KEY"
+						? "test"
+						: undefined,
+			fetch,
+		});
+		const settings = resolveAnalysisModelSettings({}, runtime);
+
+		expect(settings).toMatchObject({
+			provider: "gemini",
+			model: "gemini-3.5-flash",
+		});
+		await expect(
+			Effect.runPromise(
+				requestHybridAnalysisEffect({
+					body: createAnalysisRequestBody({
+						settings,
+						system: "system",
+						prompt: "prompt",
+						stream: false,
+					}),
+					runtime,
+					parse: (value) => value as { title: string },
+					fallback: () => ({ title: "fallback" }),
+				}),
+			),
+		).resolves.toMatchObject({
+			markdown: "Profile",
+			value: { title: "ok" },
+		});
+		expect(fetch.mock.calls[0]?.[0]).toContain(
+			"/models/gemini-3.5-flash:generateContent",
+		);
 	});
 });
