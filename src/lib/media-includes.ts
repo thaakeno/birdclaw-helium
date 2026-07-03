@@ -161,5 +161,5 @@ export function buildMediaJsonFromIncludes(
 		})
 		.filter((item): item is TweetMediaItem => item !== null);
 
-	return JSON.stringify(keys.length > 0 ? items : birdEntityMedia(tweet));
+	return JSON.stringify(items.length > 0 ? items : birdEntityMedia(tweet));
 }

@@ -140,7 +140,7 @@ describe("bird transport wrapper", () => {
 						urls: [
 							expect.objectContaining({
 								url: "https://pbs.twimg.com/media/demo.jpg",
-								media_key: "bird_media_0",
+								media_key: "bird_media_tweet_1_0",
 							}),
 						],
 					}),
@@ -344,7 +344,7 @@ describe("bird transport wrapper", () => {
 								url: "https://pbs.twimg.com/media/other.jpg",
 								expanded_url: "https://pbs.twimg.com/media/other.jpg",
 								display_url: "https://pbs.twimg.com/media/other.jpg",
-								media_key: "bird_media_0",
+								media_key: "bird_media_tweet_3_0",
 							},
 						],
 					},
@@ -807,13 +807,13 @@ describe("bird transport wrapper", () => {
 				data: [
 					expect.objectContaining({
 						id: "video_1",
-						attachments: { media_keys: ["bird_media_0"] },
+						attachments: { media_keys: ["bird_media_video_1_0"] },
 					}),
 				],
 				includes: expect.objectContaining({
 					media: [
 						expect.objectContaining({
-							media_key: "bird_media_0",
+							media_key: "bird_media_video_1_0",
 							type: "video",
 							preview_image_url:
 								"https://pbs.twimg.com/ext_tw_video_thumb/video.jpg:small",

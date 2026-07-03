@@ -412,8 +412,10 @@ function getBirdTweetItem(payload: unknown, command: string) {
 	throw new Error(`bird ${command} returned unexpected JSON`);
 }
 
-function toMediaEntities(media: BirdTweetMedia[] | undefined) {
-	const includes = toMediaIncludes(media);
+function toMediaEntities(item: BirdTweetItem | BirdTweetMedia[] | undefined) {
+	const media = Array.isArray(item) || item === undefined ? item : item.media;
+	const tweetId = Array.isArray(item) || item === undefined ? "0" : item.id;
+	const includes = toMediaIncludes(media, tweetId);
 	if (includes.length === 0) {
 		return undefined;
 	}
@@ -432,8 +434,8 @@ function toMediaEntities(media: BirdTweetMedia[] | undefined) {
 	};
 }
 
-function toMediaKey(index: number) {
-	return `bird_media_${index}`;
+function toMediaKey(tweetId: string, index: number) {
+	return `bird_media_${tweetId.replace(/[^A-Za-z0-9_-]/g, "_")}_${index}`;
 }
 
 function toXurlMediaType(type: string | undefined): XurlMediaItem["type"] {
@@ -443,7 +445,7 @@ function toXurlMediaType(type: string | undefined): XurlMediaItem["type"] {
 	return type ?? "unknown";
 }
 
-function toMediaIncludes(media: BirdTweetMedia[] | undefined) {
+function toMediaIncludes(media: BirdTweetMedia[] | undefined, tweetId: string) {
 	if (!Array.isArray(media) || media.length === 0) {
 		return [];
 	}
@@ -474,7 +476,7 @@ function toMediaIncludes(media: BirdTweetMedia[] | undefined) {
 			...(videoUrl ? [{ url: videoUrl, content_type: "video/mp4" }] : []),
 		];
 		items.push({
-			media_key: toMediaKey(items.length),
+			media_key: toMediaKey(tweetId, items.length),
 			type,
 			...(type === "photo" && url ? { url } : {}),
 			...(type !== "photo" && (preview || url)
@@ -500,7 +502,7 @@ function toMediaIncludes(media: BirdTweetMedia[] | undefined) {
 }
 
 function toTweetEntities(item: BirdTweetItem) {
-	const mediaEntities = toMediaEntities(item.media);
+	const mediaEntities = toMediaEntities(item);
 	const title = item.article?.title?.trim();
 	if (!title) return mediaEntities;
 	const handle = item.author?.username?.replace(/^@/, "");
@@ -628,7 +630,7 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 			}
 		}
 
-		const itemMedia = toMediaIncludes(item.media);
+		const itemMedia = toMediaIncludes(item.media, item.id);
 		for (const mediaItem of itemMedia) {
 			media.set(mediaItem.media_key, mediaItem);
 		}
@@ -888,7 +890,6 @@ export function listHomeTimelineViaBird(options: {
 export function listUserTweetsViaBirdEffect({
 	handle,
 	maxResults,
-	all,
 	maxPages,
 }: {
 	handle: string;
@@ -898,9 +899,6 @@ export function listUserTweetsViaBirdEffect({
 }): Effect.Effect<XurlMentionsResponse, unknown> {
 	return Effect.gen(function* () {
 		const args = ["user-tweets", handle, "-n", String(maxResults)];
-		if (all) {
-			args.push("--all");
-		}
 		if (maxPages !== undefined) {
 			args.push("--max-pages", String(maxPages));
 		}
