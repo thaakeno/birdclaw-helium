@@ -1,6 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDown, ArrowUp, Eye, EyeOff, RotateCcw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+	CheckCircle2,
+	Eye,
+	EyeOff,
+	GripVertical,
+	KeyRound,
+	Loader2,
+	RotateCcw,
+	Save,
+	ShieldCheck,
+	SlidersHorizontal,
+	Sparkles,
+} from "lucide-react";
+import {
+	type DragEvent,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	NAV_HIDDEN_KEY,
 	NAV_ORDER_KEY,
@@ -10,11 +28,14 @@ import {
 } from "#/lib/nav-preferences";
 import {
 	cx,
+	errorCopyClass,
 	pageHeaderClass,
 	pageHeaderRowClass,
 	pageSubtitleClass,
 	pageTitleClass,
+	primaryButtonClass,
 	secondaryButtonClass,
+	selectFieldClass,
 } from "#/lib/ui";
 
 const navItems = [
@@ -34,6 +55,16 @@ const navItems = [
 	{ to: "/blocks", label: "Blocks" },
 ] as const;
 
+type NavPath = (typeof navItems)[number]["to"];
+type AiProvider = "openai" | "gemini";
+
+interface AiSettings {
+	provider: AiProvider;
+	model: string;
+	hasGeminiApiKey: boolean;
+	geminiModels: string[];
+}
+
 export const Route = createFileRoute("/settings")({
 	component: SettingsRoute,
 });
@@ -41,13 +72,47 @@ export const Route = createFileRoute("/settings")({
 function SettingsRoute() {
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
+	const [draggingPath, setDraggingPath] = useState<NavPath | null>(null);
+	const [ai, setAi] = useState<AiSettings | null>(null);
+	const [aiLoading, setAiLoading] = useState(true);
+	const [aiSaving, setAiSaving] = useState(false);
+	const [aiError, setAiError] = useState<string | null>(null);
+	const [aiSaved, setAiSaved] = useState(false);
+	const [provider, setProvider] = useState<AiProvider>("openai");
+	const [model, setModel] = useState("gpt-5.5");
+	const [geminiApiKey, setGeminiApiKey] = useState("");
+	const [clearGeminiApiKey, setClearGeminiApiKey] = useState(false);
 
 	useEffect(() => {
 		setHidden(readStringArray(NAV_HIDDEN_KEY));
 		setOrder(readStringArray(NAV_ORDER_KEY));
+		void loadAiSettings();
 	}, []);
 
 	const orderedItems = useMemo(() => orderNavItems(navItems, order), [order]);
+	const visibleCount = orderedItems.length - hidden.length;
+	const geminiModelOptions = ai?.geminiModels?.length
+		? ai.geminiModels
+		: ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
+
+	async function loadAiSettings() {
+		setAiLoading(true);
+		setAiError(null);
+		try {
+			const response = await fetch("/api/settings-ai");
+			if (!response.ok) throw new Error(await response.text());
+			const data = (await response.json()) as AiSettings;
+			setAi(data);
+			setProvider(data.provider);
+			setModel(data.model);
+		} catch (error) {
+			setAiError(
+				error instanceof Error ? error.message : "Could not load AI settings",
+			);
+		} finally {
+			setAiLoading(false);
+		}
+	}
 
 	function persistHidden(next: string[]) {
 		setHidden(next);
@@ -59,16 +124,69 @@ function SettingsRoute() {
 		writeStringArray(NAV_ORDER_KEY, next);
 	}
 
-	function move(path: string, direction: -1 | 1) {
-		const current: string[] = orderedItems.map((item) => item.to);
-		const index = current.indexOf(path);
-		const nextIndex = index + direction;
-		if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return;
+	function resetSidebar() {
+		persistHidden([]);
+		persistOrder([]);
+	}
+
+	function moveDraggedItem(targetPath: NavPath) {
+		if (!draggingPath || draggingPath === targetPath) return;
+		const current = orderedItems.map((item) => item.to);
+		const from = current.indexOf(draggingPath);
+		const to = current.indexOf(targetPath);
+		if (from < 0 || to < 0) return;
 		const next = [...current];
-		const [item] = next.splice(index, 1);
+		const [item] = next.splice(from, 1);
 		if (!item) return;
-		next.splice(nextIndex, 0, item);
+		next.splice(to, 0, item);
 		persistOrder(next);
+	}
+
+	function onDragStart(event: DragEvent<HTMLButtonElement>, path: NavPath) {
+		setDraggingPath(path);
+		event.dataTransfer.effectAllowed = "move";
+		event.dataTransfer.setData("text/plain", path);
+	}
+
+	function onDrop(event: DragEvent<HTMLDivElement>, targetPath: NavPath) {
+		event.preventDefault();
+		moveDraggedItem(targetPath);
+		setDraggingPath(null);
+	}
+
+	async function saveAiSettings() {
+		setAiSaving(true);
+		setAiError(null);
+		setAiSaved(false);
+		try {
+			const response = await fetch("/api/settings-ai", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					provider,
+					model,
+					...(geminiApiKey ? { geminiApiKey } : {}),
+					clearGeminiApiKey,
+				}),
+			});
+			if (!response.ok) throw new Error(await response.text());
+			const data = (await response.json()) as {
+				settings: AiSettings;
+			};
+			setAi(data.settings);
+			setProvider(data.settings.provider);
+			setModel(data.settings.model);
+			setGeminiApiKey("");
+			setClearGeminiApiKey(false);
+			setAiSaved(true);
+			window.setTimeout(() => setAiSaved(false), 2400);
+		} catch (error) {
+			setAiError(
+				error instanceof Error ? error.message : "Could not save AI settings",
+			);
+		} finally {
+			setAiSaving(false);
+		}
 	}
 
 	return (
@@ -78,35 +196,56 @@ function SettingsRoute() {
 					<div>
 						<h1 className={pageTitleClass}>Settings</h1>
 						<p className={pageSubtitleClass}>
-							Clean up the local workspace without changing archived data.
+							Local controls for navigation, live sources, and analysis.
 						</p>
 					</div>
-					<button
-						className={secondaryButtonClass}
-						onClick={() => {
-							persistHidden([]);
-							persistOrder([]);
-						}}
-						type="button"
-					>
-						<RotateCcw className="size-4" strokeWidth={1.8} />
-						Reset
-					</button>
 				</div>
 			</header>
-			<section className="border-b border-[var(--line)] px-4 py-4">
-				<h2 className="text-[16px] font-bold text-[var(--ink)]">Sidebar</h2>
-				<p className="mt-1 text-[13px] text-[var(--ink-soft)]">
-					Hide noisy lanes and move the stuff you use most toward the top.
-				</p>
-				<div className="mt-4 overflow-hidden rounded-2xl border border-[var(--line)]">
+
+			<section className="flex flex-col gap-5 border-b border-[var(--line)] px-4 py-5">
+				<SettingsSectionHeader
+					icon={<SlidersHorizontal className="size-5" strokeWidth={1.8} />}
+					title="Sidebar"
+					meta={`${String(visibleCount)} visible · ${String(hidden.length)} hidden`}
+					action={
+						<button
+							className={secondaryButtonClass}
+							onClick={resetSidebar}
+							type="button"
+						>
+							<RotateCcw className="size-4" strokeWidth={1.8} />
+							Reset
+						</button>
+					}
+				/>
+
+				<div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--panel)]">
 					{orderedItems.map((item, index) => {
 						const isHidden = hidden.includes(item.to);
+						const isDragging = draggingPath === item.to;
 						return (
 							<div
-								className="flex min-w-0 items-center gap-2 border-t border-[var(--line)] px-3 py-2.5 first:border-t-0"
+								className={cx(
+									"group flex min-w-0 items-center gap-3 border-t border-[var(--line)] px-3 py-3 first:border-t-0",
+									isDragging && "bg-[var(--accent-soft)] opacity-70",
+								)}
 								key={item.to}
+								onDragOver={(event) => event.preventDefault()}
+								onDrop={(event) => onDrop(event, item.to)}
 							>
+								<button
+									aria-label={`Drag ${item.label}`}
+									className="grid size-9 shrink-0 cursor-grab place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--ink)] active:cursor-grabbing"
+									draggable
+									onDragEnd={() => setDraggingPath(null)}
+									onDragStart={(event) => onDragStart(event, item.to)}
+									type="button"
+								>
+									<GripVertical className="size-5" strokeWidth={1.8} />
+								</button>
+								<div className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--bg)] text-[12px] font-bold text-[var(--ink-soft)]">
+									{String(index + 1)}
+								</div>
 								<div className="min-w-0 flex-1">
 									<div className="truncate text-[14px] font-bold text-[var(--ink)]">
 										{item.label}
@@ -116,26 +255,13 @@ function SettingsRoute() {
 									</div>
 								</div>
 								<button
-									aria-label={`Move ${item.label} up`}
-									className={cx(secondaryButtonClass, "size-8 px-0")}
-									disabled={index === 0}
-									onClick={() => move(item.to, -1)}
-									type="button"
-								>
-									<ArrowUp className="size-4" strokeWidth={1.8} />
-								</button>
-								<button
-									aria-label={`Move ${item.label} down`}
-									className={cx(secondaryButtonClass, "size-8 px-0")}
-									disabled={index === orderedItems.length - 1}
-									onClick={() => move(item.to, 1)}
-									type="button"
-								>
-									<ArrowDown className="size-4" strokeWidth={1.8} />
-								</button>
-								<button
-									aria-label={isHidden ? `Show ${item.label}` : `Hide ${item.label}`}
-									className={cx(secondaryButtonClass, "min-w-[88px]")}
+									aria-pressed={!isHidden}
+									className={cx(
+										"inline-flex h-9 min-w-[112px] items-center justify-center gap-2 rounded-full border px-3 text-[13px] font-semibold transition-colors",
+										isHidden
+											? "border-[var(--line)] bg-[var(--bg)] text-[var(--ink-soft)] hover:bg-[var(--bg-hover)]"
+											: "border-[color:color-mix(in_srgb,var(--accent)_45%,var(--line))] bg-[var(--accent-soft)] text-[var(--accent)]",
+									)}
 									onClick={() =>
 										persistHidden(
 											isHidden
@@ -146,17 +272,179 @@ function SettingsRoute() {
 									type="button"
 								>
 									{isHidden ? (
-										<Eye className="size-4" strokeWidth={1.8} />
-									) : (
 										<EyeOff className="size-4" strokeWidth={1.8} />
+									) : (
+										<Eye className="size-4" strokeWidth={1.8} />
 									)}
-									{isHidden ? "Show" : "Hide"}
+									{isHidden ? "Hidden" : "Visible"}
 								</button>
 							</div>
 						);
 					})}
 				</div>
 			</section>
+
+			<section className="flex flex-col gap-5 px-4 py-5">
+				<SettingsSectionHeader
+					icon={<Sparkles className="size-5" strokeWidth={1.8} />}
+					title="AI"
+					meta={
+						aiLoading
+							? "Loading"
+							: provider === "gemini"
+								? "Gemini active"
+								: "OpenAI active"
+					}
+				/>
+
+				<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-4">
+					<div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+						<label className="flex flex-col gap-2">
+							<span className="text-[13px] font-semibold text-[var(--ink)]">
+								Provider
+							</span>
+							<select
+								className={selectFieldClass}
+								disabled={aiLoading || aiSaving}
+								onChange={(event) => {
+									const next = event.target.value as AiProvider;
+									setProvider(next);
+									setModel(next === "gemini" ? "gemini-3.5-flash" : "gpt-5.5");
+								}}
+								value={provider}
+							>
+								<option value="openai">OpenAI</option>
+								<option value="gemini">Gemini</option>
+							</select>
+						</label>
+
+						<label className="flex flex-col gap-2">
+							<span className="text-[13px] font-semibold text-[var(--ink)]">
+								Model
+							</span>
+							{provider === "gemini" ? (
+								<select
+									className={selectFieldClass}
+									disabled={aiLoading || aiSaving}
+									onChange={(event) => setModel(event.target.value)}
+									value={model}
+								>
+									{geminiModelOptions.map((option) => (
+										<option key={option} value={option}>
+											{option}
+										</option>
+									))}
+								</select>
+							) : (
+								<input
+									className="h-10 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[14px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+									disabled={aiLoading || aiSaving}
+									onChange={(event) => setModel(event.target.value)}
+									value={model}
+								/>
+							)}
+						</label>
+					</div>
+
+					<div className="mt-4 grid gap-3">
+						<label className="flex flex-col gap-2">
+							<span className="inline-flex items-center gap-2 text-[13px] font-semibold text-[var(--ink)]">
+								<KeyRound className="size-4" strokeWidth={1.8} />
+								Gemini API key
+							</span>
+							<input
+								autoComplete="off"
+								className="h-10 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[14px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)]"
+								disabled={aiLoading || aiSaving || provider !== "gemini"}
+								onChange={(event) => {
+									setGeminiApiKey(event.target.value);
+									setClearGeminiApiKey(false);
+								}}
+								placeholder={
+									ai?.hasGeminiApiKey ? "Saved key present" : "Paste Gemini key"
+								}
+								type="password"
+								value={geminiApiKey}
+							/>
+						</label>
+
+						<div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[var(--line)] bg-[var(--bg)] px-3 py-2">
+							<div className="flex min-w-0 items-center gap-2 text-[13px] text-[var(--ink-soft)]">
+								<ShieldCheck className="size-4 shrink-0" strokeWidth={1.8} />
+								<span className="truncate">
+									{ai?.hasGeminiApiKey
+										? "Gemini key is saved in local Birdclaw config."
+										: "No Gemini key saved."}
+								</span>
+							</div>
+							{ai?.hasGeminiApiKey ? (
+								<label className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--ink)]">
+									<input
+										checked={clearGeminiApiKey}
+										onChange={(event) =>
+											setClearGeminiApiKey(event.currentTarget.checked)
+										}
+										type="checkbox"
+									/>
+									Clear saved key
+								</label>
+							) : null}
+						</div>
+					</div>
+
+					{aiError ? (
+						<div className={cx(errorCopyClass, "mt-4")}>{aiError}</div>
+					) : null}
+					<div className="mt-4 flex flex-wrap items-center gap-3">
+						<button
+							className={primaryButtonClass}
+							disabled={aiLoading || aiSaving}
+							onClick={() => void saveAiSettings()}
+							type="button"
+						>
+							{aiSaving ? (
+								<Loader2 className="size-4 animate-spin" strokeWidth={1.8} />
+							) : (
+								<Save className="size-4" strokeWidth={1.8} />
+							)}
+							Save AI
+						</button>
+						{aiSaved ? (
+							<span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--accent)]">
+								<CheckCircle2 className="size-4" strokeWidth={1.8} />
+								Saved
+							</span>
+						) : null}
+					</div>
+				</div>
+			</section>
 		</>
+	);
+}
+
+function SettingsSectionHeader({
+	icon,
+	title,
+	meta,
+	action,
+}: {
+	icon: ReactNode;
+	title: string;
+	meta: string;
+	action?: ReactNode;
+}) {
+	return (
+		<div className="flex flex-wrap items-center justify-between gap-3">
+			<div className="flex min-w-0 items-center gap-3">
+				<div className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--line)] bg-[var(--panel)] text-[var(--accent)]">
+					{icon}
+				</div>
+				<div className="min-w-0">
+					<h2 className="text-[16px] font-bold text-[var(--ink)]">{title}</h2>
+					<p className="truncate text-[13px] text-[var(--ink-soft)]">{meta}</p>
+				</div>
+			</div>
+			{action}
+		</div>
 	);
 }

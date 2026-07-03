@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { getBirdclawConfig } from "./config";
 import { tryPromise } from "./effect-runtime";
 import {
 	defaultRuntimeServices,
@@ -33,7 +34,11 @@ function toError(error: unknown) {
 }
 
 function geminiApiKey(runtime: RuntimeServices) {
-	return runtime.env("GEMINI_API_KEY") ?? runtime.env("GOOGLE_API_KEY");
+	return (
+		runtime.env("GEMINI_API_KEY") ??
+		runtime.env("GOOGLE_API_KEY") ??
+		getBirdclawConfig().ai?.geminiApiKey
+	);
 }
 
 function geminiUrl(model: string, stream: boolean, apiKey: string) {

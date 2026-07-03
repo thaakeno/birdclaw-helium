@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { tryPromise } from "./effect-runtime";
+import { getBirdclawConfig } from "./config";
 import {
 	extractGeminiResponseText,
 	readGeminiResponseStreamEffect,
@@ -50,7 +51,9 @@ function toError(error: unknown) {
 }
 
 function resolveAnalysisProvider(runtime: RuntimeServices): AnalysisProvider {
-	return runtime.env("BIRDCLAW_AI_PROVIDER") === "gemini" ? "gemini" : "openai";
+	const provider =
+		runtime.env("BIRDCLAW_AI_PROVIDER") ?? getBirdclawConfig().ai?.provider;
+	return provider === "gemini" ? "gemini" : "openai";
 }
 
 export function resolveAnalysisModelSettings(
@@ -63,6 +66,7 @@ export function resolveAnalysisModelSettings(
 		model:
 			options.model ??
 			runtime.env("BIRDCLAW_AI_MODEL") ??
+			getBirdclawConfig().ai?.model ??
 			(provider === "gemini" ? DEFAULT_GEMINI_MODEL : DEFAULT_MODEL),
 		reasoningEffort:
 			options.reasoningEffort ??

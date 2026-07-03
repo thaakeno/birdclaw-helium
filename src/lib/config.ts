@@ -25,6 +25,11 @@ export interface BirdclawConfig {
 		dataSource?: MentionsDataSource;
 		birdCommand?: string;
 	};
+	ai?: {
+		provider?: "openai" | "gemini";
+		model?: string;
+		geminiApiKey?: string;
+	};
 	actions?: {
 		transport?: ActionsTransport;
 	};
@@ -93,6 +98,36 @@ export function writeBirdclawConfig(config: BirdclawConfig) {
 	writeFileSync(configPath, `${JSON.stringify(config, null, "\t")}\n`, "utf8");
 	cachedConfig = config;
 	return configPath;
+}
+
+export function setAiConfig({
+	provider,
+	model,
+	geminiApiKey,
+	clearGeminiApiKey,
+}: {
+	provider?: "openai" | "gemini";
+	model?: string;
+	geminiApiKey?: string;
+	clearGeminiApiKey?: boolean;
+}) {
+	const config = getBirdclawConfig();
+	const nextAi = {
+		...config.ai,
+		...(provider ? { provider } : {}),
+		...(model !== undefined ? { model } : {}),
+	};
+	if (geminiApiKey !== undefined && geminiApiKey.trim()) {
+		nextAi.geminiApiKey = geminiApiKey.trim();
+	} else if (clearGeminiApiKey) {
+		delete nextAi.geminiApiKey;
+	}
+	const nextConfig: BirdclawConfig = {
+		...config,
+		ai: nextAi,
+	};
+	const configPath = writeBirdclawConfig(nextConfig);
+	return { configPath, ai: nextAi };
 }
 
 export function setActionsTransport(transport: ActionsTransport) {

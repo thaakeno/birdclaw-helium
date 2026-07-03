@@ -30,6 +30,7 @@ import { Route as ApiVideoRouteImport } from './routes/api/video'
 import { Route as ApiThreadSyncRouteImport } from './routes/api/thread-sync'
 import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
+import { Route as ApiSettingsAiRouteImport } from './routes/api/settings-ai'
 import { Route as ApiSearchDiscussionRouteImport } from './routes/api/search-discussion'
 import { Route as ApiQueryRouteImport } from './routes/api/query'
 import { Route as ApiProfileHydrateRouteImport } from './routes/api/profile-hydrate'
@@ -151,6 +152,11 @@ const ApiStatusRoute = ApiStatusRouteImport.update({
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSettingsAiRoute = ApiSettingsAiRouteImport.update({
+  id: '/api/settings-ai',
+  path: '/api/settings-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSearchDiscussionRoute = ApiSearchDiscussionRouteImport.update({
   id: '/api/search-discussion',
   path: '/api/search-discussion',
@@ -258,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/api/profile-hydrate': typeof ApiProfileHydrateRoute
   '/api/query': typeof ApiQueryRoute
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
+  '/api/settings-ai': typeof ApiSettingsAiRoute
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/thread-sync': typeof ApiThreadSyncRoute
@@ -296,6 +303,7 @@ export interface FileRoutesByTo {
   '/api/profile-hydrate': typeof ApiProfileHydrateRoute
   '/api/query': typeof ApiQueryRoute
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
+  '/api/settings-ai': typeof ApiSettingsAiRoute
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/thread-sync': typeof ApiThreadSyncRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/api/profile-hydrate': typeof ApiProfileHydrateRoute
   '/api/query': typeof ApiQueryRoute
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
+  '/api/settings-ai': typeof ApiSettingsAiRoute
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/thread-sync': typeof ApiThreadSyncRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
     | '/api/profile-hydrate'
     | '/api/query'
     | '/api/search-discussion'
+    | '/api/settings-ai'
     | '/api/status'
     | '/api/sync'
     | '/api/thread-sync'
@@ -413,6 +423,7 @@ export interface FileRouteTypes {
     | '/api/profile-hydrate'
     | '/api/query'
     | '/api/search-discussion'
+    | '/api/settings-ai'
     | '/api/status'
     | '/api/sync'
     | '/api/thread-sync'
@@ -451,6 +462,7 @@ export interface FileRouteTypes {
     | '/api/profile-hydrate'
     | '/api/query'
     | '/api/search-discussion'
+    | '/api/settings-ai'
     | '/api/status'
     | '/api/sync'
     | '/api/thread-sync'
@@ -490,6 +502,7 @@ export interface RootRouteChildren {
   ApiProfileHydrateRoute: typeof ApiProfileHydrateRoute
   ApiQueryRoute: typeof ApiQueryRoute
   ApiSearchDiscussionRoute: typeof ApiSearchDiscussionRoute
+  ApiSettingsAiRoute: typeof ApiSettingsAiRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiSyncRoute: typeof ApiSyncRoute
   ApiThreadSyncRoute: typeof ApiThreadSyncRoute
@@ -647,6 +660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/settings-ai': {
+      id: '/api/settings-ai'
+      path: '/api/settings-ai'
+      fullPath: '/api/settings-ai'
+      preLoaderRoute: typeof ApiSettingsAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/search-discussion': {
       id: '/api/search-discussion'
       path: '/api/search-discussion'
@@ -786,6 +806,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProfileHydrateRoute: ApiProfileHydrateRoute,
   ApiQueryRoute: ApiQueryRoute,
   ApiSearchDiscussionRoute: ApiSearchDiscussionRoute,
+  ApiSettingsAiRoute: ApiSettingsAiRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiSyncRoute: ApiSyncRoute,
   ApiThreadSyncRoute: ApiThreadSyncRoute,
