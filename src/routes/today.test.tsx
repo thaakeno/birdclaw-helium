@@ -162,9 +162,17 @@ describe("today route", () => {
 				level: 2,
 			}),
 		).toBeInTheDocument();
-		expect(screen.queryByText("Today summary")).toBeNull();
-		expect(screen.queryByText("Useful signal")).toBeNull();
-		expect(screen.queryByText(/Action items/i)).toBeNull();
+		expect(screen.getByText("Today summary")).toBeInTheDocument();
+		expect(screen.getByText("Useful signal")).toBeInTheDocument();
+		expect(
+			screen.getByText("Alice shared something worth a reply."),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { name: "Source posts" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getAllByText("Peter should see this.").length,
+		).toBeGreaterThan(0);
 		expect(screen.queryByText("# Today")).not.toBeInTheDocument();
 		expect(screen.getByText("Reply:")).toBeInTheDocument();
 		const aliceLink = screen.getByRole("link", { name: "@alice" });
@@ -190,8 +198,12 @@ describe("today route", () => {
 			),
 		);
 		fireEvent.pointerEnter(aliceLink.parentElement as Element);
-		await screen.findByText("Alice Fresh");
-		expect(screen.getByRole("img", { name: "Alice Fresh" })).toHaveAttribute(
+		expect((await screen.findAllByText("Alice Fresh")).length).toBeGreaterThan(
+			0,
+		);
+		expect(
+			screen.getAllByRole("img", { name: "Alice Fresh" })[0],
+		).toHaveAttribute(
 			"src",
 			expect.stringContaining("/api/avatar?profileId=profile_alice&v="),
 		);
