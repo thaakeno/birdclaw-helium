@@ -20,9 +20,9 @@ export interface ProfileAnalysisRequestOptions {
 }
 
 export const DEFAULT_PROFILE_ANALYSIS_LIMITS = {
-	maxTweets: 10000,
-	maxPages: 100,
-	maxConversations: 80,
+	maxTweets: 120,
+	maxPages: 3,
+	maxConversations: 0,
 	maxConversationPages: 3,
 } as const;
 
@@ -158,6 +158,10 @@ export function profileContextUrl(
 
 export async function profileAnalysisRequestError(response: Response) {
 	return responseError(response, { label: "Profile analysis failed" });
+}
+
+export async function profileContextRequestError(response: Response) {
+	return responseError(response, { label: "Profile fetch failed" });
 }
 
 export function formatProfileAnalysisCounts(

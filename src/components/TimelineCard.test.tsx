@@ -138,6 +138,37 @@ describe("TimelineCard", () => {
 		expect(onReply).toHaveBeenCalledWith("tweet_1");
 	});
 
+	it("opens quoted tweet media in the document-level viewer", () => {
+		const quotedMediaItem = {
+			...item,
+			quotedTweet: {
+				...item.quotedTweet,
+				media: [
+					{
+						url: "https://example.com/quoted.jpg",
+						type: "image" as const,
+						altText: "Quoted image",
+					},
+				],
+			},
+		};
+		const { container } = render(
+			<TimelineCard item={quotedMediaItem} onReply={vi.fn()} />,
+		);
+
+		const mediaButtons = screen.getAllByRole("button", {
+			name: "Open tweet media 1",
+		});
+		fireEvent.click(mediaButtons[1] as HTMLElement);
+
+		const dialog = screen.getByRole("dialog");
+		expect(container).not.toContainElement(dialog);
+		expect(dialog.parentElement).toBe(document.body);
+		expect(
+			within(dialog).getByRole("img", { name: "Quoted image" }),
+		).toHaveAttribute("src", "https://example.com/quoted.jpg");
+	});
+
 	it("renders retweets as the original tweet with repost attribution", () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,

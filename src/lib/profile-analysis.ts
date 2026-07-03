@@ -871,10 +871,9 @@ export function collectProfileAnalysisContextEffect(
 			),
 		);
 		const maxConversations = yield* tryProfileSync(() =>
-			normalizePositiveInteger(
+			normalizeNonNegativeInteger(
 				options.maxConversations,
 				DEFAULT_MAX_CONVERSATIONS,
-				"--max-conversations",
 			),
 		);
 		const maxConversationPages = yield* tryProfileSync(() =>
@@ -918,36 +917,52 @@ export function collectProfileAnalysisContextEffect(
 				"Fetching profile tweets with Bird",
 				`@${profile.handle}`,
 			);
-			const birdPayload = yield* listUserTweetsViaBirdEffect({
+			const externalUserId = getExternalUserId(profile.id) ?? profile.id;
+			const context = yield* listUserTweetsViaBirdEffect({
 				handle: profile.handle || handle,
 				maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
 				all: maxPages > 1,
 				maxPages,
-			}).pipe(Effect.mapError(toError));
-			const externalUserId = getExternalUserId(profile.id) ?? profile.id;
-			const context =
-				birdPayload.data.length > 0
-					? buildContextFromPayloads({
-							account,
-							handle: profile.handle || handle,
-							profile,
-							externalUserId,
-							tweetResponses: [birdPayload],
-							conversationResponses: [],
-							conversationRoots: [],
-							tweetPages: Number(birdPayload.meta?.page_count ?? 1),
-							conversationPages: 0,
-							fetchCached: false,
-						})
-					: yield* tryProfileSync(() =>
-							buildLocalProfileContext({
+			}).pipe(
+				Effect.map((birdPayload) =>
+					birdPayload.data.length > 0
+						? buildContextFromPayloads({
+								account,
+								handle: profile.handle || handle,
+								profile,
+								externalUserId,
+								tweetResponses: [birdPayload],
+								conversationResponses: [],
+								conversationRoots: [],
+								tweetPages: Number(birdPayload.meta?.page_count ?? 1),
+								conversationPages: 0,
+								fetchCached: false,
+							})
+						: buildLocalProfileContext({
 								account,
 								handle: profile.handle || handle,
 								profile,
 								maxTweets,
 								fetchCached: false,
 							}),
-						);
+				),
+				Effect.catchAll((error) => {
+					emitStatus(
+						handlers,
+						"Bird profile fetch failed",
+						toError(error).message || "using local profile cache",
+					);
+					return tryProfileSync(() =>
+						buildLocalProfileContext({
+							account,
+							handle: profile.handle || handle,
+							profile,
+							maxTweets,
+							fetchCached: false,
+						}),
+					);
+				}),
+			);
 			yield* tryProfileSync(() => writeSyncCache(contextKey, context, db));
 			return context;
 		}

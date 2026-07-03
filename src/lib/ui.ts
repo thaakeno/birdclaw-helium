@@ -322,7 +322,7 @@ export function tweetMediaGridClass(count: number) {
 
 	return cx(
 		`tweet-media-grid tweet-media-grid-${String(capped)}`,
-		"mt-2 grid max-w-full gap-0.5 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)]",
+		"mt-2 grid max-h-[460px] max-w-full gap-0.5 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)]",
 		layout,
 	);
 }
@@ -330,7 +330,7 @@ export function tweetMediaGridClass(count: number) {
 export function tweetMediaTileClass(index: number, count: number) {
 	return cx(
 		"tweet-media-tile relative block min-w-0 overflow-hidden border-0 bg-[var(--bg-active)] p-0 text-left",
-		count === 1 && "aspect-[16/10]",
+		count === 1 && "aspect-video max-h-[460px]",
 		count === 2 && "aspect-square",
 		count === 3 && index === 0 && "row-span-2 aspect-[3/4]",
 		count === 3 && index !== 0 && "aspect-square",

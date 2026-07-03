@@ -11,9 +11,15 @@ import { listTimelineItems } from "./queries";
 
 const mocks = vi.hoisted(() => ({
 	getTransportStatusEffect: vi.fn(),
+	listUserTweetsViaBirdEffect: vi.fn(),
 	listUserTweetsEffect: vi.fn(),
 	lookupUsersByHandlesEffect: vi.fn(),
 	searchRecentByConversationIdEffect: vi.fn(),
+}));
+
+vi.mock("./bird", () => ({
+	listUserTweetsViaBirdEffect: (...args: unknown[]) =>
+		mocks.listUserTweetsViaBirdEffect(...args),
 }));
 
 vi.mock("./xurl", () => ({
@@ -54,11 +60,19 @@ beforeEach(() => {
 	process.env.BIRDCLAW_PROFILE_ANALYSIS_RATE_LIMIT_RETRY_MS = "0";
 	process.env.BIRDCLAW_PROFILE_ANALYSIS_RATE_LIMIT_MAX_RETRIES = "0";
 	mocks.getTransportStatusEffect.mockReset();
+	mocks.listUserTweetsViaBirdEffect.mockReset();
 	mocks.lookupUsersByHandlesEffect.mockReset();
 	mocks.listUserTweetsEffect.mockReset();
 	mocks.searchRecentByConversationIdEffect.mockReset();
 	mocks.getTransportStatusEffect.mockReturnValue(
 		Effect.succeed({ availableTransport: "xurl" }),
+	);
+	mocks.listUserTweetsViaBirdEffect.mockReturnValue(
+		Effect.succeed({
+			data: [],
+			includes: { users: [], media: [] },
+			meta: { result_count: 0, page_count: 0 },
+		}),
 	);
 	mocks.lookupUsersByHandlesEffect.mockReturnValue(
 		Effect.succeed([profileUser]),
@@ -304,6 +318,63 @@ describe("profile analysis", () => {
 				.get(),
 		).toEqual({ count: 0 });
 		expect(fetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("falls back to local profile tweets when Bird profile fetch fails", async () => {
+		mocks.getTransportStatusEffect.mockReturnValue(
+			Effect.succeed({ availableTransport: "bird" }),
+		);
+		mocks.listUserTweetsViaBirdEffect.mockReturnValue(
+			Effect.fail(new Error("HTTPError")),
+		);
+		const db = getNativeDb();
+		db.prepare(
+			"insert into profiles (id, handle, display_name, bio, followers_count, avatar_hue, created_at) values (?, ?, ?, ?, ?, ?, ?)",
+		).run(
+			"profile_user_42",
+			"alice",
+			"Alice",
+			"Builds quiet tools.",
+			1200,
+			210,
+			"2026-05-01T00:00:00.000Z",
+		);
+		db.prepare(
+			"insert into tweets (id, author_profile_id, text, created_at, is_replied, reply_to_id, like_count, media_count, entities_json, media_json, quoted_tweet_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		).run(
+			"local_1",
+			"profile_user_42",
+			"Local fallback tweet.",
+			"2026-05-20T10:00:00.000Z",
+			0,
+			null,
+			5,
+			0,
+			"{}",
+			"[]",
+			null,
+		);
+		const events: string[] = [];
+
+		const result = await streamProfileAnalysis(
+			{
+				handle: "alice",
+				maxPages: 1,
+				maxTweets: 10,
+				maxConversations: 0,
+				maxConversationPages: 1,
+				refresh: true,
+			},
+			{
+				onEvent: (event) => {
+					if (event.type === "status") events.push(event.label);
+				},
+			},
+		);
+
+		expect(result.context.tweets.map((tweet) => tweet.id)).toEqual(["local_1"]);
+		expect(result.context.counts.tweets).toBe(1);
+		expect(events).toContain("Bird profile fetch failed");
 	});
 
 	it("retries conversation search once after a rate limit before using context", async () => {

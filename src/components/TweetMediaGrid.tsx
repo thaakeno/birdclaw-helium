@@ -91,7 +91,7 @@ export function TweetMediaGrid({
 				<button
 					aria-label="Open tweet media 1"
 					className={cx(
-						"tweet-media-single mt-2 max-w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-active)] p-0 text-left transition-colors hover:bg-[var(--bg-hover)]",
+						"tweet-media-single mt-2 max-h-[460px] max-w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-active)] p-0 text-left transition-colors hover:bg-[var(--bg-hover)]",
 						singleImage.width && singleImage.height
 							? "block"
 							: "inline-block align-top",
@@ -106,7 +106,7 @@ export function TweetMediaGrid({
 					<img
 						alt={singleImage.altText ?? "Tweet media 1"}
 						className={cx(
-							"tweet-media-image block max-h-[720px] max-w-full",
+							"tweet-media-image block max-h-[460px] max-w-full",
 							singleImage.width && singleImage.height
 								? "size-full object-contain"
 								: "h-auto w-auto object-contain",
@@ -279,7 +279,7 @@ function MediaViewerModal({
 	return (
 		<div
 			aria-modal="true"
-			className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-xl sm:p-5"
+			className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xl backdrop-saturate-150 sm:p-5"
 			onClick={(event) => {
 				event.stopPropagation();
 				onClose();
@@ -588,7 +588,7 @@ function videoContentType(url: string) {
 
 function singleImageStyle(item: TweetMediaItem) {
 	if (!item.width || !item.height) return undefined;
-	const maxHeight = 720;
+	const maxHeight = 460;
 	const width = Math.min(
 		item.width,
 		Math.round((item.width / item.height) * maxHeight),

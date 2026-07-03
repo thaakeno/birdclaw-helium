@@ -25,7 +25,10 @@ import {
 	ProfileAnalysisStatusLine,
 	useProfileAnalysisStream,
 } from "#/components/ProfileAnalysisStream";
-import { profileContextUrl } from "#/components/ProfileAnalysisClient";
+import {
+	profileContextRequestError,
+	profileContextUrl,
+} from "#/components/ProfileAnalysisClient";
 import { formatCompactNumber } from "#/lib/present";
 import type { ProfileAnalysisContext } from "#/lib/profile-analysis";
 import { profileDescriptionEntitiesFromXurl } from "#/lib/tweet-render";
@@ -145,7 +148,7 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 					...DEFAULT_PROFILE_ANALYSIS_LIMITS,
 				}),
 			);
-			if (!response.ok) throw new Error(await response.text());
+			if (!response.ok) throw await profileContextRequestError(response);
 			const payload = (await response.json()) as {
 				context?: ProfileAnalysisContext;
 			};

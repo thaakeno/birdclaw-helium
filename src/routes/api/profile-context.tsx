@@ -28,7 +28,7 @@ function parseOptions(url: URL): ProfileAnalysisOptions {
 		}),
 		maxConversations: parseBoundedInteger(
 			url.searchParams.get("maxConversations"),
-			{ max: 500 },
+			{ min: 0, max: 500 },
 		),
 		maxConversationPages: parseBoundedInteger(
 			url.searchParams.get("maxConversationPages"),

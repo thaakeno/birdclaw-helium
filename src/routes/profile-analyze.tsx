@@ -10,6 +10,7 @@ import {
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
 	DEFAULT_PROFILE_ANALYSIS_LIMITS,
+	profileContextRequestError,
 	profileContextUrl,
 } from "#/components/ProfileAnalysisClient";
 import {
@@ -84,7 +85,7 @@ function ProfileAnalyzeRoute() {
 				}),
 			);
 			if (!response.ok) {
-				throw new Error(await response.text());
+				throw await profileContextRequestError(response);
 			}
 			const data = (await response.json()) as {
 				ok?: boolean;
