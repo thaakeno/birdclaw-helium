@@ -331,6 +331,7 @@ const INDEX_SQL = `
   create index if not exists idx_tweets_created on tweets(created_at desc);
   create index if not exists idx_tweets_account_created on tweets(account_id, created_at desc);
   create index if not exists idx_tweets_quoted on tweets(quoted_tweet_id);
+  create index if not exists idx_tweets_reply_to on tweets(reply_to_id);
   create index if not exists idx_tweet_collections_kind_account on tweet_collections(kind, account_id, collected_at desc, tweet_id);
   create index if not exists idx_tweet_collections_tweet on tweet_collections(tweet_id);
   create index if not exists idx_tweet_account_edges_kind_account on tweet_account_edges(kind, account_id, last_seen_at desc, tweet_id);
@@ -744,6 +745,7 @@ function normalizeTweetState(db: Database) {
 	db.exec(`
 	  drop index if exists idx_tweets_kind_created;
 	  drop index if exists idx_tweets_account_created;
+	  drop index if exists idx_tweets_reply_to;
 	  alter table tweets rename to tweets_legacy_state;
 	  create table tweets (
 	    id text primary key,
@@ -769,6 +771,7 @@ function normalizeTweetState(db: Database) {
 	  drop table tweets_legacy_state;
 	  create index idx_tweets_created on tweets(created_at desc);
 	  create index idx_tweets_quoted on tweets(quoted_tweet_id);
+	  create index idx_tweets_reply_to on tweets(reply_to_id);
 	`);
 }
 
@@ -799,6 +802,15 @@ const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
 		version: 2,
 		name: "normalize tweet account and collection state",
 		up: normalizeTweetState,
+	},
+	{
+		version: 3,
+		name: "index tweet reply lookup",
+		up: (db) => {
+			db.exec(
+				"create index if not exists idx_tweets_reply_to on tweets(reply_to_id)",
+			);
+		},
 	},
 ];
 
