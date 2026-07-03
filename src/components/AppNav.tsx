@@ -3,6 +3,8 @@ import {
 	Bell,
 	Bookmark,
 	CalendarDays,
+	ChevronsLeft,
+	ChevronsRight,
 	Database,
 	Gauge,
 	Globe2,
@@ -12,9 +14,11 @@ import {
 	Link as LinkIcon,
 	Mail,
 	MessagesSquare,
+	Settings,
 	ShieldOff,
 	UserSearch,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	cx,
 	navLinkActiveClass,
@@ -34,6 +38,16 @@ import {
 	sidebarNavClass,
 	sidebarShellClass,
 } from "#/lib/ui";
+import {
+	NAV_HIDDEN_KEY,
+	NAV_ORDER_KEY,
+	NAV_PREFERENCES_EVENT,
+	orderNavItems,
+	readBoolean,
+	readStringArray,
+	SIDEBAR_COLLAPSED_KEY,
+	writeBoolean,
+} from "#/lib/nav-preferences";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { BirdclawMark } from "./BrandMark";
 import { ThemeSlider } from "./ThemeSlider";
@@ -53,15 +67,43 @@ const links = [
 	{ to: "/rate-limits", label: "Rate Limits", icon: Gauge },
 	{ to: "/dms", label: "DMs", icon: Mail },
 	{ to: "/blocks", label: "Blocks", icon: ShieldOff },
+	{ to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppNav({ compact = false }: { compact?: boolean }) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
+	const [collapsedPreference, setCollapsedPreference] = useState(false);
+	const [hidden, setHidden] = useState<string[]>([]);
+	const [order, setOrder] = useState<string[]>([]);
+
+	useEffect(() => {
+		function load() {
+			setCollapsedPreference(readBoolean(SIDEBAR_COLLAPSED_KEY));
+			setHidden(readStringArray(NAV_HIDDEN_KEY));
+			setOrder(readStringArray(NAV_ORDER_KEY));
+		}
+		load();
+		window.addEventListener(NAV_PREFERENCES_EVENT, load);
+		window.addEventListener("storage", load);
+		return () => {
+			window.removeEventListener(NAV_PREFERENCES_EVENT, load);
+			window.removeEventListener("storage", load);
+		};
+	}, []);
+
+	const isCompact = compact || collapsedPreference;
+	const visibleLinks = useMemo(
+		() =>
+			orderNavItems(links, order).filter(
+				(link) => link.to === "/settings" || !hidden.includes(link.to),
+			),
+		[hidden, order],
+	);
 
 	return (
-		<aside className={compact ? sidebarShellCompactClass : sidebarShellClass}>
+		<aside className={isCompact ? sidebarShellCompactClass : sidebarShellClass}>
 			<div className="flex flex-col">
 				<Link to="/" className={sidebarBrandClass}>
 					<span className={sidebarBrandMarkClass}>
@@ -69,7 +111,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 					</span>
 					<span
 						className={
-							compact ? sidebarBrandCopyCompactClass : sidebarBrandCopyClass
+							isCompact ? sidebarBrandCopyCompactClass : sidebarBrandCopyClass
 						}
 					>
 						<span className={sidebarBrandTitleClass}>birdclaw</span>
@@ -79,7 +121,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 					</span>
 				</Link>
 				<nav className={sidebarNavClass} aria-label="Primary">
-					{links.map((link) => {
+					{visibleLinks.map((link) => {
 						const active = pathname === link.to;
 						const Icon = link.icon;
 						return (
@@ -88,7 +130,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 								to={link.to}
 								aria-label={link.label}
 								className={cx(
-									compact ? navLinkCompactClass : navLinkClass,
+									isCompact ? navLinkCompactClass : navLinkClass,
 									active && navLinkActiveClass,
 								)}
 							>
@@ -100,7 +142,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 								/>
 								<span
 									className={
-										compact ? navLinkLabelCompactClass : navLinkLabelClass
+										isCompact ? navLinkLabelCompactClass : navLinkLabelClass
 									}
 								>
 									{link.label}
@@ -111,6 +153,34 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				</nav>
 			</div>
 			<div className={sidebarFooterClass}>
+				<button
+					aria-label={collapsedPreference ? "Expand sidebar" : "Collapse sidebar"}
+					className={cx(isCompact ? navLinkCompactClass : navLinkClass)}
+					onClick={() => {
+						writeBoolean(SIDEBAR_COLLAPSED_KEY, !collapsedPreference);
+						setCollapsedPreference(!collapsedPreference);
+					}}
+					type="button"
+				>
+					{collapsedPreference ? (
+						<ChevronsRight
+							aria-hidden="true"
+							className={navLinkIconClass}
+							size={22}
+							strokeWidth={1.8}
+						/>
+					) : (
+						<ChevronsLeft
+							aria-hidden="true"
+							className={navLinkIconClass}
+							size={22}
+							strokeWidth={1.8}
+						/>
+					)}
+					<span className={isCompact ? navLinkLabelCompactClass : navLinkLabelClass}>
+						{collapsedPreference ? "Expand" : "Collapse"}
+					</span>
+				</button>
 				<AccountSwitcher action={<ThemeSlider compact />} />
 			</div>
 		</aside>

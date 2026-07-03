@@ -28,7 +28,7 @@ export function ConversationThread({
 }) {
 	if (loading) {
 		return (
-			<section className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--bg-card)]">
+			<section className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)]">
 				<BirdclawLoading
 					detail="Finding archived replies around this post"
 					label="Loading conversation"
@@ -59,13 +59,15 @@ export function ConversationThread({
 	return (
 		<section
 			aria-label="Conversation"
-			className="mt-3 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-card)]"
+			className="mt-3 min-w-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_8px_28px_var(--shadow)]"
 		>
-			<div className="flex items-center gap-2 border-b border-[var(--line)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink)]">
+			<div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink)]">
 				<MessageCircle className={feedActionIconClass} strokeWidth={1.8} />
-				<span>{items.length} tweets in conversation</span>
+				<span className="min-w-0 flex-1 truncate">
+					{items.length} tweets in local thread
+				</span>
 			</div>
-			<div className="flex flex-col">
+			<div className="custom-scrollbar flex max-h-[min(68vh,760px)] flex-col overflow-y-auto overscroll-contain">
 				{items.map((tweet, index) => {
 					const isAnchor = tweet.id === anchorId;
 					return (
@@ -89,10 +91,10 @@ export function ConversationThread({
 									<span className="mt-2 w-px flex-1 bg-[var(--line)]" />
 								) : null}
 							</div>
-							<div className="min-w-0 flex-1">
-								<header className="flex min-w-0 items-center gap-1.5 text-[14px]">
+							<div className="min-w-0 flex-1 overflow-hidden">
+								<header className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px]">
 									<ProfilePreview profile={tweet.author}>
-										<span className="flex min-w-0 items-center gap-1.5">
+										<span className="flex min-w-0 max-w-full items-center gap-1.5">
 											<span className={feedRowNameClass}>
 												{tweet.author.displayName}
 											</span>
@@ -106,22 +108,24 @@ export function ConversationThread({
 										className={feedRowTimestampClass}
 										value={tweet.createdAt}
 									/>
-									{isAnchor ? (
-										<span className="ml-auto rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-bold text-white">
-											selected
-										</span>
-									) : null}
-									<a
-										aria-label="Open original post"
-										className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
-										href={tweetUrl(tweet)}
-										onClick={(event) => event.stopPropagation()}
-										rel="noreferrer"
-										target="_blank"
-									>
-										<ExternalLink className="size-3.5" strokeWidth={1.8} />
-										Open
-									</a>
+									<span className="ml-auto inline-flex shrink-0 items-center gap-1.5">
+										{isAnchor ? (
+											<span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-bold text-white">
+												selected
+											</span>
+										) : null}
+										<a
+											aria-label="Open original post"
+											className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+											href={tweetUrl(tweet)}
+											onClick={(event) => event.stopPropagation()}
+											rel="noreferrer"
+											target="_blank"
+										>
+											<ExternalLink className="size-3.5" strokeWidth={1.8} />
+											Open
+										</a>
+									</span>
 								</header>
 								<TweetRichText
 									className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"

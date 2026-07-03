@@ -167,6 +167,8 @@ export const timelineItemSchema: z.ZodType<TimelineItem> = z.object({
 	savedAt: z.string().nullable().optional(),
 	replyToId: z.string().nullable().optional(),
 	isReplied: z.boolean().default(false),
+	replyCount: z.number().optional(),
+	localReplyCount: z.number().optional(),
 	likeCount: z.number().default(0),
 	mediaCount: z.number().default(0),
 	bookmarked: z.boolean().default(false),

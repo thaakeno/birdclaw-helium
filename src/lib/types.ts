@@ -136,6 +136,8 @@ export interface EmbeddedTweet {
 	createdAt: string;
 	replyToId?: string | null;
 	isReplied?: boolean;
+	replyCount?: number;
+	localReplyCount?: number;
 	likeCount?: number;
 	mediaCount?: number;
 	bookmarked?: boolean;
@@ -175,6 +177,8 @@ export interface TimelineItem {
 	savedAt?: string | null;
 	replyToId?: string | null;
 	isReplied: boolean;
+	replyCount?: number;
+	localReplyCount?: number;
 	likeCount: number;
 	mediaCount: number;
 	bookmarked: boolean;

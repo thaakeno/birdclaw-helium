@@ -333,6 +333,10 @@ export function TimelineCard({
 		? (displayTweet.mediaCount ?? displayTweet.media.length)
 		: item.mediaCount;
 	const displayIsReplied = displayTweet.isReplied ?? item.isReplied;
+	const displayReplyCount =
+		displayTweet.replyCount ?? item.replyCount ?? item.localReplyCount ?? 0;
+	const displayLocalReplyCount =
+		displayTweet.localReplyCount ?? item.localReplyCount ?? 0;
 	const displayLikeCount = displayTweet.likeCount ?? item.likeCount;
 	const displayBookmarked = displayTweet.bookmarked ?? item.bookmarked;
 	const displayLiked = displayTweet.liked ?? item.liked;
@@ -537,6 +541,23 @@ export function TimelineCard({
 							</span>
 							<span className="text-[13px]">Open on X</span>
 						</a>
+						{displayReplyCount > 0 || displayLocalReplyCount > 0 ? (
+							<span
+								aria-label={`${formatCompactNumber(displayReplyCount || displayLocalReplyCount)} comments`}
+								className="inline-flex items-center gap-1 px-2 py-1 text-[13px]"
+								title={
+									displayLocalReplyCount > 0
+										? `${formatCompactNumber(displayLocalReplyCount)} archived locally`
+										: `${formatCompactNumber(displayReplyCount)} comments reported by X`
+								}
+							>
+								<MessageCircle
+									className={feedActionIconClass}
+									strokeWidth={1.7}
+								/>
+								<span>{formatCompactNumber(displayReplyCount || displayLocalReplyCount)}</span>
+							</span>
+						) : null}
 						{canReply ? (
 							<button
 								className={feedActionButtonClass}

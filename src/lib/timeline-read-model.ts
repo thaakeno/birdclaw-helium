@@ -335,6 +335,16 @@ function getRetweetedTweetIdFromRaw(rawJson: unknown) {
 	return null;
 }
 
+function getReplyCountFromRawJson(rawJson: unknown) {
+	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
+	const metrics = raw.public_metrics;
+	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
+		return undefined;
+	}
+	const count = Number((metrics as { reply_count?: unknown }).reply_count);
+	return Number.isFinite(count) ? count : undefined;
+}
+
 function parseManualRetweet(text: string) {
 	const match = text.match(/^RT\s+@([A-Za-z0-9_]{1,15}):\s*([\s\S]+)$/);
 	if (!match?.[1] || !match[2]) {
@@ -768,6 +778,11 @@ export function listTimelineItems({
         t.is_replied,
         t.like_count,
         t.media_count,
+        (
+          select count(*)
+          from tweets child
+          where child.reply_to_id = t.id
+        ) as local_reply_count,
         case
           when exists (
             select 1 from tweet_collections collection
@@ -933,6 +948,8 @@ export function listTimelineItems({
 			replyToId:
 				typeof row.reply_to_id === "string" ? String(row.reply_to_id) : null,
 			isReplied: Boolean(row.is_replied),
+			replyCount: getReplyCountFromRawJson(row.edge_raw_json),
+			localReplyCount: Number(row.local_reply_count ?? 0),
 			likeCount: Number(row.like_count),
 			mediaCount: Number(row.media_count),
 			bookmarked: Boolean(row.bookmarked),

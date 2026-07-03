@@ -10,10 +10,10 @@ export const siteShellClass =
 	"mx-auto flex min-h-screen w-full max-w-[1280px] gap-0";
 
 export const sidebarShellClass =
-	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 min-[1100px]:w-[260px] min-[1100px]:px-3";
+	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 transition-[width,padding] duration-200 ease-out min-[1100px]:w-[260px] min-[1100px]:px-3";
 
 export const sidebarShellCompactClass =
-	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3";
+	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 transition-[width,padding] duration-200 ease-out";
 
 export const sidebarBrandClass =
 	"flex items-center gap-2.5 px-2 py-2 text-[var(--ink)] min-[1100px]:px-3";
@@ -88,7 +88,7 @@ export const feedRowClass =
 export const feedRowBodyClass = "flex min-w-0 flex-1 flex-col gap-1";
 
 export const feedRowHeaderClass =
-	"flex min-w-0 items-center gap-1.5 text-[15px]";
+	"flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[15px]";
 
 export const feedRowNameClass =
 	"truncate font-bold text-[var(--ink)] hover:underline";
@@ -101,10 +101,10 @@ export const feedRowTimestampClass =
 	"shrink-0 text-[var(--ink-soft)] hover:underline";
 
 export const feedRowActionsClass =
-	"mt-2 flex max-w-md items-center justify-between text-[var(--ink-soft)]";
+	"mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[var(--ink-soft)]";
 
 export const feedActionButtonClass =
-	"action-button group/action inline-flex items-center gap-1 rounded-full border-0 bg-transparent px-2 py-1 text-[13px] text-[var(--ink-soft)] transition-colors duration-150 hover:text-[var(--accent)] disabled:cursor-default disabled:opacity-55";
+	"action-button group/action inline-flex min-w-0 items-center gap-1 rounded-full border-0 bg-transparent px-2 py-1 text-[13px] text-[var(--ink-soft)] transition-colors duration-150 hover:text-[var(--accent)] disabled:cursor-default disabled:opacity-55";
 
 export const feedActionIconWrapClass =
 	"grid size-[34px] place-items-center rounded-full transition-colors duration-150 group-hover/action:bg-[var(--accent-soft)]";
@@ -207,7 +207,7 @@ export const embeddedCardCopyClass =
 	"whitespace-pre-wrap text-[14px] leading-[1.4] text-[var(--ink)] [overflow-wrap:anywhere]";
 
 export const linkPreviewCardClass =
-	"group/link-preview mt-2 flex min-w-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-card)] transition-colors duration-150 hover:bg-[var(--bg-hover)]";
+	"group/link-preview mt-2 flex min-w-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] transition-colors duration-150 hover:bg-[var(--bg-hover)]";
 
 export const linkPreviewTitleClass =
 	"line-clamp-2 font-bold leading-tight text-[var(--ink)]";
@@ -322,14 +322,14 @@ export function tweetMediaGridClass(count: number) {
 
 	return cx(
 		`tweet-media-grid tweet-media-grid-${String(capped)}`,
-		"mt-2 grid gap-0.5 overflow-hidden rounded-2xl border border-[var(--line)]",
+		"mt-2 grid max-w-full gap-0.5 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)]",
 		layout,
 	);
 }
 
 export function tweetMediaTileClass(index: number, count: number) {
 	return cx(
-		"tweet-media-tile relative block overflow-hidden border-0 bg-[var(--bg-active)] p-0 text-left",
+		"tweet-media-tile relative block min-w-0 overflow-hidden border-0 bg-[var(--bg-active)] p-0 text-left",
 		count === 1 && "aspect-[16/10]",
 		count === 2 && "aspect-square",
 		count === 3 && index === 0 && "row-span-2 aspect-[3/4]",

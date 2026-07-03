@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RateLimitsRouteImport } from './routes/rate-limits'
 import { Route as ProfileAnalyzeRouteImport } from './routes/profile-analyze'
 import { Route as NetworkMapRouteImport } from './routes/network-map'
@@ -47,6 +48,11 @@ import { Route as ApiActionRouteImport } from './routes/api/action'
 const TodayRoute = TodayRouteImport.update({
   id: '/today',
   path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RateLimitsRoute = RateLimitsRouteImport.update({
@@ -229,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/network-map': typeof NetworkMapRoute
   '/profile-analyze': typeof ProfileAnalyzeRoute
   '/rate-limits': typeof RateLimitsRoute
+  '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/api/action': typeof ApiActionRoute
   '/api/avatar': typeof ApiAvatarRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/network-map': typeof NetworkMapRoute
   '/profile-analyze': typeof ProfileAnalyzeRoute
   '/rate-limits': typeof RateLimitsRoute
+  '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/api/action': typeof ApiActionRoute
   '/api/avatar': typeof ApiAvatarRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/network-map': typeof NetworkMapRoute
   '/profile-analyze': typeof ProfileAnalyzeRoute
   '/rate-limits': typeof RateLimitsRoute
+  '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/api/action': typeof ApiActionRoute
   '/api/avatar': typeof ApiAvatarRoute
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | '/network-map'
     | '/profile-analyze'
     | '/rate-limits'
+    | '/settings'
     | '/today'
     | '/api/action'
     | '/api/avatar'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/network-map'
     | '/profile-analyze'
     | '/rate-limits'
+    | '/settings'
     | '/today'
     | '/api/action'
     | '/api/avatar'
@@ -412,6 +423,7 @@ export interface FileRouteTypes {
     | '/network-map'
     | '/profile-analyze'
     | '/rate-limits'
+    | '/settings'
     | '/today'
     | '/api/action'
     | '/api/avatar'
@@ -449,6 +461,7 @@ export interface RootRouteChildren {
   NetworkMapRoute: typeof NetworkMapRoute
   ProfileAnalyzeRoute: typeof ProfileAnalyzeRoute
   RateLimitsRoute: typeof RateLimitsRoute
+  SettingsRoute: typeof SettingsRoute
   TodayRoute: typeof TodayRoute
   ApiActionRoute: typeof ApiActionRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
@@ -479,6 +492,13 @@ declare module '@tanstack/react-router' {
       path: '/today'
       fullPath: '/today'
       preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rate-limits': {
@@ -729,6 +749,7 @@ const rootRouteChildren: RootRouteChildren = {
   NetworkMapRoute: NetworkMapRoute,
   ProfileAnalyzeRoute: ProfileAnalyzeRoute,
   RateLimitsRoute: RateLimitsRoute,
+  SettingsRoute: SettingsRoute,
   TodayRoute: TodayRoute,
   ApiActionRoute: ApiActionRoute,
   ApiAvatarRoute: ApiAvatarRoute,

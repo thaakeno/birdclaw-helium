@@ -36,7 +36,7 @@ export function TweetMediaGrid({
 				<button
 					aria-label="Open tweet media 1"
 					className={cx(
-						"tweet-media-single mt-2 max-w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-active)] p-0 text-left",
+						"tweet-media-single mt-2 max-w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-active)] p-0 text-left transition-colors hover:bg-[var(--bg-hover)]",
 						singleImage.width && singleImage.height
 							? "block"
 							: "inline-block align-top",
@@ -53,7 +53,7 @@ export function TweetMediaGrid({
 						className={cx(
 							"tweet-media-image block max-h-[720px] max-w-full",
 							singleImage.width && singleImage.height
-								? "size-full object-cover"
+								? "size-full object-contain"
 								: "h-auto w-auto object-contain",
 						)}
 						height={singleImage.height}
@@ -65,6 +65,7 @@ export function TweetMediaGrid({
 			) : (
 				<div className={tweetMediaGridClass(Math.min(items.length, 4))}>
 					{visibleItems.map((item, index) => {
+						const itemLooksLikeVideo = isVideoLikeMedia(item);
 						const tileStyle =
 							visibleItems.length === 1 && item.width && item.height
 								? {
@@ -72,7 +73,7 @@ export function TweetMediaGrid({
 									}
 								: undefined;
 						const directVideoUrl =
-							item.type === "video" || item.type === "gif"
+							itemLooksLikeVideo
 								? playableVideoUrlForItem(item)
 								: null;
 						const videoUrl = directVideoUrl
@@ -94,7 +95,7 @@ export function TweetMediaGrid({
 								>
 									<video
 										aria-label={`Tweet media ${String(index + 1)}`}
-										className="block size-full object-contain"
+										className="block size-full bg-black object-contain"
 										controls
 										loop={item.type === "gif"}
 										muted={item.type === "gif"}
@@ -153,7 +154,7 @@ export function TweetMediaGrid({
 												: "Media"}
 									</span>
 								)}
-								{item.type === "video" || item.type === "gif" ? (
+								{itemLooksLikeVideo ? (
 									<span className="absolute inset-0 grid place-items-center bg-black/10">
 										<span className="grid size-12 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/25">
 											<Play
@@ -167,6 +168,22 @@ export function TweetMediaGrid({
 										</span>
 									</span>
 								) : null}
+								{itemLooksLikeVideo && postUrl ? (
+									<a
+										aria-label="Open original post"
+										className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
+										href={postUrl}
+										onClick={(event) => event.stopPropagation()}
+										rel="noreferrer"
+										target="_blank"
+									>
+										<ExternalLink
+											aria-hidden="true"
+											className="size-4"
+											strokeWidth={2}
+										/>
+									</a>
+								) : null}
 							</button>
 						);
 					})}
@@ -175,7 +192,7 @@ export function TweetMediaGrid({
 			{selectedItem ? (
 				<div
 					aria-modal="true"
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-5"
 					onClick={(event) => {
 						event.stopPropagation();
 						setSelectedIndex(null);
@@ -184,7 +201,7 @@ export function TweetMediaGrid({
 				>
 					<button
 						aria-label="Close media viewer"
-						className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+						className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
 						onClick={(event) => {
 							event.stopPropagation();
 							setSelectedIndex(null);
@@ -194,12 +211,28 @@ export function TweetMediaGrid({
 						<X className="size-5" strokeWidth={1.8} />
 					</button>
 					{selectedItem.type === "image" ? (
-						<img
-							alt={selectedItem.altText ?? "Tweet media"}
-							className="max-h-[92vh] max-w-[92vw] object-contain"
+						<div
+							className="grid max-h-[92vh] max-w-[94vw] gap-3"
 							onClick={(event) => event.stopPropagation()}
-							src={selectedItem.url}
-						/>
+						>
+							<img
+								alt={selectedItem.altText ?? "Tweet media"}
+								className="max-h-[88vh] max-w-[94vw] rounded-xl object-contain"
+								src={selectedItem.url}
+							/>
+							{postUrl ? (
+								<div className="flex justify-center">
+									<a
+										className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+										href={postUrl}
+										rel="noreferrer"
+										target="_blank"
+									>
+										Open post
+									</a>
+								</div>
+							) : null}
+						</div>
 					) : selectedVideoUrl ? (
 						<div
 							className="grid max-h-[92vh] max-w-[92vw] gap-3"
@@ -207,7 +240,7 @@ export function TweetMediaGrid({
 						>
 							<video
 								autoPlay={selectedItem.type === "gif"}
-								className="max-h-[88vh] max-w-[92vw]"
+								className="max-h-[88vh] max-w-[94vw] rounded-xl bg-black"
 								controls
 								loop={selectedItem.type === "gif"}
 								muted={selectedItem.type === "gif"}
@@ -358,6 +391,28 @@ function playableVideoUrlForItem(item: TweetMediaItem) {
 		playableVideoUrl(variant.url),
 	);
 	return mp4Variant?.url ?? playableVideoUrl(item.url);
+}
+
+function isVideoLikeMedia(item: TweetMediaItem) {
+	if (item.type === "video" || item.type === "gif") return true;
+	return looksLikeVideoThumbnail(item.url) || looksLikeVideoThumbnail(item.thumbnailUrl);
+}
+
+function looksLikeVideoThumbnail(url: string | undefined) {
+	if (!url) return false;
+	try {
+		const parsed = new URL(url);
+		return (
+			parsed.hostname === "pbs.twimg.com" &&
+			/(?:^|\/)(?:amplify_video_thumb|ext_tw_video_thumb|tweet_video_thumb)\//.test(
+				parsed.pathname,
+			)
+		);
+	} catch {
+		return /(?:amplify_video_thumb|ext_tw_video_thumb|tweet_video_thumb)\//.test(
+			url,
+		);
+	}
 }
 
 function browserVideoUrl(url: string) {
