@@ -508,6 +508,7 @@ export interface XurlMentionData {
 	referenced_tweets?: XurlReferencedTweet[];
 	public_metrics?: XurlPublicMetrics;
 	edit_history_tweet_ids?: string[];
+	views?: { count?: string; state?: string };
 }
 
 export interface XurlReferencedTweet {
@@ -526,6 +527,7 @@ export interface XurlUserTweet {
 	referenced_tweets?: XurlReferencedTweet[];
 	public_metrics?: XurlPublicMetrics;
 	edit_history_tweet_ids?: string[];
+	views?: { count?: string; state?: string };
 }
 
 export interface XurlTweetData {
@@ -540,6 +542,7 @@ export interface XurlTweetData {
 	referenced_tweets?: XurlReferencedTweet[];
 	public_metrics?: XurlPublicMetrics;
 	edit_history_tweet_ids?: string[];
+	views?: { count?: string; state?: string };
 }
 
 export interface XurlTweetAttachments {

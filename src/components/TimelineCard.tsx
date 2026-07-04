@@ -498,6 +498,21 @@ export function TimelineCard({
 			setMediaSyncState("error");
 		}
 	};
+	useEffect(() => {
+		if (conversation.isOpen && activeExpandedTab === "replies") {
+			if (displayLocalReplyCount === 0 && threadSyncState === "idle") {
+				void syncThread();
+			}
+		}
+	}, [conversation.isOpen, activeExpandedTab, displayLocalReplyCount]);
+
+	useEffect(() => {
+		if (conversation.isOpen) {
+			if (displayViewsCount === 0 && mediaSyncState === "idle") {
+				void hydrateTweetMedia();
+			}
+		}
+	}, [conversation.isOpen, displayViewsCount, mediaSyncState]);
 
 	return (
 		<article
@@ -721,31 +736,6 @@ export function TimelineCard({
 							</span>
 							<span>{formatCompactNumber(displayQuoteCount)}</span>
 						</button>
-						<button
-							aria-label="Fetch thread"
-							className={feedActionButtonClass}
-							disabled={threadSyncState === "syncing"}
-							onClick={(event) => {
-								event.stopPropagation();
-								void syncThread();
-							}}
-							title="Fetch this thread through Bird and save visible replies locally"
-							type="button"
-						>
-							<span className={feedActionIconWrapClass}>
-								{threadSyncState === "syncing" ? (
-									<LoaderCircle
-										className={cx(feedActionIconClass, "animate-spin")}
-										strokeWidth={1.9}
-									/>
-								) : (
-									<RefreshCw
-										className={feedActionIconClass}
-										strokeWidth={1.9}
-									/>
-								)}
-							</span>
-						</button>
 						<span
 							aria-label={`${formatCompactNumber(displayLikeCount)} likes`}
 							className={cx(
@@ -799,31 +789,46 @@ export function TimelineCard({
 				{conversation.isOpen ? (
 					<>
 						{/* Tabs selection bar */}
-						<div className="flex border-b border-[var(--line)] px-2 mt-3 gap-1">
-							<button
-								className={cx(
-									"px-4 py-2 text-[13px] font-bold transition-colors border-b-2",
-									activeExpandedTab === "replies"
-										? "border-[var(--accent)] text-[var(--accent)]"
-										: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
-								)}
-								onClick={() => setActiveExpandedTab("replies")}
-								type="button"
-							>
-								Replies ({displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount})
-							</button>
-							<button
-								className={cx(
-									"px-4 py-2 text-[13px] font-bold transition-colors border-b-2",
-									activeExpandedTab === "quotes"
-										? "border-[var(--accent)] text-[var(--accent)]"
-										: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
-								)}
-								onClick={() => setActiveExpandedTab("quotes")}
-								type="button"
-							>
-								Quotes ({displayQuoteCount})
-							</button>
+						<div className="flex items-center justify-between border-b border-[var(--line)] px-2 mt-3">
+							<div className="flex gap-1">
+								<button
+									className={cx(
+										"px-4 py-2 text-[13px] font-bold transition-colors border-b-2",
+										activeExpandedTab === "replies"
+											? "border-[var(--accent)] text-[var(--accent)]"
+											: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+									)}
+									onClick={() => setActiveExpandedTab("replies")}
+									type="button"
+								>
+									Replies ({displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount})
+								</button>
+								<button
+									className={cx(
+										"px-4 py-2 text-[13px] font-bold transition-colors border-b-2",
+										activeExpandedTab === "quotes"
+											? "border-[var(--accent)] text-[var(--accent)]"
+											: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+									)}
+									onClick={() => setActiveExpandedTab("quotes")}
+									type="button"
+								>
+									Quotes ({displayQuoteCount})
+								</button>
+							</div>
+
+							{activeExpandedTab === "replies" && (
+								<button
+									className="flex items-center gap-1.5 rounded-lg bg-[var(--bg-active)] px-3 py-1.5 text-[12px] font-bold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50 mr-2"
+									disabled={threadSyncState === "syncing"}
+									onClick={() => void syncThread()}
+									type="button"
+									title="Refresh replies thread from X"
+								>
+									<RefreshCw className={cx("size-3.5", threadSyncState === "syncing" && "animate-spin")} />
+									{threadSyncState === "syncing" ? "Syncing..." : "Sync replies"}
+								</button>
+							)}
 						</div>
 
 						{activeExpandedTab === "replies" ? (
@@ -837,6 +842,12 @@ export function TimelineCard({
 							<QuotesThread
 								tweetId={interactionTweetId}
 								accountId={item.accountId}
+								renderCard={(quoteItem) => (
+									<TimelineCard
+										item={quoteItem as any}
+										showReplyControls={true}
+									/>
+								)}
 							/>
 						)}
 					</>

@@ -18,9 +18,11 @@ import { TweetRichText } from "./TweetRichText";
 export function QuotesThread({
 	tweetId,
 	accountId,
+	renderCard,
 }: {
 	tweetId: string;
 	accountId: string;
+	renderCard?: (item: any) => React.ReactNode;
 }) {
 	const [quotes, setQuotes] = useState<EmbeddedTweet[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -60,7 +62,11 @@ export function QuotesThread({
 	};
 
 	useEffect(() => {
-		void fetchQuotes(false);
+		const load = async () => {
+			await fetchQuotes(false);
+			await fetchQuotes(true);
+		};
+		void load();
 	}, [tweetId, accountId]);
 
 	if (loading) {
@@ -176,72 +182,82 @@ export function QuotesThread({
 					sortedQuotes.map((tweet, index) => (
 						<div
 							className={cx(
-								"flex gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--bg-hover)]",
+								"transition-colors hover:bg-[var(--bg-hover)]",
 								index > 0 && "border-t border-[var(--line)]",
 							)}
 							key={tweet.id}
 						>
-							<div className="flex flex-col items-center">
-								<AvatarChip
-									avatarUrl={tweet.author.avatarUrl}
-									hue={tweet.author.avatarHue}
-									name={tweet.author.displayName}
-									profileId={tweet.author.id}
-									size="small"
-								/>
-							</div>
-							<div className="min-w-0 flex-1 overflow-hidden">
-								<header className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px]">
-									<ProfilePreview profile={tweet.author}>
-										<span className="flex min-w-0 max-w-full items-center gap-1.5">
-											<span className={feedRowNameClass}>
-												{tweet.author.displayName}
+							{renderCard ? (
+								renderCard({
+									...tweet,
+									kind: "home",
+									accountId,
+								})
+							) : (
+								<div className="flex gap-3 px-4 py-3.5">
+									<div className="flex flex-col items-center">
+										<AvatarChip
+											avatarUrl={tweet.author.avatarUrl}
+											hue={tweet.author.avatarHue}
+											name={tweet.author.displayName}
+											profileId={tweet.author.id}
+											size="small"
+										/>
+									</div>
+									<div className="min-w-0 flex-1 overflow-hidden">
+										<header className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px]">
+											<ProfilePreview profile={tweet.author}>
+												<span className="flex min-w-0 max-w-full items-center gap-1.5">
+													<span className={feedRowNameClass}>
+														{tweet.author.displayName}
+													</span>
+													<span className={feedRowHandleClass}>
+														@{tweet.author.handle}
+													</span>
+												</span>
+											</ProfilePreview>
+											<span className="text-[var(--ink-soft)]">·</span>
+											<SmartTimestamp
+												className={feedRowTimestampClass}
+												value={tweet.createdAt}
+											/>
+											<span className="ml-auto inline-flex shrink-0 items-center gap-1.5">
+												<a
+													aria-label="Open original quote post"
+													className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+													href={tweetUrl(tweet)}
+													onClick={(event) => event.stopPropagation()}
+													rel="noreferrer"
+													target="_blank"
+												>
+													<ExternalLink className="size-3.5" strokeWidth={1.8} />
+													Open
+												</a>
 											</span>
-											<span className={feedRowHandleClass}>
-												@{tweet.author.handle}
-											</span>
-										</span>
-									</ProfilePreview>
-									<span className="text-[var(--ink-soft)]">·</span>
-									<SmartTimestamp
-										className={feedRowTimestampClass}
-										value={tweet.createdAt}
-									/>
-									<span className="ml-auto inline-flex shrink-0 items-center gap-1.5">
-										<a
-											aria-label="Open original quote post"
-											className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
-											href={tweetUrl(tweet)}
-											onClick={(event) => event.stopPropagation()}
-											rel="noreferrer"
-											target="_blank"
-										>
-											<ExternalLink className="size-3.5" strokeWidth={1.8} />
-											Open
-										</a>
-									</span>
-								</header>
-								<TweetRichText
-									className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
-									entities={tweet.entities}
-									text={tweet.text}
-								/>
-								<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
+										</header>
+										<TweetRichText
+											className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
+											entities={tweet.entities}
+											text={tweet.text}
+										/>
+										<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
 
-								{/* Quote Card Footer: Metrics */}
-								<div className="flex items-center gap-4 mt-2 text-[12px] text-[var(--ink-soft)] font-medium">
-									{tweet.viewsCount !== undefined && (
-										<span className="inline-flex items-center gap-1" title={`${tweet.viewsCount} views`}>
-											<Eye className="size-3.5" />
-											{formatCompactNumber(tweet.viewsCount)}
-										</span>
-									)}
-									<span className="inline-flex items-center gap-1" title={`${tweet.likeCount || 0} likes`}>
-										<Heart className="size-3.5" />
-										{formatCompactNumber(tweet.likeCount || 0)}
-									</span>
+										{/* Quote Card Footer: Metrics */}
+										<div className="flex items-center gap-4 mt-2 text-[12px] text-[var(--ink-soft)] font-medium">
+											{tweet.viewsCount !== undefined && (
+												<span className="inline-flex items-center gap-1" title={`${tweet.viewsCount} views`}>
+													<Eye className="size-3.5" />
+													{formatCompactNumber(tweet.viewsCount)}
+												</span>
+											)}
+											<span className="inline-flex items-center gap-1" title={`${tweet.likeCount || 0} likes`}>
+												<Heart className="size-3.5" />
+												{formatCompactNumber(tweet.likeCount || 0)}
+											</span>
+										</div>
+									</div>
 								</div>
-							</div>
+							)}
 						</div>
 					))
 				)}

@@ -595,6 +595,24 @@ function isHydratedBirdTweetItem(value: unknown): value is BirdTweetItem {
 	);
 }
 
+function getQuoteCountFromRaw(raw: unknown) {
+	if (!raw || typeof raw !== "object") return undefined;
+	const record = raw as Record<string, any>;
+	const metrics = record.public_metrics || record.legacy;
+	if (!metrics || typeof metrics !== "object") return undefined;
+	const count = Number(metrics.quote_count);
+	return Number.isFinite(count) ? count : undefined;
+}
+
+function getViewsCountFromRaw(raw: unknown) {
+	if (!raw || typeof raw !== "object") return undefined;
+	const record = raw as Record<string, any>;
+	const views = record.views;
+	if (!views || typeof views !== "object") return undefined;
+	const count = Number(views.count);
+	return Number.isFinite(count) ? count : undefined;
+}
+
 function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 	const users = new Map<string, XurlMentionUser>();
 	const includedTweets = new Map<string, XurlMentionData>();
@@ -635,6 +653,9 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 			media.set(mediaItem.media_key, mediaItem);
 		}
 
+		const quoteCount = getQuoteCountFromRaw(item._raw);
+		const viewsCount = getViewsCountFromRaw(item._raw);
+
 		return {
 			id: item.id,
 			author_id: authorId,
@@ -661,13 +682,16 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 						...(item.likeCount === undefined
 							? {}
 							: { like_count: Number(item.likeCount) }),
+						...(quoteCount === undefined ? {} : { quote_count: quoteCount }),
 					}
 				: {
 						reply_count: Number(item.replyCount ?? 0),
 						retweet_count: Number(item.retweetCount ?? 0),
 						like_count: Number(item.likeCount ?? 0),
+						quote_count: quoteCount ?? 0,
 					},
 			edit_history_tweet_ids: [item.id],
+			views: viewsCount !== undefined ? { count: String(viewsCount), state: "EnabledWithCount" } : undefined,
 		};
 	};
 	const data = items.map((item): XurlMentionData => normalizeItem(item));

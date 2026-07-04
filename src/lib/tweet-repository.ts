@@ -123,6 +123,18 @@ export function ingestTweetPayload(
 					? 1
 					: 0,
 			);
+			// Keep cached raw metrics (views, quotes, replies count) fresh on existing edges/collections
+			db.prepare(`
+				update tweet_account_edges
+				set raw_json = ?
+				where tweet_id = ?
+			`).run(JSON.stringify(tweet), tweet.id);
+			db.prepare(`
+				update tweet_collections
+				set raw_json = ?
+				where tweet_id = ?
+			`).run(JSON.stringify(tweet), tweet.id);
+
 			if (edgeKind && isPrimaryTweet) {
 				upsertTweetAccountEdge(db, {
 					accountId,
