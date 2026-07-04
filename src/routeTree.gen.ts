@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RateLimitsRouteImport } from './routes/rate-limits'
 import { Route as ProfileAnalyzeRouteImport } from './routes/profile-analyze'
 import { Route as NetworkMapRouteImport } from './routes/network-map'
+import { Route as MyPostsRouteImport } from './routes/my-posts'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LinksRouteImport } from './routes/links'
 import { Route as LikesRouteImport } from './routes/likes'
@@ -43,6 +44,7 @@ import { Route as ApiLinkInsightsRouteImport } from './routes/api/link-insights'
 import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiDataSourcesRouteImport } from './routes/api/data-sources'
 import { Route as ApiConversationRouteImport } from './routes/api/conversation'
+import { Route as ApiBookmarksExportRouteImport } from './routes/api/bookmarks-export'
 import { Route as ApiBlocksRouteImport } from './routes/api/blocks'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
 import { Route as ApiActionRouteImport } from './routes/api/action'
@@ -70,6 +72,11 @@ const ProfileAnalyzeRoute = ProfileAnalyzeRouteImport.update({
 const NetworkMapRoute = NetworkMapRouteImport.update({
   id: '/network-map',
   path: '/network-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyPostsRoute = MyPostsRouteImport.update({
+  id: '/my-posts',
+  path: '/my-posts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MentionsRoute = MentionsRouteImport.update({
@@ -217,6 +224,11 @@ const ApiConversationRoute = ApiConversationRouteImport.update({
   path: '/api/conversation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBookmarksExportRoute = ApiBookmarksExportRouteImport.update({
+  id: '/api/bookmarks-export',
+  path: '/api/bookmarks-export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiBlocksRoute = ApiBlocksRouteImport.update({
   id: '/api/blocks',
   path: '/api/blocks',
@@ -244,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/likes': typeof LikesRoute
   '/links': typeof LinksRoute
   '/mentions': typeof MentionsRoute
+  '/my-posts': typeof MyPostsRoute
   '/network-map': typeof NetworkMapRoute
   '/profile-analyze': typeof ProfileAnalyzeRoute
   '/rate-limits': typeof RateLimitsRoute
@@ -252,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/api/action': typeof ApiActionRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
+  '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -283,6 +297,7 @@ export interface FileRoutesByTo {
   '/likes': typeof LikesRoute
   '/links': typeof LinksRoute
   '/mentions': typeof MentionsRoute
+  '/my-posts': typeof MyPostsRoute
   '/network-map': typeof NetworkMapRoute
   '/profile-analyze': typeof ProfileAnalyzeRoute
   '/rate-limits': typeof RateLimitsRoute
@@ -291,6 +306,7 @@ export interface FileRoutesByTo {
   '/api/action': typeof ApiActionRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
+  '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -323,6 +339,7 @@ export interface FileRoutesById {
   '/likes': typeof LikesRoute
   '/links': typeof LinksRoute
   '/mentions': typeof MentionsRoute
+  '/my-posts': typeof MyPostsRoute
   '/network-map': typeof NetworkMapRoute
   '/profile-analyze': typeof ProfileAnalyzeRoute
   '/rate-limits': typeof RateLimitsRoute
@@ -331,6 +348,7 @@ export interface FileRoutesById {
   '/api/action': typeof ApiActionRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
+  '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -364,6 +382,7 @@ export interface FileRouteTypes {
     | '/likes'
     | '/links'
     | '/mentions'
+    | '/my-posts'
     | '/network-map'
     | '/profile-analyze'
     | '/rate-limits'
@@ -372,6 +391,7 @@ export interface FileRouteTypes {
     | '/api/action'
     | '/api/avatar'
     | '/api/blocks'
+    | '/api/bookmarks-export'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -403,6 +423,7 @@ export interface FileRouteTypes {
     | '/likes'
     | '/links'
     | '/mentions'
+    | '/my-posts'
     | '/network-map'
     | '/profile-analyze'
     | '/rate-limits'
@@ -411,6 +432,7 @@ export interface FileRouteTypes {
     | '/api/action'
     | '/api/avatar'
     | '/api/blocks'
+    | '/api/bookmarks-export'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -442,6 +464,7 @@ export interface FileRouteTypes {
     | '/likes'
     | '/links'
     | '/mentions'
+    | '/my-posts'
     | '/network-map'
     | '/profile-analyze'
     | '/rate-limits'
@@ -450,6 +473,7 @@ export interface FileRouteTypes {
     | '/api/action'
     | '/api/avatar'
     | '/api/blocks'
+    | '/api/bookmarks-export'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -482,6 +506,7 @@ export interface RootRouteChildren {
   LikesRoute: typeof LikesRoute
   LinksRoute: typeof LinksRoute
   MentionsRoute: typeof MentionsRoute
+  MyPostsRoute: typeof MyPostsRoute
   NetworkMapRoute: typeof NetworkMapRoute
   ProfileAnalyzeRoute: typeof ProfileAnalyzeRoute
   RateLimitsRoute: typeof RateLimitsRoute
@@ -490,6 +515,7 @@ export interface RootRouteChildren {
   ApiActionRoute: typeof ApiActionRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiBlocksRoute: typeof ApiBlocksRoute
+  ApiBookmarksExportRoute: typeof ApiBookmarksExportRoute
   ApiConversationRoute: typeof ApiConversationRoute
   ApiDataSourcesRoute: typeof ApiDataSourcesRoute
   ApiInboxRoute: typeof ApiInboxRoute
@@ -546,6 +572,13 @@ declare module '@tanstack/react-router' {
       path: '/network-map'
       fullPath: '/network-map'
       preLoaderRoute: typeof NetworkMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-posts': {
+      id: '/my-posts'
+      path: '/my-posts'
+      fullPath: '/my-posts'
+      preLoaderRoute: typeof MyPostsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mentions': {
@@ -751,6 +784,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConversationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/bookmarks-export': {
+      id: '/api/bookmarks-export'
+      path: '/api/bookmarks-export'
+      fullPath: '/api/bookmarks-export'
+      preLoaderRoute: typeof ApiBookmarksExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/blocks': {
       id: '/api/blocks'
       path: '/api/blocks'
@@ -786,6 +826,7 @@ const rootRouteChildren: RootRouteChildren = {
   LikesRoute: LikesRoute,
   LinksRoute: LinksRoute,
   MentionsRoute: MentionsRoute,
+  MyPostsRoute: MyPostsRoute,
   NetworkMapRoute: NetworkMapRoute,
   ProfileAnalyzeRoute: ProfileAnalyzeRoute,
   RateLimitsRoute: RateLimitsRoute,
@@ -794,6 +835,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiActionRoute: ApiActionRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiBlocksRoute: ApiBlocksRoute,
+  ApiBookmarksExportRoute: ApiBookmarksExportRoute,
   ApiConversationRoute: ApiConversationRoute,
   ApiDataSourcesRoute: ApiDataSourcesRoute,
   ApiInboxRoute: ApiInboxRoute,

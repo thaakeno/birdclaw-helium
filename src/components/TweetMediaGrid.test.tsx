@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TweetMediaGrid } from "./TweetMediaGrid";
 
 describe("TweetMediaGrid", () => {
@@ -65,10 +65,7 @@ describe("TweetMediaGrid", () => {
 		expect(
 			screen.getAllByRole("button", { name: /Open tweet media/ }),
 		).toHaveLength(4);
-		expect(screen.getByRole("link", { name: "Open video" })).toHaveAttribute(
-			"href",
-			"https://example.com/two.mp4",
-		);
+		expect(screen.queryByRole("link", { name: "Open video" })).toBeNull();
 	});
 
 	it("opens images in a document-level modal viewer", () => {
@@ -155,7 +152,10 @@ describe("TweetMediaGrid", () => {
 		);
 		expect(
 			screen.getAllByRole("link", { name: "Open video" })[0],
-		).toHaveAttribute("href", "https://video.twimg.com/clip.mp4");
+		).toHaveAttribute(
+			"href",
+			"/api/video?url=https%3A%2F%2Fvideo.twimg.com%2Fclip.mp4",
+		);
 		expect(
 			screen.getByRole("link", { name: "Open original post" }),
 		).toHaveAttribute("href", "https://x.com/alice/status/1");
@@ -232,6 +232,32 @@ describe("TweetMediaGrid", () => {
 			"target",
 			"_blank",
 		);
+	});
+
+	it("offers to hydrate variant-less video thumbnails when a handler is provided", () => {
+		const onHydrateVideo = vi.fn();
+		const { container } = render(
+			<TweetMediaGrid
+				onHydrateVideo={onHydrateVideo}
+				items={[
+					{
+						url: "https://pbs.twimg.com/ext_tw_video_thumb/video.jpg",
+						type: "video",
+						thumbnailUrl: "https://pbs.twimg.com/ext_tw_video_thumb/video.jpg",
+					},
+				]}
+			/>,
+		);
+
+		expect(screen.getByText("Fetch video")).toBeInTheDocument();
+		fireEvent.click(
+			screen.getByRole("button", { name: "Fetch tweet video 1" }),
+		);
+
+		expect(container.querySelector("video")).toBeNull();
+		expect(container.querySelector(".lucide-play")).toBeInTheDocument();
+		expect(screen.getByText("Fetching video")).toBeInTheDocument();
+		expect(onHydrateVideo).toHaveBeenCalledTimes(1);
 	});
 
 	it("closes the inline viewer from the close button", () => {

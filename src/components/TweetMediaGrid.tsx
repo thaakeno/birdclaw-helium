@@ -3,25 +3,39 @@ import {
 	ChevronRight,
 	ExternalLink,
 	Maximize2,
+	Pause,
 	Play,
+	Volume2,
+	VolumeX,
 	X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import {
+	useEffect,
+	useRef,
+	useState,
+	type MutableRefObject,
+	type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import type { TweetMediaItem } from "#/lib/types";
 import { cx, tweetMediaGridClass, tweetMediaTileClass } from "#/lib/ui";
 
 export function TweetMediaGrid({
 	items,
+	onHydrateVideo,
 	postUrl,
+	viewerAside,
 }: {
 	items: TweetMediaItem[];
+	onHydrateVideo?: () => Promise<void> | void;
 	postUrl?: string;
+	viewerAside?: ReactNode;
 }) {
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [failedVideoUrls, setFailedVideoUrls] = useState<Set<string>>(
 		() => new Set(),
 	);
+	const [hydratingVideo, setHydratingVideo] = useState(false);
 	const touchStartXRef = useRef<number | null>(null);
 	const visibleItems = items.slice(0, 4);
 	const selectedItem =
@@ -42,9 +56,21 @@ export function TweetMediaGrid({
 			current === null ? null : (current + 1) % visibleItems.length,
 		);
 	const singleImage =
-		visibleItems.length === 1 && visibleItems[0]?.type === "image"
+		visibleItems.length === 1 &&
+		visibleItems[0]?.type === "image" &&
+		!isVideoLikeMedia(visibleItems[0])
 			? visibleItems[0]
 			: null;
+
+	async function hydrateVideo() {
+		if (!onHydrateVideo || hydratingVideo) return;
+		setHydratingVideo(true);
+		try {
+			await onHydrateVideo();
+		} finally {
+			setHydratingVideo(false);
+		}
+	}
 
 	useEffect(() => {
 		if (selectedIndex === null) return;
@@ -80,6 +106,7 @@ export function TweetMediaGrid({
 						selectedItem={selectedItem}
 						selectedVideoUrl={selectedVideoUrl ?? null}
 						touchStartXRef={touchStartXRef}
+						viewerAside={viewerAside}
 					/>,
 					document.body,
 				)
@@ -147,16 +174,10 @@ export function TweetMediaGrid({
 									)}
 									style={tileStyle}
 								>
-									<video
-										aria-label={`Tweet media ${String(index + 1)}`}
-										className="block size-full bg-black object-contain"
-										controls
+									<BirdclawVideoPlayer
+										label={`Tweet media ${String(index + 1)}`}
 										loop={item.type === "gif"}
 										muted={item.type === "gif"}
-										onClick={(event) => event.stopPropagation()}
-										playsInline
-										poster={item.thumbnailUrl}
-										preload="metadata"
 										onError={() => {
 											setFailedVideoUrls((current) => {
 												const next = new Set(current);
@@ -164,14 +185,11 @@ export function TweetMediaGrid({
 												return next;
 											});
 										}}
-									>
-										<source
-											src={videoUrl}
-											type={videoContentType(directVideoUrl)}
-										/>
-									</video>
+										poster={item.thumbnailUrl}
+										rawUrl={directVideoUrl}
+										src={videoUrl}
+									/>
 									<MediaTileActions
-										directVideoUrl={directVideoUrl}
 										index={index}
 										onOpen={() => setSelectedIndex(index)}
 										postUrl={postUrl}
@@ -183,13 +201,21 @@ export function TweetMediaGrid({
 						return (
 							<button
 								key={item.url + String(index)}
-								aria-label={`Open tweet media ${String(index + 1)}`}
+								aria-label={
+									itemLooksLikeVideo && !directVideoUrl && onHydrateVideo
+										? `Fetch tweet video ${String(index + 1)}`
+										: `Open tweet media ${String(index + 1)}`
+								}
 								className={tweetMediaTileClass(
 									index,
 									Math.min(items.length, 4),
 								)}
 								onClick={(event) => {
 									event.stopPropagation();
+									if (itemLooksLikeVideo && !directVideoUrl && onHydrateVideo) {
+										void hydrateVideo();
+										return;
+									}
 									setSelectedIndex(index);
 								}}
 								style={tileStyle}
@@ -222,6 +248,13 @@ export function TweetMediaGrid({
 										</span>
 										<span className="sr-only">
 											{item.type === "gif" ? "GIF" : "Video"}
+										</span>
+									</span>
+								) : null}
+								{itemLooksLikeVideo && !directVideoUrl && onHydrateVideo ? (
+									<span className="absolute inset-x-2 bottom-2 flex justify-center">
+										<span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[13px] font-bold text-white shadow-lg ring-1 ring-white/20">
+											{hydratingVideo ? "Fetching video" : "Fetch video"}
 										</span>
 									</span>
 								) : null}
@@ -263,6 +296,7 @@ function MediaViewerModal({
 	selectedItem,
 	selectedVideoUrl,
 	touchStartXRef,
+	viewerAside,
 }: {
 	hasCarousel: boolean;
 	items: TweetMediaItem[];
@@ -275,11 +309,16 @@ function MediaViewerModal({
 	selectedItem: TweetMediaItem;
 	selectedVideoUrl: string | null;
 	touchStartXRef: MutableRefObject<number | null>;
+	viewerAside?: ReactNode;
 }) {
+	const bodyClass = viewerAside
+		? "grid h-full w-full grid-cols-1 overflow-hidden bg-black min-[980px]:grid-cols-[minmax(0,1fr)_390px]"
+		: "flex h-full w-full items-center justify-center";
+
 	return (
 		<div
 			aria-modal="true"
-			className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xl backdrop-saturate-150 sm:p-5"
+			className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-2xl backdrop-saturate-150"
 			onClick={(event) => {
 				event.stopPropagation();
 				onClose();
@@ -301,7 +340,7 @@ function MediaViewerModal({
 		>
 			<button
 				aria-label="Close media viewer"
-				className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+				className="absolute left-4 top-4 z-20 grid size-11 place-items-center rounded-full bg-black/55 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
 				onClick={(event) => {
 					event.stopPropagation();
 					onClose();
@@ -310,112 +349,85 @@ function MediaViewerModal({
 			>
 				<X className="size-5" strokeWidth={1.8} />
 			</button>
-			{hasCarousel ? (
-				<>
-					<button
-						aria-label="Previous media"
-						className="absolute left-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
-						onClick={(event) => {
-							event.stopPropagation();
-							onPrevious();
-						}}
-						type="button"
-					>
-						<ChevronLeft className="size-6" strokeWidth={2} />
-					</button>
-					<button
-						aria-label="Next media"
-						className="absolute right-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
-						onClick={(event) => {
-							event.stopPropagation();
-							onNext();
-						}}
-						type="button"
-					>
-						<ChevronRight className="size-6" strokeWidth={2} />
-					</button>
-				</>
-			) : null}
-			{selectedItem.type === "image" ? (
-				<div
-					className="grid max-h-[94vh] max-w-[96vw] gap-3"
-					onClick={(event) => event.stopPropagation()}
-				>
-					<img
-						alt={selectedItem.altText ?? "Tweet media"}
-						className="max-h-[84vh] max-w-[96vw] rounded-xl object-contain shadow-2xl"
-						src={selectedItem.url}
-					/>
-					{postUrl ? (
-						<div className="flex justify-center">
+			<div className={bodyClass} onClick={(event) => event.stopPropagation()}>
+				<div className="relative grid min-h-0 place-items-center px-4 py-16">
+					{hasCarousel ? (
+						<>
+							<button
+								aria-label="Previous media"
+								className="absolute left-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+								onClick={(event) => {
+									event.stopPropagation();
+									onPrevious();
+								}}
+								type="button"
+							>
+								<ChevronLeft className="size-6" strokeWidth={2} />
+							</button>
+							<button
+								aria-label="Next media"
+								className="absolute right-3 top-1/2 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 transition-colors hover:bg-white/20"
+								onClick={(event) => {
+									event.stopPropagation();
+									onNext();
+								}}
+								type="button"
+							>
+								<ChevronRight className="size-6" strokeWidth={2} />
+							</button>
+						</>
+					) : null}
+					{selectedItem.type === "image" ? (
+						<img
+							alt={selectedItem.altText ?? "Tweet media"}
+							className="max-h-[calc(100vh-8rem)] max-w-full object-contain"
+							src={selectedItem.url}
+						/>
+					) : selectedVideoUrl ? (
+						<BirdclawVideoPlayer
+							autoPlay={selectedItem.type === "gif"}
+							label="Tweet video"
+							loop={selectedItem.type === "gif"}
+							modal
+							muted={selectedItem.type === "gif"}
+							poster={selectedItem.thumbnailUrl}
+							rawUrl={selectedVideoUrl}
+							src={browserVideoUrl(selectedVideoUrl)}
+						/>
+					) : (
+						<div className="grid min-h-64 min-w-80 place-items-center gap-3 rounded-2xl border border-white/20 bg-black p-6 text-white">
+							<span>
+								{selectedItem.type === "video"
+									? "Video"
+									: selectedItem.type === "gif"
+										? "GIF"
+										: "Media"}
+							</span>
 							<a
 								className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-								href={postUrl}
+								href={selectedItem.url}
 								rel="noreferrer"
 								target="_blank"
 							>
-								Open post
+								Open media
 							</a>
+						</div>
+					)}
+					{selectedVideoUrl ? (
+						<div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+							<MediaDialogLinks postUrl={postUrl} videoUrl={selectedVideoUrl} />
 						</div>
 					) : null}
 				</div>
-			) : selectedVideoUrl ? (
-				<div
-					className="grid max-h-[94vh] max-w-[96vw] gap-3"
-					onClick={(event) => event.stopPropagation()}
-				>
-					<video
-						autoPlay={selectedItem.type === "gif"}
-						className="max-h-[84vh] max-w-[96vw] rounded-xl bg-black object-contain shadow-2xl"
-						controls
-						loop={selectedItem.type === "gif"}
-						muted={selectedItem.type === "gif"}
-						playsInline
-						poster={selectedItem.thumbnailUrl}
-						preload="metadata"
-					>
-						<source
-							src={browserVideoUrl(selectedVideoUrl)}
-							type={videoContentType(selectedVideoUrl)}
-						/>
-					</video>
-					<MediaDialogLinks postUrl={postUrl} videoUrl={selectedVideoUrl} />
-				</div>
-			) : (
-				<div
-					className="grid min-h-64 min-w-80 place-items-center gap-3 rounded-2xl border border-white/20 bg-black p-6 text-white"
-					onClick={(event) => event.stopPropagation()}
-				>
-					<span>
-						{selectedItem.type === "video"
-							? "Video"
-							: selectedItem.type === "gif"
-								? "GIF"
-								: "Media"}
-					</span>
-					<a
-						className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-						href={selectedItem.url}
-						rel="noreferrer"
-						target="_blank"
-					>
-						Open media
-					</a>
-					{postUrl ? (
-						<a
-							className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-							href={postUrl}
-							rel="noreferrer"
-							target="_blank"
-						>
-							Open post
-						</a>
-					) : null}
-				</div>
-			)}
+				{viewerAside ? (
+					<aside className="min-h-0 overflow-y-auto border-l border-white/10 bg-[var(--bg)] text-[var(--ink)]">
+						{viewerAside}
+					</aside>
+				) : null}
+			</div>
 			{hasCarousel ? (
 				<div
-					className="absolute bottom-4 left-1/2 flex max-w-[92vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
+					className="absolute bottom-4 left-1/2 flex max-w-[min(520px,60vw)] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
 					onClick={(event) => event.stopPropagation()}
 				>
 					{items.map((item, index) => (
@@ -451,13 +463,190 @@ function MediaViewerModal({
 	);
 }
 
+function BirdclawVideoPlayer({
+	autoPlay = false,
+	label,
+	loop = false,
+	modal = false,
+	muted = false,
+	onError,
+	poster,
+	rawUrl,
+	src,
+}: {
+	autoPlay?: boolean;
+	label: string;
+	loop?: boolean;
+	modal?: boolean;
+	muted?: boolean;
+	onError?: () => void;
+	poster?: string;
+	rawUrl: string;
+	src: string;
+}) {
+	const videoRef = useRef<HTMLVideoElement | null>(null);
+	const [duration, setDuration] = useState(0);
+	const [currentTime, setCurrentTime] = useState(0);
+	const [isMuted, setIsMuted] = useState(muted);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [hasError, setHasError] = useState(false);
+
+	async function togglePlayback() {
+		const video = videoRef.current;
+		if (!video) return;
+		try {
+			if (video.paused) {
+				await video.play();
+			} else {
+				video.pause();
+			}
+		} catch {
+			setHasError(true);
+		}
+	}
+
+	function seek(value: string) {
+		const video = videoRef.current;
+		if (!video) return;
+		const nextTime = Number(value);
+		if (!Number.isFinite(nextTime)) return;
+		video.currentTime = nextTime;
+		setCurrentTime(nextTime);
+	}
+
+	function toggleMute() {
+		const video = videoRef.current;
+		if (!video) return;
+		video.muted = !video.muted;
+		setIsMuted(video.muted);
+	}
+
+	return (
+		<div
+			className={cx(
+				"group/video relative size-full overflow-hidden bg-black",
+				modal && "max-h-[84vh] max-w-[96vw] rounded-xl shadow-2xl",
+			)}
+		>
+			<video
+				aria-label={label}
+				autoPlay={autoPlay}
+				className={cx(
+					"block size-full bg-black object-contain",
+					modal && "max-h-[84vh] max-w-[96vw]",
+				)}
+				loop={loop}
+				muted={isMuted}
+				onClick={(event) => {
+					event.stopPropagation();
+					void togglePlayback();
+				}}
+				onDurationChange={(event) => {
+					setDuration(event.currentTarget.duration || 0);
+				}}
+				onError={() => {
+					setHasError(true);
+					onError?.();
+				}}
+				onLoadedMetadata={(event) => {
+					setDuration(event.currentTarget.duration || 0);
+				}}
+				onPause={() => setIsPlaying(false)}
+				onPlay={() => setIsPlaying(true)}
+				onTimeUpdate={(event) => {
+					setCurrentTime(event.currentTarget.currentTime);
+				}}
+				playsInline
+				poster={poster}
+				preload="metadata"
+				ref={videoRef}
+			>
+				<source src={src} type={videoContentType(rawUrl)} />
+			</video>
+			{!isPlaying ? (
+				<button
+					aria-label="Play video"
+					className="absolute inset-0 grid place-items-center bg-black/10 text-white"
+					onClick={(event) => {
+						event.stopPropagation();
+						void togglePlayback();
+					}}
+					type="button"
+				>
+					<span className="grid size-14 place-items-center rounded-full bg-black/70 shadow-lg ring-1 ring-white/25 transition-transform group-hover/video:scale-105">
+						<Play className="ml-1 size-6 fill-current" strokeWidth={2.1} />
+					</span>
+				</button>
+			) : null}
+			<div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-8 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/video:opacity-100 sm:group-focus-within/video:opacity-100">
+				<button
+					aria-label={isPlaying ? "Pause video" : "Play video"}
+					className="grid size-8 shrink-0 place-items-center rounded-full transition-colors hover:bg-white/15"
+					onClick={(event) => {
+						event.stopPropagation();
+						void togglePlayback();
+					}}
+					type="button"
+				>
+					{isPlaying ? (
+						<Pause className="size-4 fill-current" strokeWidth={2.2} />
+					) : (
+						<Play className="ml-0.5 size-4 fill-current" strokeWidth={2.2} />
+					)}
+				</button>
+				<input
+					aria-label="Video position"
+					className="h-1 min-w-0 flex-1 accent-white"
+					max={duration || 0}
+					min={0}
+					onChange={(event) => seek(event.target.value)}
+					onClick={(event) => event.stopPropagation()}
+					step="0.1"
+					type="range"
+					value={duration ? Math.min(currentTime, duration) : 0}
+				/>
+				<span className="w-[72px] shrink-0 text-right text-[12px] font-semibold tabular-nums text-white/90">
+					{formatVideoTime(currentTime)}
+					{duration ? ` / ${formatVideoTime(duration)}` : ""}
+				</span>
+				<button
+					aria-label={isMuted ? "Unmute video" : "Mute video"}
+					className="grid size-8 shrink-0 place-items-center rounded-full transition-colors hover:bg-white/15"
+					onClick={(event) => {
+						event.stopPropagation();
+						toggleMute();
+					}}
+					type="button"
+				>
+					{isMuted ? (
+						<VolumeX className="size-4" strokeWidth={2.1} />
+					) : (
+						<Volume2 className="size-4" strokeWidth={2.1} />
+					)}
+				</button>
+			</div>
+			{hasError ? (
+				<div className="absolute inset-x-3 bottom-12 rounded-full bg-black/75 px-3 py-1.5 text-center text-[12px] font-semibold text-white shadow-lg ring-1 ring-white/20">
+					Video did not load
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function formatVideoTime(value: number) {
+	if (!Number.isFinite(value) || value <= 0) return "0:00";
+	const totalSeconds = Math.floor(value);
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return `${String(minutes)}:${String(seconds).padStart(2, "0")}`;
+}
+
 function MediaTileActions({
-	directVideoUrl,
 	index,
 	onOpen,
 	postUrl,
 }: {
-	directVideoUrl: string;
 	index: number;
 	onOpen: () => void;
 	postUrl?: string;
@@ -475,20 +664,6 @@ function MediaTileActions({
 			>
 				<Maximize2 aria-hidden="true" className="size-4" strokeWidth={2} />
 			</button>
-			<a
-				aria-label="Open video"
-				className="grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
-				href={directVideoUrl}
-				onClick={(event) => event.stopPropagation()}
-				rel="noreferrer"
-				target="_blank"
-			>
-				<Play
-					aria-hidden="true"
-					className="ml-0.5 size-4 fill-current"
-					strokeWidth={2}
-				/>
-			</a>
 			{postUrl ? (
 				<a
 					aria-label="Open original post"
@@ -516,7 +691,7 @@ function MediaDialogLinks({
 		<div className="flex flex-wrap justify-center gap-2">
 			<a
 				className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-				href={videoUrl}
+				href={browserVideoUrl(videoUrl)}
 				rel="noreferrer"
 				target="_blank"
 			>

@@ -28,10 +28,10 @@ const TABS: Array<{ value: ReplyFilter; label: string }> = [
 
 interface TimelineRouteFrameProps {
 	title: string;
-	resource: "home" | "mentions";
+	resource: "home" | "mentions" | "authored";
 	initialReplyFilter: ReplyFilter;
 	searchPlaceholder: string;
-	syncKind: WebSyncKind;
+	syncKind?: WebSyncKind;
 	syncLabel: string;
 	loadingLabel: string;
 	loadingDetail: string;
@@ -89,15 +89,17 @@ export function TimelineRouteFrame({
 						<TimelineHeaderSubtitle>{subtitleText}</TimelineHeaderSubtitle>
 					}
 					action={
-						<SyncNowButton
-							accounts={meta?.accounts}
-							allowAutoSync
-							autoSyncBlocked={loading}
-							kind={syncKind}
-							label={syncLabel}
-							onSynced={refreshLocalView}
-							showAccountPicker
-						/>
+						syncKind ? (
+							<SyncNowButton
+								accounts={meta?.accounts}
+								allowAutoSync
+								autoSyncBlocked={loading}
+								kind={syncKind}
+								label={syncLabel}
+								onSynced={refreshLocalView}
+								showAccountPicker
+							/>
+						) : null
 					}
 					controls={
 						<>

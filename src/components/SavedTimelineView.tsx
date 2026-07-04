@@ -1,5 +1,11 @@
 import { type ReactNode, useMemo, useState } from "react";
-import { Image, MessageSquareQuote, Rows3, UserRound } from "lucide-react";
+import {
+	Download,
+	Image,
+	MessageSquareQuote,
+	Rows3,
+	UserRound,
+} from "lucide-react";
 import { SyncNowButton } from "#/components/SyncNowButton";
 import { TimelineCard } from "#/components/TimelineCard";
 import {
@@ -151,6 +157,16 @@ export function SavedTimelineView({
 					}
 					action={
 						<div className="flex flex-wrap items-center justify-end gap-2">
+							{filter === "bookmarked" ? (
+								<a
+									className={cx(secondaryButtonClass, "h-9 px-3 text-[13px]")}
+									href="/api/bookmarks-export"
+									title="Download all bookmarks, quotes, media, and metadata as structured JSON"
+								>
+									<Download className="size-4" strokeWidth={2.1} />
+									JSON
+								</a>
+							) : null}
 							<select
 								aria-label="Sync page depth"
 								className={cx(selectFieldClass, "h-9 w-[120px]!")}

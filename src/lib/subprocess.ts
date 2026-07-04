@@ -13,6 +13,7 @@ const execFileAsync = promisify(execFile) as unknown as (
 		maxBuffer?: number;
 		killSignal?: NodeJS.Signals | number;
 		signal?: AbortSignal;
+		windowsHide?: boolean;
 	},
 ) => Promise<unknown> & { child?: ChildProcess };
 
@@ -28,6 +29,7 @@ export interface SubprocessOptions {
 	acceptedExitCodes?: readonly number[];
 	redactValues?: readonly string[];
 	redact?: (value: string) => string;
+	windowsHide?: boolean;
 }
 
 export interface SubprocessResult {
@@ -213,6 +215,7 @@ export function runSubprocessEffect(
 					? {}
 					: { killSignal: options.killSignal }),
 				...(controller ? { signal: controller.signal } : {}),
+				windowsHide: options.windowsHide ?? true,
 			};
 			const hasExecOptions = Object.keys(execOptions).length > 0;
 			let pending: ReturnType<typeof execFileAsync>;

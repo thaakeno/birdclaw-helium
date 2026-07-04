@@ -1,17 +1,22 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	BookmarkCheck,
 	CheckCircle2,
 	Circle,
+	Copy,
 	ExternalLink,
 	Heart,
-	Image,
 	LoaderCircle,
 	MessageCircle,
+	MoreHorizontal,
 	RefreshCw,
 	Repeat2,
+	Share,
 	UserSearch,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { queryKeys } from "#/lib/query-client";
 import { formatCompactNumber } from "#/lib/present";
 import {
 	isTweetArticleUrlEntity,
@@ -240,13 +245,17 @@ function isInteractiveTarget(target: EventTarget | null) {
 function TweetPresentation({
 	tweet,
 	hiddenUrlRanges,
+	onHydrateVideo,
 	visibleUrlCards,
+	viewerAside,
 	replyToTweet,
 	quotedTweet,
 }: {
 	tweet: TimelineItem | EmbeddedTweet;
 	hiddenUrlRanges: Array<{ start: number; end: number }>;
+	onHydrateVideo?: () => Promise<void> | void;
 	visibleUrlCards: TweetUrlEntity[];
+	viewerAside?: ReactNode;
 	replyToTweet?: EmbeddedTweet | null;
 	quotedTweet?: EmbeddedTweet | null;
 }) {
@@ -258,7 +267,12 @@ function TweetPresentation({
 				hiddenUrlRanges={hiddenUrlRanges}
 				text={tweet.text}
 			/>
-			<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
+			<TweetMediaGrid
+				items={tweet.media}
+				onHydrateVideo={onHydrateVideo}
+				postUrl={tweetUrl(tweet)}
+				viewerAside={viewerAside ?? <MediaViewerTweetAside tweet={tweet} />}
+			/>
 			{tweet.entities.article ? (
 				<TweetArticleCard article={tweet.entities.article} />
 			) : null}
@@ -283,6 +297,79 @@ function TweetPresentation({
 	);
 }
 
+function MediaViewerTweetAside({
+	anchorId,
+	error,
+	loading,
+	threadItems,
+	tweet,
+}: {
+	anchorId?: string;
+	error?: string | null;
+	loading?: boolean;
+	threadItems?: EmbeddedTweet[];
+	tweet: TimelineItem | EmbeddedTweet;
+}) {
+	const showThread =
+		Boolean(loading) || Boolean(error) || (threadItems?.length ?? 0) > 1;
+
+	return (
+		<div className="flex min-h-full flex-col">
+			<div className="flex gap-3 border-b border-[var(--line)] px-4 py-4">
+				<AvatarChip
+					avatarUrl={tweet.author.avatarUrl}
+					hue={tweet.author.avatarHue}
+					name={tweet.author.displayName}
+					profileId={tweet.author.id}
+				/>
+				<div className="min-w-0 flex-1">
+					<header className="flex min-w-0 items-center gap-1.5 text-[15px]">
+						<ProfilePreview profile={tweet.author}>
+							<span className="flex min-w-0 items-center gap-1.5">
+								<span className={feedRowNameClass}>
+									{tweet.author.displayName}
+								</span>
+								<span className={feedRowHandleClass}>
+									@{tweet.author.handle}
+								</span>
+							</span>
+						</ProfilePreview>
+						<span className={feedRowDotClass}>Â·</span>
+						<SmartTimestamp
+							className={feedRowTimestampClass}
+							value={tweet.createdAt}
+						/>
+					</header>
+					<TweetRichText
+						className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
+						entities={tweet.entities}
+						text={tweet.text}
+					/>
+					<a
+						className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--line)] px-3 py-1.5 text-[13px] font-bold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]"
+						href={tweetUrl(tweet)}
+						rel="noreferrer"
+						target="_blank"
+					>
+						<ExternalLink className="size-4" strokeWidth={1.9} />
+						Open on X
+					</a>
+				</div>
+			</div>
+			{showThread && anchorId ? (
+				<div className="border-b border-[var(--line)] px-3 py-3">
+					<ConversationThread
+						anchorId={anchorId}
+						error={error}
+						items={threadItems ?? []}
+						loading={Boolean(loading)}
+					/>
+				</div>
+			) : null}
+		</div>
+	);
+}
+
 function tweetUrl(tweet: TimelineItem | EmbeddedTweet) {
 	const handle = tweet.author.handle?.trim().replace(/^@/, "");
 	return handle
@@ -292,16 +379,21 @@ function tweetUrl(tweet: TimelineItem | EmbeddedTweet) {
 
 export function TimelineCard({
 	item,
-	onReply,
+	onReply: _onReply,
 	showReplyControls = true,
 }: {
 	item: TimelineItem;
 	onReply: (tweetId: string) => void;
 	showReplyControls?: boolean;
 }) {
+	const queryClient = useQueryClient();
 	const [threadSyncState, setThreadSyncState] = useState<
 		"idle" | "syncing" | "error"
 	>("idle");
+	const [contextMenu, setContextMenu] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
 	const canReply =
 		showReplyControls && item.kind !== "like" && item.kind !== "bookmark";
 	const displayTweet = item.retweetedTweet ?? item;
@@ -329,9 +421,6 @@ export function TimelineCard({
 		visibleEntities,
 		item.retweetedTweet ? null : (item.quotedTweet?.id ?? null),
 	);
-	const displayMediaCount = item.retweetedTweet
-		? (displayTweet.mediaCount ?? displayTweet.media.length)
-		: item.mediaCount;
 	const displayIsReplied = displayTweet.isReplied ?? item.isReplied;
 	const displayReplyCount =
 		displayTweet.replyCount ?? item.replyCount ?? item.localReplyCount ?? 0;
@@ -340,8 +429,6 @@ export function TimelineCard({
 	const displayLikeCount = displayTweet.likeCount ?? item.likeCount;
 	const displayBookmarked = displayTweet.bookmarked ?? item.bookmarked;
 	const displayLiked = displayTweet.liked ?? item.liked;
-	const showLikeIndicator = displayLiked || displayLikeCount > 0;
-	const showMediaIndicator = displayMediaCount > 0;
 	const hasConversation = Boolean(
 		item.retweetedTweet
 			? displayTweet.replyToId
@@ -368,6 +455,7 @@ export function TimelineCard({
 				throw new Error("Thread sync failed");
 			}
 			await conversation.refresh();
+			await queryClient.invalidateQueries({ queryKey: queryKeys.timelines });
 			if (!conversation.isOpen) {
 				conversation.toggle();
 			}
@@ -384,6 +472,10 @@ export function TimelineCard({
 				"cursor-pointer [content-visibility:auto] [contain-intrinsic-size:auto_280px]",
 			)}
 			data-perf="timeline-card"
+			onContextMenu={(event) => {
+				event.preventDefault();
+				setContextMenu({ x: event.clientX, y: event.clientY });
+			}}
 			onFocus={conversation.prefetch}
 			onMouseEnter={conversation.prefetch}
 			onClick={(event) => {
@@ -458,16 +550,64 @@ export function TimelineCard({
 							) : null}
 						</span>
 					) : null}
+					<button
+						aria-label="More actions"
+						className="ml-auto grid size-8 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+						onClick={(event) => {
+							event.stopPropagation();
+							setContextMenu({
+								x: event.currentTarget.getBoundingClientRect().right - 248,
+								y: event.currentTarget.getBoundingClientRect().bottom + 8,
+							});
+						}}
+						type="button"
+					>
+						<MoreHorizontal className="size-5" strokeWidth={2} />
+					</button>
 				</header>
 				<TweetPresentation
 					hiddenUrlRanges={hiddenMediaUrlRanges}
+					onHydrateVideo={syncThread}
 					quotedTweet={item.retweetedTweet ? null : item.quotedTweet}
 					replyToTweet={item.retweetedTweet ? null : item.replyToTweet}
 					tweet={displayTweet}
 					visibleUrlCards={visibleUrlCards}
+					viewerAside={
+						<MediaViewerTweetAside
+							anchorId={interactionTweetId}
+							error={conversation.error}
+							loading={conversation.loading}
+							threadItems={conversation.items}
+							tweet={displayTweet}
+						/>
+					}
 				/>
 				<footer className={feedRowActionsClass}>
-					<div className="flex items-center gap-3 text-[13px] text-[var(--ink-soft)]">
+					<div
+						className={cx(
+							"grid w-full items-center text-[13px] text-[var(--ink-soft)]",
+							canReply ? "grid-cols-6" : "grid-cols-5",
+						)}
+					>
+						{canReply ? (
+							<button
+								aria-label="Reply"
+								className={feedActionButtonClass}
+								onClick={(event) => {
+									event.stopPropagation();
+									_onReply(interactionTweetId);
+								}}
+								title="Reply in Birdclaw"
+								type="button"
+							>
+								<span className={feedActionIconWrapClass}>
+									<MessageCircle
+										className={feedActionIconClass}
+										strokeWidth={1.9}
+									/>
+								</span>
+							</button>
+						) : null}
 						<button
 							aria-expanded={conversation.isOpen}
 							aria-label={
@@ -478,16 +618,25 @@ export function TimelineCard({
 								event.stopPropagation();
 								conversation.toggle();
 							}}
+							title={
+								displayReplyCount > 0
+									? `${formatCompactNumber(displayReplyCount)} replies reported by X`
+									: displayLocalReplyCount > 0
+										? `${formatCompactNumber(displayLocalReplyCount)} archived replies`
+										: "Show archived replies"
+							}
 							type="button"
 						>
 							<span className={feedActionIconWrapClass}>
 								<MessageCircle
 									className={feedActionIconClass}
-									strokeWidth={1.7}
+									strokeWidth={1.9}
 								/>
 							</span>
-							<span className="text-[13px]">
-								{conversation.isOpen ? "Hide local" : "Local thread"}
+							<span>
+								{formatCompactNumber(
+									displayReplyCount || displayLocalReplyCount,
+								)}
 							</span>
 						</button>
 						<button
@@ -505,23 +654,49 @@ export function TimelineCard({
 								{threadSyncState === "syncing" ? (
 									<LoaderCircle
 										className={cx(feedActionIconClass, "animate-spin")}
-										strokeWidth={1.7}
+										strokeWidth={1.9}
 									/>
 								) : (
 									<RefreshCw
 										className={feedActionIconClass}
-										strokeWidth={1.7}
+										strokeWidth={1.9}
 									/>
 								)}
 							</span>
-							<span className="text-[13px]">
-								{threadSyncState === "syncing"
-									? "Fetching"
-									: threadSyncState === "error"
-										? "Fetch failed"
-										: "Fetch thread"}
-							</span>
 						</button>
+						<span
+							aria-label={`${formatCompactNumber(displayLikeCount)} likes`}
+							className={cx(
+								feedActionButtonClass,
+								"pointer-events-none",
+								displayLiked && "text-[var(--like)]",
+							)}
+							title={`${formatCompactNumber(displayLikeCount)} likes`}
+						>
+							<span className={feedActionIconWrapClass}>
+								<Heart
+									className={feedActionIconClass}
+									fill={displayLiked ? "currentColor" : "none"}
+									strokeWidth={1.9}
+								/>
+							</span>
+							<span>{formatCompactNumber(displayLikeCount)}</span>
+						</span>
+						<span
+							aria-label="Bookmarked"
+							className={cx(
+								"inline-flex items-center gap-1 px-2 py-1 text-[13px]",
+								displayBookmarked && "text-[var(--accent)]",
+							)}
+							title={displayBookmarked ? "Bookmarked" : "Not bookmarked"}
+						>
+							<span className={feedActionIconWrapClass}>
+								<BookmarkCheck
+									className={feedActionIconClass}
+									strokeWidth={1.9}
+								/>
+							</span>
+						</span>
 						<a
 							aria-label="Open on X"
 							className={feedActionButtonClass}
@@ -534,106 +709,9 @@ export function TimelineCard({
 							title="Open original post on X"
 						>
 							<span className={feedActionIconWrapClass}>
-								<ExternalLink
-									className={feedActionIconClass}
-									strokeWidth={1.7}
-								/>
+								<Share className={feedActionIconClass} strokeWidth={1.9} />
 							</span>
-							<span className="text-[13px]">Open on X</span>
 						</a>
-						<span
-							aria-label={`${formatCompactNumber(displayReplyCount || displayLocalReplyCount)} comments`}
-							className="inline-flex items-center gap-1 px-2 py-1 text-[13px]"
-							title={
-								displayReplyCount > 0
-									? `${formatCompactNumber(displayReplyCount)} comments reported by X`
-									: displayLocalReplyCount > 0
-										? `${formatCompactNumber(displayLocalReplyCount)} archived locally`
-										: "No reply count available locally"
-							}
-						>
-							<MessageCircle
-								className={feedActionIconClass}
-								strokeWidth={1.7}
-							/>
-							<span>
-								{formatCompactNumber(
-									displayReplyCount || displayLocalReplyCount,
-								)}
-							</span>
-						</span>
-						{canReply ? (
-							<button
-								className={feedActionButtonClass}
-								onClick={(event) => {
-									event.stopPropagation();
-									onReply(interactionTweetId);
-								}}
-								type="button"
-								aria-label="Reply"
-							>
-								<span className={feedActionIconWrapClass}>
-									<MessageCircle
-										className={feedActionIconClass}
-										strokeWidth={1.7}
-									/>
-								</span>
-								<span className="text-[13px]">Reply</span>
-							</button>
-						) : null}
-						<a
-							aria-label={`Analyse @${displayAuthor.handle}`}
-							className={feedActionButtonClass}
-							href={`/profiles/${encodeURIComponent(displayAuthor.handle)}`}
-							onClick={(event) => {
-								event.stopPropagation();
-							}}
-							title={`Analyse @${displayAuthor.handle}`}
-						>
-							<span className={feedActionIconWrapClass}>
-								<UserSearch className={feedActionIconClass} strokeWidth={1.7} />
-							</span>
-							<span className="text-[13px]">Analyse</span>
-						</a>
-						{showLikeIndicator ? (
-							<span
-								aria-label={`${formatCompactNumber(displayLikeCount)} likes`}
-								className={cx(
-									"inline-flex items-center gap-1 px-2 py-1 text-[13px]",
-									displayLiked && "text-[var(--like)]",
-								)}
-								title={`${formatCompactNumber(displayLikeCount)} likes`}
-							>
-								<Heart
-									className={feedActionIconClass}
-									strokeWidth={1.7}
-									fill={displayLiked ? "currentColor" : "none"}
-								/>
-								<span>{formatCompactNumber(displayLikeCount)}</span>
-							</span>
-						) : null}
-						{displayBookmarked ? (
-							<span
-								aria-label="Bookmarked"
-								className="inline-flex items-center px-2 py-1"
-								title="Bookmarked"
-							>
-								<BookmarkCheck
-									className={feedActionIconClass}
-									strokeWidth={1.7}
-								/>
-							</span>
-						) : null}
-						{showMediaIndicator ? (
-							<span
-								aria-label={`${String(displayMediaCount)} media attachments`}
-								className="inline-flex items-center gap-1 px-2 py-1 text-[13px]"
-								title={`${String(displayMediaCount)} media attachments`}
-							>
-								<Image className={feedActionIconClass} strokeWidth={1.7} />
-								<span>{displayMediaCount}</span>
-							</span>
-						) : null}
 					</div>
 				</footer>
 				{conversation.isOpen ? (
@@ -645,6 +723,114 @@ export function TimelineCard({
 					/>
 				) : null}
 			</div>
+			{contextMenu && typeof document !== "undefined"
+				? createPortal(
+						<TimelineCardContextMenu
+							authorHandle={displayAuthor.handle}
+							onClose={() => setContextMenu(null)}
+							onFetchThread={() => void syncThread()}
+							position={contextMenu}
+							tweetId={interactionTweetId}
+							tweetUrl={displayTweetUrl}
+						/>,
+						document.body,
+					)
+				: null}
 		</article>
+	);
+}
+
+function TimelineCardContextMenu({
+	authorHandle,
+	onClose,
+	onFetchThread,
+	position,
+	tweetId,
+	tweetUrl,
+}: {
+	authorHandle: string;
+	onClose: () => void;
+	onFetchThread: () => void;
+	position: { x: number; y: number };
+	tweetId: string;
+	tweetUrl: string;
+}) {
+	useEffect(() => {
+		const close = () => onClose();
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") onClose();
+		};
+		window.addEventListener("click", close);
+		window.addEventListener("keydown", onKeyDown);
+		return () => {
+			window.removeEventListener("click", close);
+			window.removeEventListener("keydown", onKeyDown);
+		};
+	}, [onClose]);
+
+	const left = Math.min(
+		Math.max(12, position.x),
+		Math.max(12, window.innerWidth - 260),
+	);
+	const top = Math.min(
+		Math.max(12, position.y),
+		Math.max(12, window.innerHeight - 270),
+	);
+	const copyText = async (value: string) => {
+		await navigator.clipboard.writeText(value);
+		onClose();
+	};
+
+	return (
+		<div
+			className="fixed z-[9999] w-[248px] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] py-2 text-[15px] text-[var(--ink)] shadow-[0_18px_60px_var(--shadow-strong)]"
+			onClick={(event) => event.stopPropagation()}
+			style={{ left, top }}
+		>
+			<a
+				className="flex items-center gap-3 px-4 py-3 font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				href={tweetUrl}
+				rel="noreferrer"
+				target="_blank"
+			>
+				<ExternalLink className="size-5" strokeWidth={2} />
+				Open on X
+			</a>
+			<a
+				className="flex items-center gap-3 px-4 py-3 font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				href={`/profiles/${encodeURIComponent(authorHandle)}`}
+				onClick={onClose}
+			>
+				<UserSearch className="size-5" strokeWidth={2} />
+				Analyse @{authorHandle}
+			</a>
+			<button
+				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				onClick={() => {
+					onFetchThread();
+					onClose();
+				}}
+				type="button"
+			>
+				<RefreshCw className="size-5" strokeWidth={2} />
+				Fetch thread
+			</button>
+			<button
+				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				onClick={() => void copyText(tweetId)}
+				type="button"
+			>
+				<Copy className="size-5" strokeWidth={2} />
+				Copy Birdclaw post ID
+			</button>
+			<button
+				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				onClick={() => void copyText(tweetUrl)}
+				type="button"
+			>
+				<Copy className="size-5" strokeWidth={2} />
+				Copy X URL
+			</button>
+		</div>
 	);
 }

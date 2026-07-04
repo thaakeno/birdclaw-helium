@@ -16,6 +16,7 @@ import {
 	MessagesSquare,
 	Settings,
 	ShieldOff,
+	UserRound,
 	UserSearch,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -60,6 +61,7 @@ const links = [
 	{ to: "/network-map", label: "Map", icon: Globe2 },
 	{ to: "/data-sources", label: "Sources", icon: Database },
 	{ to: "/", label: "Home", icon: Home },
+	{ to: "/my-posts", label: "My Posts", icon: UserRound },
 	{ to: "/mentions", label: "Mentions", icon: Bell },
 	{ to: "/likes", label: "Likes", icon: Heart },
 	{ to: "/bookmarks", label: "Bookmarks", icon: Bookmark },
@@ -154,7 +156,9 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 			</div>
 			<div className={sidebarFooterClass}>
 				<button
-					aria-label={collapsedPreference ? "Expand sidebar" : "Collapse sidebar"}
+					aria-label={
+						collapsedPreference ? "Expand sidebar" : "Collapse sidebar"
+					}
 					className={cx(isCompact ? navLinkCompactClass : navLinkClass)}
 					onClick={() => {
 						writeBoolean(SIDEBAR_COLLAPSED_KEY, !collapsedPreference);
@@ -177,7 +181,9 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 							strokeWidth={1.8}
 						/>
 					)}
-					<span className={isCompact ? navLinkLabelCompactClass : navLinkLabelClass}>
+					<span
+						className={isCompact ? navLinkLabelCompactClass : navLinkLabelClass}
+					>
 						{collapsedPreference ? "Expand" : "Collapse"}
 					</span>
 				</button>
