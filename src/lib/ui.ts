@@ -10,10 +10,10 @@ export const siteShellClass =
 	"mx-auto flex min-h-screen w-full max-w-[1280px] gap-0";
 
 export const sidebarShellClass =
-	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 transition-[width,padding] duration-200 ease-out min-[1100px]:w-[260px] min-[1100px]:px-3";
+	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between overflow-hidden border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 transition-[width,padding] duration-200 ease-out min-[1100px]:w-[260px] min-[1100px]:px-3";
 
 export const sidebarShellCompactClass =
-	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 transition-[width,padding] duration-200 ease-out";
+	"sticky top-0 z-30 flex h-screen w-[72px] shrink-0 flex-col justify-between overflow-hidden border-r border-[var(--line)] bg-[var(--bg)] px-2 py-3 transition-[width,padding] duration-200 ease-out";
 
 export const sidebarBrandClass =
 	"flex items-center gap-2.5 px-2 py-2 text-[var(--ink)] min-[1100px]:px-3";
@@ -29,9 +29,10 @@ export const sidebarBrandTitleClass = "text-[15px] font-bold tracking-tight";
 
 export const sidebarBrandTaglineClass = "text-[12px] text-[var(--ink-soft)]";
 
-export const sidebarNavClass = "mt-2 flex flex-col gap-0.5";
+export const sidebarNavClass =
+	"mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none]";
 
-export const sidebarFooterClass = "flex flex-col gap-2 pb-1";
+export const sidebarFooterClass = "flex shrink-0 flex-col gap-2 pb-1";
 
 export const navLinkClass =
 	"nav-link group flex items-center justify-center gap-4 rounded-full px-3 py-2.5 text-[15px] text-[var(--ink)] transition-colors duration-150 hover:bg-[var(--bg-hover)] min-[1100px]:justify-start";

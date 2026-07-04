@@ -11,6 +11,9 @@ export const Route = createFileRoute("/api/bookmarks-export")({
 				const denied = sensitiveRequestErrorResponse(request);
 				if (denied) return denied;
 
+				const url = new URL(request.url);
+				const mode =
+					url.searchParams.get("mode") === "light" ? "light" : "full";
 				const exportedAt = new Date().toISOString();
 				const payload = {
 					schemaVersion: 1,
@@ -18,23 +21,60 @@ export const Route = createFileRoute("/api/bookmarks-export")({
 					source: {
 						app: "birdclaw",
 						collection: "bookmarks",
+						mode,
 						note: "Local archive export. Private tokens, cookies, DMs, and browser data are not included.",
 					},
-					bookmarks: listBookmarkExportItems(),
+					bookmarks:
+						mode === "light"
+							? listLightBookmarkExportItems()
+							: listBookmarkExportItems(),
 				};
-				const filename = `birdclaw-bookmarks-${exportedAt.slice(0, 10)}.json`;
-				return new Response(JSON.stringify(payload, null, 2), {
-					headers: {
-						"cache-control": "no-store",
-						"content-disposition": `attachment; filename="${filename}"`,
-						"content-type": "application/json; charset=utf-8",
-						"x-content-type-options": "nosniff",
+				const filename = `birdclaw-bookmarks${mode === "light" ? "-light" : ""}-${exportedAt.slice(0, 10)}.json`;
+				return new Response(
+					mode === "light"
+						? JSON.stringify(payload)
+						: JSON.stringify(payload, null, 2),
+					{
+						headers: {
+							"cache-control": "no-store",
+							"content-disposition": `attachment; filename="${filename}"`,
+							"content-type": "application/json; charset=utf-8",
+							"x-content-type-options": "nosniff",
+						},
 					},
-				});
+				);
 			},
 		},
 	},
 });
+
+function listLightBookmarkExportItems() {
+	const db = getReadDb();
+	const rows = db
+		.prepare(
+			`
+      select
+        t.id,
+        t.text,
+        t.created_at,
+        p.handle
+      from tweet_collections c
+      join tweets t on t.id = c.tweet_id
+      join profiles p on p.id = t.author_profile_id
+      where c.kind = 'bookmarks'
+      group by t.id
+      order by max(c.collected_at) desc, t.created_at desc, t.id desc
+      `,
+		)
+		.all() as Array<Record<string, unknown>>;
+
+	return rows.map((row) => ({
+		username: stringValue(row.handle),
+		date: stringValue(row.created_at),
+		xUrl: tweetUrl(stringValue(row.handle), stringValue(row.id)),
+		text: stringValue(row.text),
+	}));
+}
 
 function listBookmarkExportItems() {
 	const db = getReadDb();

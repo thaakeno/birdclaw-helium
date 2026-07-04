@@ -106,7 +106,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 
 	return (
 		<aside className={isCompact ? sidebarShellCompactClass : sidebarShellClass}>
-			<div className="flex flex-col">
+			<div className="flex min-h-0 flex-1 flex-col">
 				<Link to="/" className={sidebarBrandClass}>
 					<span className={sidebarBrandMarkClass}>
 						<BirdclawMark className="size-10" />

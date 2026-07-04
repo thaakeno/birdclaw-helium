@@ -158,14 +158,23 @@ export function SavedTimelineView({
 					action={
 						<div className="flex flex-wrap items-center justify-end gap-2">
 							{filter === "bookmarked" ? (
-								<a
-									className={cx(secondaryButtonClass, "h-9 px-3 text-[13px]")}
-									href="/api/bookmarks-export"
-									title="Download all bookmarks, quotes, media, and metadata as structured JSON"
-								>
-									<Download className="size-4" strokeWidth={2.1} />
-									JSON
-								</a>
+								<div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
+									<a
+										className="inline-flex h-9 items-center gap-1.5 border-r border-[var(--line)] px-3 text-[13px] font-bold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]"
+										href="/api/bookmarks-export"
+										title="Download the complete bookmark export with quotes, media, entities, metrics, and profile metadata"
+									>
+										<Download className="size-4" strokeWidth={2.1} />
+										Full JSON
+									</a>
+									<a
+										className="inline-flex h-9 items-center px-3 text-[13px] font-bold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]"
+										href="/api/bookmarks-export?mode=light"
+										title="Download a small AI-friendly export with text, username, X URL, and date only"
+									>
+										Light
+									</a>
+								</div>
 							) : null}
 							<select
 								aria-label="Sync page depth"

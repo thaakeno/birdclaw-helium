@@ -28,6 +28,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfilesHandleRouteImport } from './routes/profiles.$handle'
 import { Route as ApiXurlRateLimitsRouteImport } from './routes/api/xurl-rate-limits'
 import { Route as ApiVideoRouteImport } from './routes/api/video'
+import { Route as ApiTweetSyncRouteImport } from './routes/api/tweet-sync'
 import { Route as ApiThreadSyncRouteImport } from './routes/api/thread-sync'
 import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
@@ -142,6 +143,11 @@ const ApiXurlRateLimitsRoute = ApiXurlRateLimitsRouteImport.update({
 const ApiVideoRoute = ApiVideoRouteImport.update({
   id: '/api/video',
   path: '/api/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTweetSyncRoute = ApiTweetSyncRouteImport.update({
+  id: '/api/tweet-sync',
+  path: '/api/tweet-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiThreadSyncRoute = ApiThreadSyncRouteImport.update({
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/thread-sync': typeof ApiThreadSyncRoute
+  '/api/tweet-sync': typeof ApiTweetSyncRoute
   '/api/video': typeof ApiVideoRoute
   '/api/xurl-rate-limits': typeof ApiXurlRateLimitsRoute
   '/profiles/$handle': typeof ProfilesHandleRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/thread-sync': typeof ApiThreadSyncRoute
+  '/api/tweet-sync': typeof ApiTweetSyncRoute
   '/api/video': typeof ApiVideoRoute
   '/api/xurl-rate-limits': typeof ApiXurlRateLimitsRoute
   '/profiles/$handle': typeof ProfilesHandleRoute
@@ -365,6 +373,7 @@ export interface FileRoutesById {
   '/api/status': typeof ApiStatusRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/thread-sync': typeof ApiThreadSyncRoute
+  '/api/tweet-sync': typeof ApiTweetSyncRoute
   '/api/video': typeof ApiVideoRoute
   '/api/xurl-rate-limits': typeof ApiXurlRateLimitsRoute
   '/profiles/$handle': typeof ProfilesHandleRoute
@@ -408,6 +417,7 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/sync'
     | '/api/thread-sync'
+    | '/api/tweet-sync'
     | '/api/video'
     | '/api/xurl-rate-limits'
     | '/profiles/$handle'
@@ -449,6 +459,7 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/sync'
     | '/api/thread-sync'
+    | '/api/tweet-sync'
     | '/api/video'
     | '/api/xurl-rate-limits'
     | '/profiles/$handle'
@@ -490,6 +501,7 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/sync'
     | '/api/thread-sync'
+    | '/api/tweet-sync'
     | '/api/video'
     | '/api/xurl-rate-limits'
     | '/profiles/$handle'
@@ -532,6 +544,7 @@ export interface RootRouteChildren {
   ApiStatusRoute: typeof ApiStatusRoute
   ApiSyncRoute: typeof ApiSyncRoute
   ApiThreadSyncRoute: typeof ApiThreadSyncRoute
+  ApiTweetSyncRoute: typeof ApiTweetSyncRoute
   ApiVideoRoute: typeof ApiVideoRoute
   ApiXurlRateLimitsRoute: typeof ApiXurlRateLimitsRoute
   ProfilesHandleRoute: typeof ProfilesHandleRoute
@@ -670,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/api/video'
       fullPath: '/api/video'
       preLoaderRoute: typeof ApiVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tweet-sync': {
+      id: '/api/tweet-sync'
+      path: '/api/tweet-sync'
+      fullPath: '/api/tweet-sync'
+      preLoaderRoute: typeof ApiTweetSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/thread-sync': {
@@ -852,6 +872,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStatusRoute: ApiStatusRoute,
   ApiSyncRoute: ApiSyncRoute,
   ApiThreadSyncRoute: ApiThreadSyncRoute,
+  ApiTweetSyncRoute: ApiTweetSyncRoute,
   ApiVideoRoute: ApiVideoRoute,
   ApiXurlRateLimitsRoute: ApiXurlRateLimitsRoute,
   ProfilesHandleRoute: ProfilesHandleRoute,

@@ -390,6 +390,9 @@ export function TimelineCard({
 	const [threadSyncState, setThreadSyncState] = useState<
 		"idle" | "syncing" | "error"
 	>("idle");
+	const [mediaSyncState, setMediaSyncState] = useState<
+		"idle" | "syncing" | "error"
+	>("idle");
 	const [contextMenu, setContextMenu] = useState<{
 		x: number;
 		y: number;
@@ -462,6 +465,31 @@ export function TimelineCard({
 			setThreadSyncState("idle");
 		} catch {
 			setThreadSyncState("error");
+		}
+	};
+	const hydrateTweetMedia = async () => {
+		if (mediaSyncState === "syncing") return;
+		setMediaSyncState("syncing");
+		try {
+			const response = await fetch("/api/tweet-sync", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					tweetId: interactionTweetId,
+					accountId: item.accountId,
+				}),
+			});
+			if (!response.ok) {
+				throw new Error("Tweet sync failed");
+			}
+			const payload = (await response.json()) as { ok?: boolean };
+			if (!payload.ok) {
+				throw new Error("Tweet sync failed");
+			}
+			await queryClient.invalidateQueries({ queryKey: queryKeys.timelines });
+			setMediaSyncState("idle");
+		} catch {
+			setMediaSyncState("error");
 		}
 	};
 
@@ -567,7 +595,7 @@ export function TimelineCard({
 				</header>
 				<TweetPresentation
 					hiddenUrlRanges={hiddenMediaUrlRanges}
-					onHydrateVideo={syncThread}
+					onHydrateVideo={hydrateTweetMedia}
 					quotedTweet={item.retweetedTweet ? null : item.quotedTweet}
 					replyToTweet={item.retweetedTweet ? null : item.replyToTweet}
 					tweet={displayTweet}

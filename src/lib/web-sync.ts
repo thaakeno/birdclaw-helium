@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { Effect } from "effect";
 import { maybeAutoSyncBackupEffect } from "./backup";
+import { syncAuthoredTweetsEffect } from "./authored-live";
 import { syncDirectMessagesViaCachedBirdEffect } from "./dms-live";
 import { runEffectBackground, runEffectPromise } from "./effect-runtime";
 import { syncMentionThreadsEffect } from "./mention-threads-live";
@@ -114,6 +115,7 @@ function messageFromError(error: unknown) {
 export function parseWebSyncKind(value: unknown): WebSyncKind | null {
 	return value === "timeline" ||
 		value === "mentions" ||
+		value === "authored" ||
 		value === "likes" ||
 		value === "bookmarks" ||
 		value === "dms"
@@ -196,6 +198,28 @@ const WEB_SYNC_PLANS: Record<WebSyncKind, WebSyncPlan> = {
 							: undefined,
 				});
 				return steps;
+			}),
+	},
+	authored: {
+		label: "My posts",
+		accountAware: true,
+		run: (account, options) =>
+			Effect.gen(function* () {
+				const result = yield* syncAuthoredTweetsEffect({
+					account,
+					mode: "bird",
+					limit: options.limit ?? 100,
+					maxPages: options.maxPages ?? 10,
+				});
+				return [
+					{
+						kind: "authored",
+						label: "My posts",
+						count: readNumber(result, "count"),
+						source: readString(result, "source"),
+						partial: readBoolean(result, "partial"),
+					},
+				];
 			}),
 	},
 	likes: {

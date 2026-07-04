@@ -17,7 +17,10 @@ function trySync<T>(try_: () => T) {
 	return Effect.try({ try: try_, catch: toError });
 }
 
-function countTimelineEdges(db: Database, kind: "home" | "mention") {
+function countTimelineEdges(
+	db: Database,
+	kind: "home" | "mention" | "authored",
+) {
 	const row = db
 		.prepare(
 			`
@@ -84,6 +87,9 @@ export function getQueryEnvelopeEffect({
 		const mentionCount = yield* trySync(() =>
 			countTimelineEdges(nativeDb, "mention"),
 		);
+		const authoredCount = yield* trySync(() =>
+			countTimelineEdges(nativeDb, "authored"),
+		);
 		const bookmarkCount = yield* trySync(() =>
 			countTweetCollection(nativeDb, "bookmarks"),
 		);
@@ -131,6 +137,7 @@ export function getQueryEnvelopeEffect({
 			stats: {
 				home: homeCount,
 				mentions: mentionCount,
+				authored: authoredCount,
 				bookmarks: bookmarkCount,
 				likes: likeCount,
 				dms: Number(counts.dms.count),

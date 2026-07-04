@@ -7,6 +7,7 @@ import { liveTransportGateway } from "./live-transport-gateway";
 import { resolveLiveSyncAccount } from "./live-sync-engine";
 import { readSyncCache, writeSyncCache } from "./sync-cache";
 import { runSyncPlanEffect } from "./sync-plan";
+import { ingestTweetPayload } from "./tweet-repository";
 import { tweetEntitiesFromXurl } from "./tweet-render";
 import type {
 	TweetEntities,
@@ -14,6 +15,7 @@ import type {
 	XurlMedia,
 	XurlMentionData,
 	XurlMentionUser,
+	XurlMentionsResponse,
 	XurlTweetData,
 	XurlTweetIncludes,
 	XurlUserTweet,
@@ -26,7 +28,7 @@ import {
 	upsertProfileFromXUser,
 } from "./x-profile";
 
-export type AuthoredSyncMode = "xurl";
+export type AuthoredSyncMode = "xurl" | "bird";
 
 export interface SyncAuthoredTweetsOptions {
 	account?: string;
@@ -450,6 +452,57 @@ function resolveAuthoredIdentityEffect({
 	});
 }
 
+function resolveBirdAuthoredIdentityEffect({
+	account,
+	db,
+}: {
+	account?: string;
+	db: Database;
+}) {
+	return Effect.gen(function* () {
+		const resolvedAccount = yield* trySync(() =>
+			resolveLiveSyncAccount(db, account),
+		);
+		const authenticated =
+			yield* liveTransportGateway.bird.getAuthenticatedAccount();
+		if (
+			normalizeUsername(authenticated.username) !==
+			normalizeUsername(resolvedAccount.username)
+		) {
+			return yield* Effect.fail(
+				new AuthoredSyncError(
+					`bird is authenticated as @${authenticated.username}, but selected account ${resolvedAccount.accountId} is @${resolvedAccount.username}. Switch accounts before syncing authored tweets.`,
+					4,
+				),
+			);
+		}
+		if (authenticated.id) {
+			yield* trySync(() =>
+				persistAccountExternalUserId(
+					db,
+					resolvedAccount.accountId,
+					authenticated.id as string,
+				),
+			);
+		}
+		return {
+			...resolvedAccount,
+			userId:
+				authenticated.id ??
+				resolvedAccount.externalUserId ??
+				resolvedAccount.username,
+			authenticatedUser: {
+				id:
+					authenticated.id ??
+					resolvedAccount.externalUserId ??
+					resolvedAccount.username,
+				username: authenticated.username,
+				name: resolvedAccount.username,
+			} satisfies XurlMentionUser,
+		};
+	});
+}
+
 function toFallbackUser({
 	userId,
 	username,
@@ -750,6 +803,46 @@ function mergePages({
 	};
 }
 
+function withoutRetweets(payload: XurlMentionsResponse): XurlMentionsResponse {
+	const data = payload.data.filter(
+		(tweet) =>
+			!tweet.text.trimStart().startsWith("RT @") &&
+			!tweet.referenced_tweets?.some(
+				(reference) => reference.type === "retweeted",
+			),
+	);
+	return {
+		...payload,
+		data,
+		meta: {
+			...payload.meta,
+			result_count: data.length,
+		},
+	};
+}
+
+function buildBirdResult({
+	accountId,
+	userId,
+	payload,
+}: {
+	accountId: string;
+	userId: string;
+	payload: XurlMentionsResponse;
+}) {
+	return {
+		ok: true,
+		kind: "authored" as const,
+		source: "bird" as const,
+		accountId,
+		userId,
+		count: payload.data.length,
+		pages: Number(payload.meta?.page_count ?? 1),
+		partial: false,
+		payload,
+	};
+}
+
 function formatError(error: unknown) {
 	return error instanceof Error ? error.message : String(error);
 }
@@ -806,15 +899,42 @@ export function syncAuthoredTweetsEffect({
 	untilId,
 }: SyncAuthoredTweetsOptions) {
 	return Effect.gen(function* () {
-		if (mode !== "xurl") {
-			return yield* Effect.fail(
-				new Error("authored sync only supports --mode xurl"),
-			);
-		}
-
 		const pageLimit = yield* trySync(() => assertXurlLimit(limit));
 		const parsedMaxPages = yield* trySync(() => parseMaxPages(maxPages));
 		const db = yield* trySync(() => getNativeDb());
+		if (mode === "bird") {
+			const identity = yield* resolveBirdAuthoredIdentityEffect({
+				account,
+				db,
+			});
+			const payload = withoutRetweets(
+				yield* liveTransportGateway.bird.listUserTweets({
+					handle: identity.username,
+					maxResults: pageLimit,
+					...(parsedMaxPages !== null ? { maxPages: parsedMaxPages } : {}),
+				}),
+			);
+			yield* databaseWriteEffect((writeDb) =>
+				ingestTweetPayload(writeDb, {
+					accountId: identity.accountId,
+					payload,
+					source: "bird",
+					edgeKind: "authored",
+				}),
+			);
+			return buildBirdResult({
+				accountId: identity.accountId,
+				userId: identity.userId,
+				payload,
+			});
+		}
+
+		if (mode !== "xurl") {
+			return yield* Effect.fail(
+				new Error("authored sync only supports --mode bird or xurl"),
+			);
+		}
+
 		const identity = yield* resolveAuthoredIdentityEffect({ account, db });
 		const cursor = yield* trySync(() =>
 			readAuthoredCursor(db, identity.accountId),

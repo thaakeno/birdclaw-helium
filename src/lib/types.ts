@@ -354,6 +354,7 @@ export interface TimelineQuery {
 	until?: string;
 	untilId?: string;
 	includeReplies?: boolean;
+	repliesOnly?: boolean;
 	qualityFilter?: TimelineQualityFilter;
 	lowQualityThreshold?: number;
 	includeQualityReason?: boolean;

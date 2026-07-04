@@ -266,6 +266,7 @@ export const queryEnvelopeSchema = z.object({
 	stats: z.object({
 		home: z.number(),
 		mentions: z.number(),
+		authored: z.number().default(0),
 		bookmarks: z.number(),
 		likes: z.number(),
 		dms: z.number(),

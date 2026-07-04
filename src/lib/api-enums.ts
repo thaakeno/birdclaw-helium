@@ -25,6 +25,7 @@ export type FollowDirection = z.infer<typeof followDirectionSchema>;
 export const webSyncKindSchema = z.enum([
 	"timeline",
 	"mentions",
+	"authored",
 	"likes",
 	"bookmarks",
 	"dms",

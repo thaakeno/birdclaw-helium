@@ -24,6 +24,7 @@ if (-not $ResolvedInstallDir.StartsWith($ProgramsRoot, [System.StringComparison]
 $AppResourcesDir = Join-Path $ResolvedInstallDir 'resources\app'
 $DesktopMain = Join-Path $RepoRoot 'desktop\main.cjs'
 $IconPath = Join-Path $AppResourcesDir 'birdclaw.ico'
+$SourceIcon = Join-Path $RepoRoot 'public\favicon.ico'
 
 if (Test-Path -LiteralPath $ResolvedInstallDir) {
 	Remove-Item -LiteralPath $ResolvedInstallDir -Recurse -Force
@@ -84,7 +85,11 @@ function Write-BirdclawIcon {
 	$Bitmap.Dispose()
 }
 
-Write-BirdclawIcon -Path $IconPath
+if (Test-Path -LiteralPath $SourceIcon) {
+	Copy-Item -LiteralPath $SourceIcon -Destination $IconPath -Force
+} else {
+	Write-BirdclawIcon -Path $IconPath
+}
 
 $AppPackage = [ordered]@{
 	name = 'birdclaw-desktop'

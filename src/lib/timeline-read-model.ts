@@ -23,6 +23,25 @@ import type {
 export type { TimelineItem, TimelineQuery } from "./types";
 export type { TweetConversation } from "./types";
 
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildSearchSnippet(text: string, terms: string[]) {
+	const term = terms.find((value) => value.trim().length > 0);
+	if (!term) return undefined;
+	const pattern = new RegExp(escapeRegExp(term), "i");
+	const match = pattern.exec(text);
+	if (!match) return undefined;
+	const start = Math.max(0, match.index - 80);
+	const end = Math.min(text.length, match.index + match[0].length + 80);
+	const snippet = text.slice(start, end);
+	return `${start > 0 ? "..." : ""}${snippet.replace(
+		pattern,
+		(value) => `<mark>${value}</mark>`,
+	)}${end < text.length ? "..." : ""}`;
+}
+
 function avatarHueForHandle(handle: string) {
 	let hash = 0;
 	for (const character of handle) {
@@ -545,6 +564,7 @@ export function listTimelineItems({
 	until,
 	untilId,
 	includeReplies = true,
+	repliesOnly = false,
 	qualityFilter = "all",
 	lowQualityThreshold,
 	includeQualityReason = false,
@@ -687,7 +707,10 @@ export function listTimelineItems({
 	params.push(...qualityClause.params);
 
 	if (!includeReplies) {
-		where += " and t.text not like '@%'";
+		where += " and t.reply_to_id is null and t.text not like '@%'";
+	}
+	if (repliesOnly) {
+		where += " and (t.reply_to_id is not null or t.text like '@%')";
 	}
 	if (mediaOnly) {
 		where += " and (t.media_count > 0 or coalesce(qt.media_count, 0) > 0)";
@@ -931,15 +954,17 @@ export function listTimelineItems({
 			rowProfiles,
 			resolveProfileByHandle,
 		);
+		const searchSnippet =
+			typeof row.search_snippet === "string"
+				? row.search_snippet
+				: buildSearchSnippet(text, searchTerms);
 		const item = {
 			id: String(row.id),
 			accountId: String(row.account_id),
 			accountHandle: String(row.account_handle),
 			kind: row.kind as TimelineItem["kind"],
 			text,
-			...(typeof row.search_snippet === "string"
-				? { searchSnippet: row.search_snippet }
-				: {}),
+			...(searchSnippet ? { searchSnippet } : {}),
 			createdAt: String(row.created_at),
 			savedAt:
 				typeof row.edge_collected_at === "string"

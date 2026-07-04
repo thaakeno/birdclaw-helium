@@ -1259,6 +1259,9 @@ describe("birdclaw queries", () => {
 		expect(envelope.stats).toEqual({
 			home: 4,
 			mentions: 2,
+			authored: 0,
+			bookmarks: 2,
+			likes: 3,
 			dms: 4,
 			needsReply: 2,
 			inbox: 4,

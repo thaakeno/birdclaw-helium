@@ -312,7 +312,7 @@ function MediaViewerModal({
 	viewerAside?: ReactNode;
 }) {
 	const bodyClass = viewerAside
-		? "grid h-full w-full grid-cols-1 overflow-hidden bg-black min-[980px]:grid-cols-[minmax(0,1fr)_390px]"
+		? "grid h-full w-full grid-cols-1 overflow-hidden bg-black min-[980px]:grid-cols-[minmax(0,1fr)_420px]"
 		: "flex h-full w-full items-center justify-center";
 
 	return (
@@ -350,7 +350,7 @@ function MediaViewerModal({
 				<X className="size-5" strokeWidth={1.8} />
 			</button>
 			<div className={bodyClass} onClick={(event) => event.stopPropagation()}>
-				<div className="relative grid min-h-0 place-items-center px-4 py-16">
+				<div className="relative grid min-h-0 min-w-0 place-items-center px-4 py-16">
 					{hasCarousel ? (
 						<>
 							<button
@@ -414,8 +414,47 @@ function MediaViewerModal({
 						</div>
 					)}
 					{selectedVideoUrl ? (
-						<div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+						<div
+							className={cx(
+								"absolute left-1/2 -translate-x-1/2",
+								hasCarousel ? "bottom-20" : "bottom-4",
+							)}
+						>
 							<MediaDialogLinks postUrl={postUrl} videoUrl={selectedVideoUrl} />
+						</div>
+					) : null}
+					{hasCarousel ? (
+						<div
+							className="absolute bottom-4 left-1/2 flex max-w-[min(520px,70vw)] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
+							onClick={(event) => event.stopPropagation()}
+						>
+							{items.map((item, index) => (
+								<button
+									aria-label={`Show media ${String(index + 1)}`}
+									aria-pressed={selectedIndex === index}
+									className={cx(
+										"relative size-12 shrink-0 overflow-hidden rounded-md ring-2 transition-transform hover:scale-105",
+										selectedIndex === index
+											? "ring-white"
+											: "ring-white/20 opacity-75",
+									)}
+									key={`${item.url}:${String(index)}`}
+									onClick={() => onSelect(index)}
+									type="button"
+								>
+									{mediaPreviewUrl(item) ? (
+										<img
+											alt=""
+											className="size-full object-cover"
+											src={mediaPreviewUrl(item)}
+										/>
+									) : (
+										<span className="grid size-full place-items-center bg-white/10 text-[10px] font-bold text-white">
+											{item.type}
+										</span>
+									)}
+								</button>
+							))}
 						</div>
 					) : null}
 				</div>
@@ -425,40 +464,6 @@ function MediaViewerModal({
 					</aside>
 				) : null}
 			</div>
-			{hasCarousel ? (
-				<div
-					className="absolute bottom-4 left-1/2 flex max-w-[min(520px,60vw)] -translate-x-1/2 gap-2 overflow-x-auto rounded-full bg-black/45 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-md [scrollbar-width:none]"
-					onClick={(event) => event.stopPropagation()}
-				>
-					{items.map((item, index) => (
-						<button
-							aria-label={`Show media ${String(index + 1)}`}
-							aria-pressed={selectedIndex === index}
-							className={cx(
-								"relative size-12 shrink-0 overflow-hidden rounded-md ring-2 transition-transform hover:scale-105",
-								selectedIndex === index
-									? "ring-white"
-									: "ring-white/20 opacity-75",
-							)}
-							key={`${item.url}:${String(index)}`}
-							onClick={() => onSelect(index)}
-							type="button"
-						>
-							{mediaPreviewUrl(item) ? (
-								<img
-									alt=""
-									className="size-full object-cover"
-									src={mediaPreviewUrl(item)}
-								/>
-							) : (
-								<span className="grid size-full place-items-center bg-white/10 text-[10px] font-bold text-white">
-									{item.type}
-								</span>
-							)}
-						</button>
-					))}
-				</div>
-			) : null}
 		</div>
 	);
 }
