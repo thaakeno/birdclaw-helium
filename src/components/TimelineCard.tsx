@@ -5,10 +5,12 @@ import {
 	Circle,
 	Copy,
 	ExternalLink,
+	Eye,
 	Heart,
 	LoaderCircle,
 	MessageCircle,
 	MoreHorizontal,
+	Quote,
 	RefreshCw,
 	Repeat2,
 	Share,
@@ -51,6 +53,7 @@ import {
 } from "#/lib/ui";
 import { AvatarChip } from "./AvatarChip";
 import { ConversationThread } from "./ConversationThread";
+import { QuotesThread } from "./QuotesThread";
 import { EmbeddedTweetCard } from "./EmbeddedTweetCard";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import { ProfilePreview } from "./ProfilePreview";
@@ -397,6 +400,7 @@ export function TimelineCard({
 		x: number;
 		y: number;
 	} | null>(null);
+	const [activeExpandedTab, setActiveExpandedTab] = useState<"replies" | "quotes">("replies");
 	const canReply =
 		showReplyControls && item.kind !== "like" && item.kind !== "bookmark";
 	const displayTweet = item.retweetedTweet ?? item;
@@ -432,6 +436,8 @@ export function TimelineCard({
 	const displayLikeCount = displayTweet.likeCount ?? item.likeCount;
 	const displayBookmarked = displayTweet.bookmarked ?? item.bookmarked;
 	const displayLiked = displayTweet.liked ?? item.liked;
+	const displayQuoteCount = displayTweet.quoteCount ?? item.quoteCount ?? 0;
+	const displayViewsCount = displayTweet.viewsCount ?? item.viewsCount ?? 0;
 	const hasConversation = Boolean(
 		item.retweetedTweet
 			? displayTweet.replyToId
@@ -636,15 +642,36 @@ export function TimelineCard({
 								</span>
 							</button>
 						) : null}
+						{displayViewsCount > 0 ? (
+							<span
+								aria-label={`${formatCompactNumber(displayViewsCount)} views`}
+								className={cx(feedActionButtonClass, "pointer-events-none")}
+								title={`${formatCompactNumber(displayViewsCount)} views`}
+							>
+								<span className={feedActionIconWrapClass}>
+									<Eye
+										className={feedActionIconClass}
+										strokeWidth={1.9}
+									/>
+								</span>
+								<span>{formatCompactNumber(displayViewsCount)}</span>
+							</span>
+						) : null}
 						<button
-							aria-expanded={conversation.isOpen}
-							aria-label={
-								conversation.isOpen ? "Hide local thread" : "Show local thread"
-							}
-							className={feedActionButtonClass}
+							aria-expanded={conversation.isOpen && activeExpandedTab === "replies"}
+							aria-label="Replies thread"
+							className={cx(
+								feedActionButtonClass,
+								conversation.isOpen && activeExpandedTab === "replies" && "text-[var(--accent)]"
+							)}
 							onClick={(event) => {
 								event.stopPropagation();
-								conversation.toggle();
+								setActiveExpandedTab("replies");
+								if (!conversation.isOpen) {
+									conversation.toggle();
+								} else if (activeExpandedTab === "replies") {
+									conversation.toggle();
+								}
 							}}
 							title={
 								displayLocalReplyCount > 0
@@ -666,6 +693,33 @@ export function TimelineCard({
 									displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount,
 								)}
 							</span>
+						</button>
+						<button
+							aria-expanded={conversation.isOpen && activeExpandedTab === "quotes"}
+							aria-label="Quote tweets"
+							className={cx(
+								feedActionButtonClass,
+								conversation.isOpen && activeExpandedTab === "quotes" && "text-[var(--accent)]"
+							)}
+							onClick={(event) => {
+								event.stopPropagation();
+								setActiveExpandedTab("quotes");
+								if (!conversation.isOpen) {
+									conversation.toggle();
+								} else if (activeExpandedTab === "quotes") {
+									conversation.toggle();
+								}
+							}}
+							title={`${formatCompactNumber(displayQuoteCount)} quote tweets`}
+							type="button"
+						>
+							<span className={feedActionIconWrapClass}>
+								<Quote
+									className={feedActionIconClass}
+									strokeWidth={1.9}
+								/>
+							</span>
+							<span>{formatCompactNumber(displayQuoteCount)}</span>
 						</button>
 						<button
 							aria-label="Fetch thread"
@@ -743,12 +797,49 @@ export function TimelineCard({
 					</div>
 				</footer>
 				{conversation.isOpen ? (
-					<ConversationThread
-						anchorId={interactionTweetId}
-						error={conversation.error}
-						items={conversation.items}
-						loading={conversation.loading}
-					/>
+					<>
+						{/* Tabs selection bar */}
+						<div className="flex border-b border-[var(--line)] px-2 mt-3 gap-1">
+							<button
+								className={cx(
+									"px-4 py-2 text-[13px] font-bold transition-colors border-b-2",
+									activeExpandedTab === "replies"
+										? "border-[var(--accent)] text-[var(--accent)]"
+										: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+								)}
+								onClick={() => setActiveExpandedTab("replies")}
+								type="button"
+							>
+								Replies ({displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount})
+							</button>
+							<button
+								className={cx(
+									"px-4 py-2 text-[13px] font-bold transition-colors border-b-2",
+									activeExpandedTab === "quotes"
+										? "border-[var(--accent)] text-[var(--accent)]"
+										: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+								)}
+								onClick={() => setActiveExpandedTab("quotes")}
+								type="button"
+							>
+								Quotes ({displayQuoteCount})
+							</button>
+						</div>
+
+						{activeExpandedTab === "replies" ? (
+							<ConversationThread
+								anchorId={interactionTweetId}
+								error={conversation.error}
+								items={conversation.items}
+								loading={conversation.loading}
+							/>
+						) : (
+							<QuotesThread
+								tweetId={interactionTweetId}
+								accountId={item.accountId}
+							/>
+						)}
+					</>
 				) : null}
 			</div>
 			{contextMenu && typeof document !== "undefined"

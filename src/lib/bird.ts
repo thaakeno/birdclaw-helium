@@ -801,6 +801,33 @@ export function listBookmarkedTweetsViaBird(options: {
 	return runEffectPromise(listBookmarkedTweetsViaBirdEffect(options));
 }
 
+export function listQuotesViaBirdEffect(options: {
+	tweetId: string;
+	all?: boolean;
+	maxPages?: number;
+}): Effect.Effect<XurlMentionsResponse, unknown> {
+	return Effect.gen(function* () {
+		const args = ["search", `quoted_tweet_id:${options.tweetId}`];
+		if (options.all) {
+			args.push("--all");
+		}
+		if (options.maxPages !== undefined) {
+			args.push("--max-pages", String(options.maxPages));
+		}
+		const stdout = yield* runBirdTweetJsonCommandEffect(args);
+		const payload = yield* parseBirdJsonEffect(stdout);
+		return yield* normalizeBirdTweetsPayloadEffect(payload, "search");
+	});
+}
+
+export function listQuotesViaBird(options: {
+	tweetId: string;
+	all?: boolean;
+	maxPages?: number;
+}): Promise<XurlMentionsResponse> {
+	return runEffectPromise(listQuotesViaBirdEffect(options));
+}
+
 export function searchTweetsViaBirdEffect(
 	query: string,
 	options: {

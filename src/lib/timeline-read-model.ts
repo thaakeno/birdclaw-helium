@@ -364,6 +364,26 @@ function getReplyCountFromRawJson(rawJson: unknown) {
 	return Number.isFinite(count) ? count : undefined;
 }
 
+function getQuoteCountFromRawJson(rawJson: unknown) {
+	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
+	const metrics = raw.public_metrics || raw.legacy;
+	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
+		return undefined;
+	}
+	const count = Number((metrics as { quote_count?: unknown }).quote_count);
+	return Number.isFinite(count) ? count : undefined;
+}
+
+function getViewsCountFromRawJson(rawJson: unknown) {
+	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
+	const views = raw.views;
+	if (!views || typeof views !== "object" || Array.isArray(views)) {
+		return undefined;
+	}
+	const count = Number((views as { count?: unknown }).count);
+	return Number.isFinite(count) ? count : undefined;
+}
+
 function parseManualRetweet(text: string) {
 	const match = text.match(/^RT\s+@([A-Za-z0-9_]{1,15}):\s*([\s\S]+)$/);
 	if (!match?.[1] || !match[2]) {
@@ -989,6 +1009,8 @@ export function listTimelineItems({
 			replyCount: getReplyCountFromRawJson(row.edge_raw_json),
 			localReplyCount: Number(row.local_reply_count ?? 0),
 			likeCount: Number(row.like_count),
+			quoteCount: getQuoteCountFromRawJson(row.edge_raw_json),
+			viewsCount: getViewsCountFromRawJson(row.edge_raw_json),
 			mediaCount: Number(row.media_count),
 			bookmarked: Boolean(row.bookmarked),
 			liked: Boolean(row.liked),

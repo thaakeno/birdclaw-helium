@@ -139,6 +139,8 @@ export interface EmbeddedTweet {
 	replyCount?: number;
 	localReplyCount?: number;
 	likeCount?: number;
+	quoteCount?: number;
+	viewsCount?: number;
 	mediaCount?: number;
 	bookmarked?: boolean;
 	liked?: boolean;
@@ -180,6 +182,8 @@ export interface TimelineItem {
 	replyCount?: number;
 	localReplyCount?: number;
 	likeCount: number;
+	quoteCount?: number;
+	viewsCount?: number;
 	mediaCount: number;
 	bookmarked: boolean;
 	liked: boolean;
