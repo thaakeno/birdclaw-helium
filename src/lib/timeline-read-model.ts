@@ -707,7 +707,7 @@ export function listTimelineItems({
 	params.push(...qualityClause.params);
 
 	if (!includeReplies) {
-		where += " and t.reply_to_id is null and t.text not like '@%'";
+		where += " and t.reply_to_id is null and t.text not like '@%' and t.text not like 'RT @%'";
 	}
 	if (repliesOnly) {
 		where += " and (t.reply_to_id is not null or t.text like '@%')";
