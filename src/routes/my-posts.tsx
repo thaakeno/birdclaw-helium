@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, type ReactNode } from "react";
-import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, Heart, MessageCircle } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, Heart, MessageCircle, Sparkles, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { AvatarChip } from "#/components/AvatarChip";
 import { SyncNowButton } from "#/components/SyncNowButton";
@@ -23,6 +23,8 @@ import {
 	tabStripClass,
 	timestampClass,
 } from "#/lib/ui";
+
+
 
 export const Route = createFileRoute("/my-posts")({
 	component: MyPostsRoute,
@@ -192,10 +194,24 @@ function MyPostsRoute() {
 				totalPosts: number;
 				totalLikes: number;
 				totalReplies: number;
+				broadcastsCount: number;
+				repliesCount: number;
+				replyRatio: number;
 				avgLikes: number;
 				avgReplies: number;
 				mostLikedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
 				mostRepliedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
+				radarItems: Array<{
+					id: string;
+					text: string;
+					createdAt: string;
+					likeCount: number;
+					authorHandle: string;
+					authorName: string;
+					authorAvatarUrl: string | null;
+					authorFollowers: number;
+					replyCount: number;
+				}>;
 			}>;
 		},
 		enabled: !!selectedAccountId,
@@ -320,6 +336,8 @@ function MyPostsRoute() {
 			onLoadMore={loadMore}
 		>
 			<MyPostsProfilePanel account={selectedAccount} count={authoredCount} />
+
+
 			{stats && stats.totalPosts > 0 && (
 				<div className="mx-4 mb-4 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--panel)] shadow-sm transition-all duration-200">
 					<button
@@ -339,93 +357,204 @@ function MyPostsRoute() {
 					</button>
 
 					{!statsCollapsed && (
-						<div className="grid grid-cols-1 border-t border-[var(--line)] md:grid-cols-3">
-							{/* Column 1: Overview */}
-							<div className="flex flex-col gap-4 p-4 border-b border-[var(--line)] md:border-b-0 md:border-r">
-								<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-									Overview
-								</h3>
-								<div className="grid grid-cols-2 gap-4">
-									<div>
-										<div className="text-[20px] font-extrabold text-[var(--ink)]">
-											{stats.totalPosts.toLocaleString()}
+						<div className="flex flex-col border-t border-[var(--line)] divide-y divide-[var(--line)]">
+							{/* Grid Metrics Section */}
+							<div className="grid grid-cols-1 md:grid-cols-3 divide-y divide-[var(--line)] md:divide-y-0 md:divide-x">
+								{/* Column 1: Overview */}
+								<div className="flex flex-col gap-4 p-4">
+									<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+										Overview
+									</h3>
+									<div className="grid grid-cols-2 gap-4">
+										<div>
+											<div className="text-[20px] font-extrabold text-[var(--ink)]">
+												{stats.totalPosts.toLocaleString()}
+											</div>
+											<div className="text-[12px] text-[var(--ink-soft)]">Total Posts</div>
 										</div>
-										<div className="text-[12px] text-[var(--ink-soft)]">Total Posts</div>
+										<div>
+											<div className="text-[20px] font-extrabold text-[var(--ink)]">
+												{(stats.totalLikes + stats.totalReplies).toLocaleString()}
+											</div>
+											<div className="text-[12px] text-[var(--ink-soft)]">Total Engagement</div>
+										</div>
 									</div>
-									<div>
-										<div className="text-[20px] font-extrabold text-[var(--ink)]">
-											{(stats.totalLikes + stats.totalReplies).toLocaleString()}
+								</div>
+
+								{/* Column 2: Averages */}
+								<div className="flex flex-col gap-4 p-4">
+									<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+										Averages
+									</h3>
+									<div className="grid grid-cols-2 gap-4">
+										<div>
+											<div className="text-[20px] font-extrabold text-[var(--ink)]">
+												{stats.avgLikes}
+											</div>
+											<div className="text-[12px] text-[var(--ink-soft)]">Likes / Post</div>
 										</div>
-										<div className="text-[12px] text-[var(--ink-soft)]">Total Engagement</div>
+										<div>
+											<div className="text-[20px] font-extrabold text-[var(--ink)]">
+												{stats.avgReplies}
+											</div>
+											<div className="text-[12px] text-[var(--ink-soft)]">Replies / Post</div>
+										</div>
+									</div>
+								</div>
+
+								{/* Column 3: Highlights */}
+								<div className="flex flex-col gap-3 p-4">
+									<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+										Highlights
+									</h3>
+									<div className="flex flex-col gap-2">
+										{stats.mostLikedTweet && (
+											<a
+												className="group flex items-start gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)] text-[13px] text-[var(--ink)] no-underline"
+												href={`https://x.com/${selectedAccount?.handle?.replace(/^@/, "")}/status/${stats.mostLikedTweet.id}`}
+												rel="noreferrer"
+												target="_blank"
+											>
+												<Heart className="mt-0.5 size-4 shrink-0 text-red-500" />
+												<div className="min-w-0">
+													<div className="flex items-center gap-1.5 font-bold">
+														Most Liked ({stats.mostLikedTweet.likeCount})
+													</div>
+													<div className="truncate text-[12px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">
+														{stats.mostLikedTweet.text}
+													</div>
+												</div>
+											</a>
+										)}
+										{stats.mostRepliedTweet && (
+											<a
+												className="group flex items-start gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)] text-[13px] text-[var(--ink)] no-underline"
+												href={`https://x.com/${selectedAccount?.handle?.replace(/^@/, "")}/status/${stats.mostRepliedTweet.id}`}
+												rel="noreferrer"
+												target="_blank"
+											>
+												<MessageCircle className="mt-0.5 size-4 shrink-0 text-blue-500" />
+												<div className="min-w-0">
+													<div className="flex items-center gap-1.5 font-bold">
+														Most Replied ({stats.mostRepliedTweet.replyCount})
+													</div>
+													<div className="truncate text-[12px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">
+														{stats.mostRepliedTweet.text}
+													</div>
+												</div>
+											</a>
+										)}
 									</div>
 								</div>
 							</div>
 
-							{/* Column 2: Averages */}
-							<div className="flex flex-col gap-4 p-4 border-b border-[var(--line)] md:border-b-0 md:border-r">
-								<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-									Averages
-								</h3>
-								<div className="grid grid-cols-2 gap-4">
-									<div>
-										<div className="text-[20px] font-extrabold text-[var(--ink)]">
-											{stats.avgLikes}
-										</div>
-										<div className="text-[12px] text-[var(--ink-soft)]">Likes / Post</div>
-									</div>
-									<div>
-										<div className="text-[20px] font-extrabold text-[var(--ink)]">
-											{stats.avgReplies}
-										</div>
-										<div className="text-[12px] text-[var(--ink-soft)]">Replies / Post</div>
-									</div>
+							{/* Engagement Balance Progress Bar */}
+							<div className="flex flex-col gap-2.5 p-4 bg-[var(--bg-hover)]">
+								<div className="flex items-center justify-between text-[13px]">
+									<span className="font-bold text-[var(--ink)]">Engagement Balance</span>
+									<span className={cx(
+										"font-extrabold text-[12px] px-2 py-0.5 rounded-full",
+										stats.replyRatio < 20 
+											? "bg-orange-500/10 text-orange-500 border border-orange-500/25 animate-pulse" 
+											: "bg-green-500/10 text-green-500 border border-green-500/25"
+									)}>
+										{stats.replyRatio}% replies {stats.replyRatio < 20 && "⚠️ Isolation Risk"}
+									</span>
+								</div>
+								<div className="h-3 w-full overflow-hidden rounded-full bg-[var(--line)] flex">
+									<div 
+										style={{ width: `${100 - stats.replyRatio}%` }} 
+										className="h-full bg-[var(--accent)] transition-all duration-500" 
+										title={`Broadcasts: ${stats.broadcastsCount}`}
+									/>
+									<div 
+										style={{ width: `${stats.replyRatio}%` }} 
+										className="h-full bg-green-500 transition-all duration-500" 
+										title={`Replies: ${stats.repliesCount}`}
+									/>
+								</div>
+								<div className="flex justify-between text-[11px] font-medium text-[var(--ink-soft)]">
+									<span>Broadcasts: {stats.broadcastsCount} ({Math.round(100 - stats.replyRatio)}%)</span>
+									<span>Replies: {stats.repliesCount} ({Math.round(stats.replyRatio)}%)</span>
 								</div>
 							</div>
 
-							{/* Column 3: Highlights */}
-							<div className="flex flex-col gap-3 p-4">
-								<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-									Highlights
-								</h3>
-								<div className="flex flex-col gap-2">
-									{stats.mostLikedTweet && (
-										<a
-											className="group flex items-start gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)] text-[13px] text-[var(--ink)] no-underline"
-											href={`https://x.com/${selectedAccount?.handle?.replace(/^@/, "")}/status/${stats.mostLikedTweet.id}`}
-											rel="noreferrer"
-											target="_blank"
-										>
-											<Heart className="mt-0.5 size-4 shrink-0 text-red-500" />
-											<div className="min-w-0">
-												<div className="flex items-center gap-1.5 font-bold">
-													Most Liked ({stats.mostLikedTweet.likeCount})
+							{/* High-Authority Radar Widget */}
+							{stats.radarItems && stats.radarItems.length > 0 && (
+								<div className="p-4 flex flex-col gap-3">
+									<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)] flex items-center gap-1.5">
+										<Sparkles className="size-4 text-[var(--accent)]" />
+										High-Authority Radar (Engage Upstream)
+									</h3>
+									<div className="flex flex-col gap-3 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
+										{stats.radarItems.map((item) => {
+											const timeDiff = Date.now() - new Date(item.createdAt).getTime();
+											const under30m = timeDiff < 30 * 60 * 1000;
+											const under2h = timeDiff < 2 * 60 * 60 * 1000;
+											
+											const timeLabel = timeDiff < 60 * 1000 
+												? "Just now" 
+												: timeDiff < 60 * 60 * 1000 
+													? `${Math.floor(timeDiff / 60000)}m ago` 
+													: timeDiff < 24 * 60 * 60 * 1000 
+														? `${Math.floor(timeDiff / 3600000)}h ago` 
+														: new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+											return (
+												<div key={item.id} className="group flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3 transition-all hover:border-[var(--accent-soft)] hover:bg-[var(--bg-hover)]">
+													{item.authorAvatarUrl ? (
+														<img src={item.authorAvatarUrl} alt="" className="size-9 rounded-full object-cover shrink-0 ring-1 ring-[var(--line)]" />
+													) : (
+														<div className="size-9 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] font-bold flex items-center justify-center shrink-0">
+															{item.authorName.slice(0, 1).toUpperCase()}
+														</div>
+													)}
+													<div className="min-w-0 flex-1">
+														<div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+															<span className="font-bold text-[var(--ink)]">{item.authorName}</span>
+															<span className="text-[var(--ink-soft)]">@{item.authorHandle}</span>
+															<span className="rounded-full bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ink-soft)]">
+																{(item.authorFollowers / 1000).toFixed(1)}k followers
+															</span>
+															<span className="text-[var(--ink-soft)] ml-auto text-[11px]">{timeLabel}</span>
+														</div>
+														
+														<p className="mt-1.5 text-[13px] leading-[1.45] text-[var(--ink)] line-clamp-2 select-text">
+															{item.text}
+														</p>
+														
+														<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-[var(--ink-soft)]">
+															<span>{item.likeCount} likes</span>
+															<span>{item.replyCount} replies</span>
+															
+															{under30m ? (
+																<span className="inline-flex items-center gap-1 font-bold text-green-500">
+																	<span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+																	Live Algorithmic Window (under 30m)
+																</span>
+															) : under2h ? (
+																<span className="inline-flex items-center gap-1 font-semibold text-blue-500">
+																	<span className="size-1.5 rounded-full bg-blue-500" />
+																	High Priority (under 2h)
+																</span>
+															) : null}
+															
+															<a 
+																href={`https://x.com/${item.authorHandle}/status/${item.id}`}
+																target="_blank"
+																rel="noreferrer"
+																className="ml-auto font-semibold text-[var(--accent)] hover:underline flex items-center gap-0.5"
+															>
+																Engage on X <ExternalLink className="size-3" />
+															</a>
+														</div>
+													</div>
 												</div>
-												<div className="truncate text-[12px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">
-													{stats.mostLikedTweet.text}
-												</div>
-											</div>
-										</a>
-									)}
-									{stats.mostRepliedTweet && (
-										<a
-											className="group flex items-start gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)] text-[13px] text-[var(--ink)] no-underline"
-											href={`https://x.com/${selectedAccount?.handle?.replace(/^@/, "")}/status/${stats.mostRepliedTweet.id}`}
-											rel="noreferrer"
-											target="_blank"
-										>
-											<MessageCircle className="mt-0.5 size-4 shrink-0 text-blue-500" />
-											<div className="min-w-0">
-												<div className="flex items-center gap-1.5 font-bold">
-													Most Replied ({stats.mostRepliedTweet.replyCount})
-												</div>
-												<div className="truncate text-[12px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">
-													{stats.mostRepliedTweet.text}
-												</div>
-											</div>
-										</a>
-									)}
+											);
+										})}
+									</div>
 								</div>
-							</div>
+							)}
 						</div>
 					)}
 				</div>

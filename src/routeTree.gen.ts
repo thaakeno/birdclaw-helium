@@ -45,6 +45,7 @@ import { Route as ApiLinkInsightsRouteImport } from './routes/api/link-insights'
 import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiDataSourcesRouteImport } from './routes/api/data-sources'
 import { Route as ApiConversationRouteImport } from './routes/api/conversation'
+import { Route as ApiBulkExportRouteImport } from './routes/api/bulk-export'
 import { Route as ApiBookmarksExportRouteImport } from './routes/api/bookmarks-export'
 import { Route as ApiBlocksRouteImport } from './routes/api/blocks'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
@@ -231,6 +232,11 @@ const ApiConversationRoute = ApiConversationRouteImport.update({
   path: '/api/conversation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBulkExportRoute = ApiBulkExportRouteImport.update({
+  id: '/api/bulk-export',
+  path: '/api/bulk-export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiBookmarksExportRoute = ApiBookmarksExportRouteImport.update({
   id: '/api/bookmarks-export',
   path: '/api/bookmarks-export',
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
+  '/api/bulk-export': typeof ApiBulkExportRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -322,6 +329,7 @@ export interface FileRoutesByTo {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
+  '/api/bulk-export': typeof ApiBulkExportRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
+  '/api/bulk-export': typeof ApiBulkExportRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -411,6 +420,7 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/blocks'
     | '/api/bookmarks-export'
+    | '/api/bulk-export'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/blocks'
     | '/api/bookmarks-export'
+    | '/api/bulk-export'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/api/avatar'
     | '/api/blocks'
     | '/api/bookmarks-export'
+    | '/api/bulk-export'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -541,6 +553,7 @@ export interface RootRouteChildren {
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiBlocksRoute: typeof ApiBlocksRoute
   ApiBookmarksExportRoute: typeof ApiBookmarksExportRoute
+  ApiBulkExportRoute: typeof ApiBulkExportRoute
   ApiConversationRoute: typeof ApiConversationRoute
   ApiDataSourcesRoute: typeof ApiDataSourcesRoute
   ApiInboxRoute: typeof ApiInboxRoute
@@ -817,6 +830,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConversationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/bulk-export': {
+      id: '/api/bulk-export'
+      path: '/api/bulk-export'
+      fullPath: '/api/bulk-export'
+      preLoaderRoute: typeof ApiBulkExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/bookmarks-export': {
       id: '/api/bookmarks-export'
       path: '/api/bookmarks-export'
@@ -877,6 +897,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAvatarRoute: ApiAvatarRoute,
   ApiBlocksRoute: ApiBlocksRoute,
   ApiBookmarksExportRoute: ApiBookmarksExportRoute,
+  ApiBulkExportRoute: ApiBulkExportRoute,
   ApiConversationRoute: ApiConversationRoute,
   ApiDataSourcesRoute: ApiDataSourcesRoute,
   ApiInboxRoute: ApiInboxRoute,

@@ -11,6 +11,7 @@ import {
 	ShieldCheck,
 	SlidersHorizontal,
 	Sparkles,
+	Download,
 } from "lucide-react";
 import {
 	type DragEvent,
@@ -415,6 +416,97 @@ function SettingsRoute() {
 								Saved
 							</span>
 						) : null}
+					</div>
+				</div>
+			</section>
+
+			<section className="flex flex-col gap-5 px-4 py-5 border-t border-[var(--line)]">
+				<SettingsSectionHeader
+					icon={<Download className="size-5" strokeWidth={1.8} />}
+					title="Export Data"
+					meta="Download your local Twitter archive collections"
+				/>
+
+				<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-4 flex flex-col gap-4">
+					<p className="text-[13px] leading-[1.45] text-[var(--ink-soft)] m-0">
+						Download all of your locally archived posts, bookmarks, or likes formatted as Markdown citations (with replies) or structured JSON and BibTeX files.
+					</p>
+
+					<div className="grid gap-4 md:grid-cols-3">
+						{/* Bookmarks Column */}
+						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
+							<span className="text-[14px] font-bold text-[var(--ink)]">Bookmarks</span>
+							<div className="flex flex-col gap-2 mt-1">
+								<a
+									href="/api/bulk-export?resource=bookmarks&format=markdown"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download Markdown
+								</a>
+								<a
+									href="/api/bulk-export?resource=bookmarks&format=json"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download JSON
+								</a>
+								<a
+									href="/api/bulk-export?resource=bookmarks&format=bibtex"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download BibTeX
+								</a>
+							</div>
+						</div>
+
+						{/* Likes Column */}
+						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
+							<span className="text-[14px] font-bold text-[var(--ink)]">Likes</span>
+							<div className="flex flex-col gap-2 mt-1">
+								<a
+									href="/api/bulk-export?resource=likes&format=markdown"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download Markdown
+								</a>
+								<a
+									href="/api/bulk-export?resource=likes&format=json"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download JSON
+								</a>
+								<a
+									href="/api/bulk-export?resource=likes&format=bibtex"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download BibTeX
+								</a>
+							</div>
+						</div>
+
+						{/* My Posts Column */}
+						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
+							<span className="text-[14px] font-bold text-[var(--ink)]">My Posts</span>
+							<div className="flex flex-col gap-2 mt-1">
+								<a
+									href="/api/bulk-export?resource=authored&format=markdown"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download Markdown
+								</a>
+								<a
+									href="/api/bulk-export?resource=authored&format=json"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download JSON
+								</a>
+								<a
+									href="/api/bulk-export?resource=authored&format=bibtex"
+									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+								>
+									Download BibTeX
+								</a>
+							</div>
+						</div>
 					</div>
 				</div>
 			</section>

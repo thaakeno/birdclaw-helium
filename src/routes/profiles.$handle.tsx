@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw, Sparkles, TrendingUp } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { SyncNowButton } from "#/components/SyncNowButton";
+
 import { AvatarChip } from "#/components/AvatarChip";
 import { SmartTimestamp } from "#/components/SmartTimestamp";
 import { TweetMediaGrid } from "#/components/TweetMediaGrid";
@@ -139,6 +142,51 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	const activeContext = analysis.context ?? context;
 	const profilesByHandle = profilesByHandleFromContext(activeContext);
 
+	const isCurrentUser = useMemo(() => {
+		if (!cleanHandle) return false;
+		if (cleanHandle.toLowerCase() === "thaakeno") return true;
+		if (activeContext?.accountHandle) {
+			return cleanHandle.toLowerCase() === activeContext.accountHandle.replace(/^@/, "").toLowerCase();
+		}
+		return false;
+	}, [cleanHandle, activeContext?.accountHandle]);
+
+	const [profileTab, setProfileTab] = useState<"timeline" | "insights">("timeline");
+
+	const statsQuery = useQuery({
+		queryKey: ["authored-stats", activeContext?.accountId],
+		queryFn: async () => {
+			if (!activeContext?.accountId) return null;
+			const response = await fetch(`/api/authored-stats?account=${activeContext.accountId}`);
+			if (!response.ok) throw new Error("Failed to fetch stats");
+			return response.json() as Promise<{
+				totalPosts: number;
+				totalLikes: number;
+				totalReplies: number;
+				broadcastsCount: number;
+				repliesCount: number;
+				replyRatio: number;
+				avgLikes: number;
+				avgReplies: number;
+				mostLikedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
+				mostRepliedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
+				radarItems: Array<{
+					id: string;
+					text: string;
+					createdAt: string;
+					likeCount: number;
+					authorHandle: string;
+					authorName: string;
+					authorAvatarUrl: string | null;
+					authorFollowers: number;
+					replyCount: number;
+				}>;
+			}>;
+		},
+		enabled: isCurrentUser && !!activeContext?.accountId,
+	});
+	const stats = statsQuery.data ?? null;
+
 	async function fetchProfileContext(refresh: boolean) {
 		if (!cleanHandle) return;
 		setContextLoading(true);
@@ -230,6 +278,13 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 									)}
 									Refresh
 								</button>
+								{isCurrentUser && (
+									<SyncNowButton
+										kind="authored"
+										label="Sync profile"
+										onSynced={() => void fetchProfileContext(true)}
+									/>
+								)}
 								<button
 									className={profileHeaderButtonClass}
 									disabled={!cleanHandle || analysis.loading}
@@ -279,6 +334,35 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 				</div>
 			</header>
 
+			{isCurrentUser && (
+				<div className="flex border-b border-[var(--line)] px-4 bg-[var(--bg)] select-none">
+					<button
+						onClick={() => setProfileTab("timeline")}
+						className={cx(
+							"px-4 py-3 text-[14px] font-bold border-b-2 transition-colors",
+							profileTab === "timeline"
+								? "border-[var(--accent)] text-[var(--ink)]"
+								: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+						)}
+						type="button"
+					>
+						Timeline
+					</button>
+					<button
+						onClick={() => setProfileTab("insights")}
+						className={cx(
+							"px-4 py-3 text-[14px] font-bold border-b-2 transition-colors",
+							profileTab === "insights"
+								? "border-[var(--accent)] text-[var(--ink)]"
+								: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+						)}
+						type="button"
+					>
+						Curation Insights
+					</button>
+				</div>
+			)}
+
 			<div className="flex flex-col gap-5 px-4 py-5">
 				{contextLoading ? (
 					<div className="flex items-center gap-2 text-[13px] font-medium text-[var(--ink-soft)]">
@@ -291,7 +375,166 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 						{contextError}
 					</div>
 				) : null}
-				<ProfilePostPreview context={activeContext} handle={cleanHandle} />
+				
+				{profileTab === "timeline" ? (
+					<ProfilePostPreview context={activeContext} handle={cleanHandle} />
+				) : (
+					<div className="flex flex-col gap-5">
+						{stats && stats.totalPosts > 0 ? (
+							<div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--panel)] shadow-sm">
+								<div className="flex items-center gap-2 px-4 py-3 font-bold border-b border-[var(--line)] text-[var(--ink)] bg-[var(--bg-hover)]">
+									<TrendingUp className="size-4 text-[var(--accent)]" />
+									Archive Insights & Stats
+								</div>
+								
+								<div className="flex flex-col divide-y divide-[var(--line)]">
+									{/* Averages & Overview Grid */}
+									<div className="grid grid-cols-1 md:grid-cols-2 divide-y divide-[var(--line)] md:divide-y-0 md:divide-x">
+										<div className="p-4 flex flex-col gap-3">
+											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Overview</h3>
+											<div className="grid grid-cols-2 gap-4">
+												<div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">{stats.totalPosts.toLocaleString()}</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">Total Posts</div>
+												</div>
+												<div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">{(stats.totalLikes + stats.totalReplies).toLocaleString()}</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">Total Engagement</div>
+												</div>
+											</div>
+										</div>
+										
+										<div className="p-4 flex flex-col gap-3">
+											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Averages</h3>
+											<div className="grid grid-cols-2 gap-4">
+												<div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">{stats.avgLikes}</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">Likes / Post</div>
+												</div>
+												<div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">{stats.avgReplies}</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">Replies / Post</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									{/* Engagement Balance Progress Bar */}
+									<div className="flex flex-col gap-2.5 p-4 bg-[var(--bg-hover)]">
+										<div className="flex items-center justify-between text-[13px]">
+											<span className="font-bold text-[var(--ink)]">Engagement Balance</span>
+											<span className={cx(
+												"font-extrabold text-[12px] px-2 py-0.5 rounded-full",
+												stats.replyRatio < 20 
+													? "bg-orange-500/10 text-orange-500 border border-orange-500/25 animate-pulse" 
+													: "bg-green-500/10 text-green-500 border border-green-500/25"
+											)}>
+												{stats.replyRatio}% replies {stats.replyRatio < 20 && "⚠️ Isolation Risk"}
+											</span>
+										</div>
+										<div className="h-3 w-full overflow-hidden rounded-full bg-[var(--line)] flex">
+											<div 
+												style={{ width: `${100 - stats.replyRatio}%` }} 
+												className="h-full bg-[var(--accent)] transition-all duration-500" 
+												title={`Broadcasts: ${stats.broadcastsCount}`}
+											/>
+											<div 
+												style={{ width: `${stats.replyRatio}%` }} 
+												className="h-full bg-green-500 transition-all duration-500" 
+												title={`Replies: ${stats.repliesCount}`}
+											/>
+										</div>
+										<div className="flex justify-between text-[11px] font-medium text-[var(--ink-soft)]">
+											<span>Broadcasts: {stats.broadcastsCount} ({Math.round(100 - stats.replyRatio)}%)</span>
+											<span>Replies: {stats.repliesCount} ({Math.round(stats.replyRatio)}%)</span>
+										</div>
+									</div>
+
+									{/* High-Authority Radar Widget */}
+									{stats.radarItems && stats.radarItems.length > 0 && (
+										<div className="p-4 flex flex-col gap-3">
+											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)] flex items-center gap-1.5">
+												<Sparkles className="size-4 text-[var(--accent)]" />
+												High-Authority Radar (Engage Upstream)
+											</h3>
+											<div className="flex flex-col gap-3 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
+												{stats.radarItems.map((item) => {
+													const timeDiff = Date.now() - new Date(item.createdAt).getTime();
+													const under30m = timeDiff < 30 * 60 * 1000;
+													const under2h = timeDiff < 2 * 60 * 60 * 1000;
+													
+													const timeLabel = timeDiff < 60 * 1000 
+														? "Just now" 
+														: timeDiff < 60 * 60 * 1000 
+															? `${Math.floor(timeDiff / 60000)}m ago` 
+															: timeDiff < 24 * 60 * 60 * 1000 
+																? `${Math.floor(timeDiff / 3600000)}h ago` 
+																: new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+													return (
+														<div key={item.id} className="group flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3 transition-all hover:border-[var(--accent-soft)] hover:bg-[var(--bg-hover)]">
+															{item.authorAvatarUrl ? (
+																<img src={item.authorAvatarUrl} alt="" className="size-9 rounded-full object-cover shrink-0 ring-1 ring-[var(--line)]" />
+															) : (
+																<div className="size-9 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] font-bold flex items-center justify-center shrink-0">
+																	{item.authorName.slice(0, 1).toUpperCase()}
+																</div>
+															)}
+															<div className="min-w-0 flex-1">
+																<div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+																	<span className="font-bold text-[var(--ink)]">{item.authorName}</span>
+																	<span className="text-[var(--ink-soft)]">@{item.authorHandle}</span>
+																	<span className="rounded-full bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ink-soft)]">
+																		{(item.authorFollowers / 1000).toFixed(1)}k followers
+																	</span>
+																	<span className="text-[var(--ink-soft)] ml-auto text-[11px]">{timeLabel}</span>
+																</div>
+																
+																<p className="mt-1.5 text-[13px] leading-[1.45] text-[var(--ink)] line-clamp-2 select-text">
+																	{item.text}
+																</p>
+																
+																<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-[var(--ink-soft)]">
+																	<span>{item.likeCount} likes</span>
+																	<span>{item.replyCount} replies</span>
+																	
+																	{under30m ? (
+																		<span className="inline-flex items-center gap-1 font-bold text-green-500">
+																			<span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+																			Live Algorithmic Window (under 30m)
+																		</span>
+																	) : under2h ? (
+																		<span className="inline-flex items-center gap-1 font-semibold text-blue-500">
+																			<span className="size-1.5 rounded-full bg-blue-500" />
+																			High Priority (under 2h)
+																		</span>
+																	) : null}
+																	
+																	<a 
+																		href={`https://x.com/${item.authorHandle}/status/${item.id}`}
+																		target="_blank"
+																		rel="noreferrer"
+																		className="ml-auto font-semibold text-[var(--accent)] hover:underline flex items-center gap-0.5"
+																	>
+																		Engage on X <ExternalLink className="size-3" />
+																	</a>
+																</div>
+															</div>
+														</div>
+													);
+												})}
+											</div>
+										</div>
+									)}
+								</div>
+							</div>
+						) : (
+							<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-6 text-[14px] text-[var(--ink-soft)]">
+								No stats available yet. Sync your profile to calculate engagement.
+							</div>
+						)}
+					</div>
+				)}
 				{analysis.loading || analysis.markdown || analysis.error ? (
 					<>
 						<ProfileAnalysisStatusLine analysis={analysis} />
