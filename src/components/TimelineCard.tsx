@@ -647,10 +647,10 @@ export function TimelineCard({
 								conversation.toggle();
 							}}
 							title={
-								displayReplyCount > 0
-									? `${formatCompactNumber(displayReplyCount)} replies reported by X`
-									: displayLocalReplyCount > 0
-										? `${formatCompactNumber(displayLocalReplyCount)} archived replies`
+								displayLocalReplyCount > 0
+									? `${formatCompactNumber(displayLocalReplyCount)} archived replies`
+									: displayReplyCount > 0
+										? `${formatCompactNumber(displayReplyCount)} replies reported by X`
 										: "Show archived replies"
 							}
 							type="button"
@@ -663,7 +663,7 @@ export function TimelineCard({
 							</span>
 							<span>
 								{formatCompactNumber(
-									displayReplyCount || displayLocalReplyCount,
+									displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount,
 								)}
 							</span>
 						</button>
@@ -874,22 +874,6 @@ function TimelineCardContextMenu({
 				<Copy className="size-5 text-green-500" strokeWidth={2} />
 				Copy as Markdown
 			</button>
-			<button
-				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
-				onClick={() => void copyText(formatTweetAsBibTeX(item))}
-				type="button"
-			>
-				<Copy className="size-5 text-blue-500" strokeWidth={2} />
-				Copy as BibTeX
-			</button>
-			<button
-				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
-				onClick={() => void copyText(formatTweetAsHTML(item, replies))}
-				type="button"
-			>
-				<Copy className="size-5 text-purple-500" strokeWidth={2} />
-				Copy as Clean HTML
-			</button>
 		</div>
 	);
 }
@@ -925,60 +909,4 @@ function formatTweetAsMarkdown(tweet: any, replies: any[] = []) {
 		}
 	}
 	return md;
-}
-
-function formatTweetAsBibTeX(tweet: any) {
-	const handle = tweet.author.handle?.replace(/^@/, "");
-	const tweetUrl = `https://x.com/${handle}/status/${tweet.id}`;
-	const year = new Date(tweet.createdAt).getFullYear();
-	const cleanTitle = (tweet.text || "")
-		.replace(/[\r\n]+/g, " ")
-		.replace(/"/g, '\\"')
-		.slice(0, 80) + ((tweet.text || "").length > 80 ? "..." : "");
-	const bibtexKey = `${handle || "tweet"}${tweet.id.slice(-6)}`;
-	const today = new Date().toISOString().split("T")[0];
-
-	return `@online{${bibtexKey},
-  author = {${tweet.author.displayName || handle}},
-  title = {${cleanTitle}},
-  year = {${year}},
-  url = {${tweetUrl}},
-  urldate = {${today}}
-}`;
-}
-
-function formatTweetAsHTML(tweet: any, replies: any[] = []) {
-	const handle = tweet.author.handle?.replace(/^@/, "");
-	const profileUrl = `https://x.com/${handle}`;
-	const tweetUrl = `https://x.com/${handle}/status/${tweet.id}`;
-	const dateStr = new Date(tweet.createdAt).toLocaleDateString("en-US", {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
-	});
-	const likeCount = tweet.likeCount ?? tweet.public_metrics?.like_count ?? 0;
-	const replyCount = tweet.replyCount ?? tweet.public_metrics?.reply_count ?? 0;
-
-	let html = `<blockquote class="birdclaw-tweet" style="border-left: 4px solid #eff3f4; padding-left: 12px; margin: 12px 0; font-family: system-ui, sans-serif;">\n`;
-	html += `  <p><strong><a href="${profileUrl}">${tweet.author.displayName}</a></strong> (@${tweet.author.handle}) &middot; <a href="${tweetUrl}">${dateStr}</a></p>\n`;
-	html += `  <p>${tweet.text.replace(/\n/g, "<br>\n")}</p>\n`;
-	html += `  <p><em>Likes: ${Number(likeCount).toLocaleString()} | Replies: ${Number(replyCount).toLocaleString()}</em></p>\n`;
-
-	if (replies && replies.length > 0) {
-		html += `  <div class="birdclaw-replies" style="margin-top: 12px; border-top: 1px solid #eff3f4; padding-top: 8px;">\n`;
-		html += `    <strong>Replies:</strong>\n`;
-		html += `    <ul style="list-style-type: none; padding-left: 0; margin-top: 8px;">\n`;
-		for (const reply of replies) {
-			const replyDate = new Date(reply.createdAt).toLocaleDateString("en-US", {
-				year: "numeric",
-				month: "short",
-				day: "numeric",
-			});
-			html += `      <li style="margin-bottom: 8px;"><strong><a href="https://x.com/${reply.author}">${reply.name || reply.author}</a></strong> (@${reply.author}) &middot; ${replyDate}:<br>${reply.text.replace(/\n/g, "<br>")}</li>\n`;
-		}
-		html += `    </ul>\n`;
-		html += `  </div>\n`;
-	}
-	html += `</blockquote>`;
-	return html;
 }
