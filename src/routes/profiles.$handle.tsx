@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { AvatarChip } from "#/components/AvatarChip";
 import { SmartTimestamp } from "#/components/SmartTimestamp";
 import { TweetMediaGrid } from "#/components/TweetMediaGrid";
 import { TweetRichText } from "#/components/TweetRichText";
 import {
+	cx,
 	feedRowBodyClass,
 	feedRowClass,
 	feedRowDotClass,
@@ -15,6 +16,7 @@ import {
 	feedRowTextClass,
 	feedRowTimestampClass,
 	secondaryButtonClass,
+	selectFieldClass,
 	timestampClass,
 } from "#/lib/ui";
 import {
@@ -311,6 +313,26 @@ function ProfilePostPreview({
 	context: ProfileAnalysisContext | null;
 	handle: string;
 }) {
+	const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes" | "replies">("newest");
+
+	const sortedTweets = useMemo(() => {
+		if (!context) return [];
+		const list = [...context.tweets];
+		if (sortBy === "newest") {
+			return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+		}
+		if (sortBy === "oldest") {
+			return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+		}
+		if (sortBy === "likes") {
+			return list.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
+		}
+		if (sortBy === "replies") {
+			return list.sort((a, b) => (b.replyCount ?? 0) - (a.replyCount ?? 0));
+		}
+		return list;
+	}, [context?.tweets, sortBy]);
+
 	if (!context) {
 		return (
 			<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-6 text-[14px] text-[var(--ink-soft)]">
@@ -318,7 +340,9 @@ function ProfilePostPreview({
 			</div>
 		);
 	}
-	const tweets = context.tweets.slice(0, 100);
+
+	const tweets = sortedTweets.slice(0, 100);
+
 	return (
 		<div className="overflow-hidden border-y border-[var(--line)] bg-[var(--bg)]">
 			<div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
@@ -330,15 +354,28 @@ function ProfilePostPreview({
 						{formatProfileAnalysisCounts(context)}
 					</p>
 				</div>
-				<a
-					className={secondaryButtonClass}
-					href={`https://x.com/${encodeURIComponent(context.profile.handle)}`}
-					rel="noreferrer"
-					target="_blank"
-				>
-					<ExternalLink className="size-4" strokeWidth={1.8} />
-					Open profile
-				</a>
+				<div className="flex items-center gap-2">
+					<select
+						aria-label="Sort posts"
+						className={cx(selectFieldClass, "h-9 w-[130px] rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-3 text-[13px] font-medium text-[var(--ink)]")}
+						onChange={(e) => setSortBy(e.target.value as any)}
+						value={sortBy}
+					>
+						<option value="newest">Newest First</option>
+						<option value="oldest">Oldest First</option>
+						<option value="likes">Most Liked</option>
+						<option value="replies">Most Replied</option>
+					</select>
+					<a
+						className={secondaryButtonClass}
+						href={`https://x.com/${encodeURIComponent(context.profile.handle)}`}
+						rel="noreferrer"
+						target="_blank"
+					>
+						<ExternalLink className="size-4" strokeWidth={1.8} />
+						Open profile
+					</a>
+				</div>
 			</div>
 			<div className="max-h-[70vh] overflow-y-auto overscroll-contain [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
 				{tweets.length > 0 ? (
