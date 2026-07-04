@@ -145,6 +145,7 @@ function MyPostsFooter({
 }
 
 function MyPostsRoute() {
+	const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes" | "replies">("newest");
 	const [tab, setTab] = useState<MyPostsTab>("all");
 	const [search, setSearch] = useState("");
 	const [syncMaxPages, setSyncMaxPages] = useState(10);
@@ -174,6 +175,28 @@ function MyPostsRoute() {
 			meta?.accounts[0],
 		[meta?.accounts, selectedAccountId],
 	);
+
+	const sortedItems = useMemo(() => {
+		const list = [...items];
+		if (sortBy === "newest") {
+			return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+		}
+		if (sortBy === "oldest") {
+			return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+		}
+		if (sortBy === "likes") {
+			return list.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
+		}
+		if (sortBy === "replies") {
+			return list.sort((a, b) => {
+				const bReplies = b.replyCount ?? b.localReplyCount ?? 0;
+				const aReplies = a.replyCount ?? a.localReplyCount ?? 0;
+				return bReplies - aReplies;
+			});
+		}
+		return list;
+	}, [items, sortBy]);
+
 	const authoredCount = meta?.stats.authored ?? items.length;
 	const subtitles = meta
 		? `${authoredCount.toLocaleString()} local posts and replies - ${meta.transport.statusText}`
@@ -199,6 +222,17 @@ function MyPostsRoute() {
 					}
 					action={
 						<div className="flex flex-wrap items-center justify-end gap-2">
+							<select
+								aria-label="Sort posts"
+								className={cx(selectFieldClass, "h-9 w-[130px]!")}
+								onChange={(e) => setSortBy(e.target.value as any)}
+								value={sortBy}
+							>
+								<option value="newest">Newest First</option>
+								<option value="oldest">Oldest First</option>
+								<option value="likes">Most Liked</option>
+								<option value="replies">Most Replied</option>
+							</select>
 							<select
 								aria-label="Authored fetch depth"
 								className={cx(selectFieldClass, "h-9 w-[120px]!")}
@@ -272,7 +306,7 @@ function MyPostsRoute() {
 			onLoadMore={loadMore}
 		>
 			<MyPostsProfilePanel account={selectedAccount} count={authoredCount} />
-			{items.map((item) => (
+			{sortedItems.map((item) => (
 				<TimelineCard key={item.id} item={item} onReply={replyToTweet} />
 			))}
 			<MyPostsFooter count={authoredCount} syncControl={syncButton} />
