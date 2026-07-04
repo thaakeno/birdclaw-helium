@@ -754,21 +754,20 @@ export function TimelineCard({
 							</span>
 							<span>{formatCompactNumber(displayLikeCount)}</span>
 						</span>
-						<span
-							aria-label="Bookmarked"
-							className={cx(
-								"inline-flex items-center gap-1 px-2 py-1 text-[13px]",
-								displayBookmarked && "text-[var(--accent)]",
-							)}
-							title={displayBookmarked ? "Bookmarked" : "Not bookmarked"}
-						>
-							<span className={feedActionIconWrapClass}>
-								<BookmarkCheck
-									className={feedActionIconClass}
-									strokeWidth={1.9}
-								/>
+						{displayBookmarked ? (
+							<span
+								aria-label="Bookmarked"
+								className="inline-flex items-center gap-1 px-2 py-1 text-[13px] text-[var(--accent)]"
+								title="Bookmarked"
+							>
+								<span className={feedActionIconWrapClass}>
+									<BookmarkCheck
+										className={feedActionIconClass}
+										strokeWidth={1.9}
+									/>
+								</span>
 							</span>
-						</span>
+						) : null}
 						<a
 							aria-label="Open on X"
 							className={feedActionButtonClass}
