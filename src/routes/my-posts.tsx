@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, type ReactNode } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, Heart, MessageCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { AvatarChip } from "#/components/AvatarChip";
 import { SyncNowButton } from "#/components/SyncNowButton";
 import { TimelineCard } from "#/components/TimelineCard";
@@ -149,6 +150,7 @@ function MyPostsRoute() {
 	const [tab, setTab] = useState<MyPostsTab>("all");
 	const [search, setSearch] = useState("");
 	const [syncMaxPages, setSyncMaxPages] = useState(10);
+	const [statsCollapsed, setStatsCollapsed] = useState(true);
 	const {
 		meta,
 		items,
@@ -179,6 +181,27 @@ function MyPostsRoute() {
 							? "replies-desc"
 							: undefined,
 	});
+
+	const statsQuery = useQuery({
+		queryKey: ["authored-stats", selectedAccountId],
+		queryFn: async () => {
+			if (!selectedAccountId) return null;
+			const response = await fetch(`/api/authored-stats?account=${selectedAccountId}`);
+			if (!response.ok) throw new Error("Failed to fetch stats");
+			return response.json() as Promise<{
+				totalPosts: number;
+				totalLikes: number;
+				totalReplies: number;
+				avgLikes: number;
+				avgReplies: number;
+				mostLikedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
+				mostRepliedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
+			}>;
+		},
+		enabled: !!selectedAccountId,
+	});
+	const stats = statsQuery.data ?? null;
+
 	const selectedAccount = useMemo(
 		() =>
 			meta?.accounts.find((account) => account.id === selectedAccountId) ??
@@ -297,6 +320,116 @@ function MyPostsRoute() {
 			onLoadMore={loadMore}
 		>
 			<MyPostsProfilePanel account={selectedAccount} count={authoredCount} />
+			{stats && stats.totalPosts > 0 && (
+				<div className="mx-4 mb-4 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--panel)] shadow-sm transition-all duration-200">
+					<button
+						className="flex w-full items-center justify-between px-4 py-3 text-left font-bold text-[var(--ink)] hover:bg-[var(--bg-hover)]"
+						onClick={() => setStatsCollapsed(!statsCollapsed)}
+						type="button"
+					>
+						<span className="flex items-center gap-2 text-[14px]">
+							<TrendingUp className="size-4 text-[var(--accent)]" />
+							Archive Insights & Stats
+						</span>
+						{statsCollapsed ? (
+							<ChevronDown className="size-4 text-[var(--ink-soft)]" />
+						) : (
+							<ChevronUp className="size-4 text-[var(--ink-soft)]" />
+						)}
+					</button>
+
+					{!statsCollapsed && (
+						<div className="grid grid-cols-1 border-t border-[var(--line)] md:grid-cols-3">
+							{/* Column 1: Overview */}
+							<div className="flex flex-col gap-4 p-4 border-b border-[var(--line)] md:border-b-0 md:border-r">
+								<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+									Overview
+								</h3>
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<div className="text-[20px] font-extrabold text-[var(--ink)]">
+											{stats.totalPosts.toLocaleString()}
+										</div>
+										<div className="text-[12px] text-[var(--ink-soft)]">Total Posts</div>
+									</div>
+									<div>
+										<div className="text-[20px] font-extrabold text-[var(--ink)]">
+											{(stats.totalLikes + stats.totalReplies).toLocaleString()}
+										</div>
+										<div className="text-[12px] text-[var(--ink-soft)]">Total Engagement</div>
+									</div>
+								</div>
+							</div>
+
+							{/* Column 2: Averages */}
+							<div className="flex flex-col gap-4 p-4 border-b border-[var(--line)] md:border-b-0 md:border-r">
+								<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+									Averages
+								</h3>
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<div className="text-[20px] font-extrabold text-[var(--ink)]">
+											{stats.avgLikes}
+										</div>
+										<div className="text-[12px] text-[var(--ink-soft)]">Likes / Post</div>
+									</div>
+									<div>
+										<div className="text-[20px] font-extrabold text-[var(--ink)]">
+											{stats.avgReplies}
+										</div>
+										<div className="text-[12px] text-[var(--ink-soft)]">Replies / Post</div>
+									</div>
+								</div>
+							</div>
+
+							{/* Column 3: Highlights */}
+							<div className="flex flex-col gap-3 p-4">
+								<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+									Highlights
+								</h3>
+								<div className="flex flex-col gap-2">
+									{stats.mostLikedTweet && (
+										<a
+											className="group flex items-start gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)] text-[13px] text-[var(--ink)] no-underline"
+											href={`https://x.com/${selectedAccount?.handle?.replace(/^@/, "")}/status/${stats.mostLikedTweet.id}`}
+											rel="noreferrer"
+											target="_blank"
+										>
+											<Heart className="mt-0.5 size-4 shrink-0 text-red-500" />
+											<div className="min-w-0">
+												<div className="flex items-center gap-1.5 font-bold">
+													Most Liked ({stats.mostLikedTweet.likeCount})
+												</div>
+												<div className="truncate text-[12px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">
+													{stats.mostLikedTweet.text}
+												</div>
+											</div>
+										</a>
+									)}
+									{stats.mostRepliedTweet && (
+										<a
+											className="group flex items-start gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--bg-hover)] text-[13px] text-[var(--ink)] no-underline"
+											href={`https://x.com/${selectedAccount?.handle?.replace(/^@/, "")}/status/${stats.mostRepliedTweet.id}`}
+											rel="noreferrer"
+											target="_blank"
+										>
+											<MessageCircle className="mt-0.5 size-4 shrink-0 text-blue-500" />
+											<div className="min-w-0">
+												<div className="flex items-center gap-1.5 font-bold">
+													Most Replied ({stats.mostRepliedTweet.replyCount})
+												</div>
+												<div className="truncate text-[12px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">
+													{stats.mostRepliedTweet.text}
+												</div>
+											</div>
+										</a>
+									)}
+								</div>
+							</div>
+						</div>
+					)}
+				</div>
+			)}
 			{sortedItems.map((item) => (
 				<TimelineCard key={item.id} item={item} onReply={replyToTweet} />
 			))}

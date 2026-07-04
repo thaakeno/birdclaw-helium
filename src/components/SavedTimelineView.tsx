@@ -45,6 +45,8 @@ const SORT_OPTIONS: Array<{
 	{ value: "saved-asc", label: "Oldest saved" },
 	{ value: "created-desc", label: "Newest post" },
 	{ value: "created-asc", label: "Oldest post" },
+	{ value: "likes-desc", label: "Most liked" },
+	{ value: "replies-desc", label: "Most replied" },
 ];
 
 function SavedFilterButton({

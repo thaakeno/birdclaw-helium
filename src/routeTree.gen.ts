@@ -48,6 +48,7 @@ import { Route as ApiConversationRouteImport } from './routes/api/conversation'
 import { Route as ApiBookmarksExportRouteImport } from './routes/api/bookmarks-export'
 import { Route as ApiBlocksRouteImport } from './routes/api/blocks'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
+import { Route as ApiAuthoredStatsRouteImport } from './routes/api/authored-stats'
 import { Route as ApiActionRouteImport } from './routes/api/action'
 
 const TodayRoute = TodayRouteImport.update({
@@ -245,6 +246,11 @@ const ApiAvatarRoute = ApiAvatarRouteImport.update({
   path: '/api/avatar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthoredStatsRoute = ApiAuthoredStatsRouteImport.update({
+  id: '/api/authored-stats',
+  path: '/api/authored-stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiActionRoute = ApiActionRouteImport.update({
   id: '/api/action',
   path: '/api/action',
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/api/action': typeof ApiActionRoute
+  '/api/authored-stats': typeof ApiAuthoredStatsRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/api/action': typeof ApiActionRoute
+  '/api/authored-stats': typeof ApiAuthoredStatsRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/api/action': typeof ApiActionRoute
+  '/api/authored-stats': typeof ApiAuthoredStatsRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/api/action'
+    | '/api/authored-stats'
     | '/api/avatar'
     | '/api/blocks'
     | '/api/bookmarks-export'
@@ -440,6 +450,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/api/action'
+    | '/api/authored-stats'
     | '/api/avatar'
     | '/api/blocks'
     | '/api/bookmarks-export'
@@ -482,6 +493,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/api/action'
+    | '/api/authored-stats'
     | '/api/avatar'
     | '/api/blocks'
     | '/api/bookmarks-export'
@@ -525,6 +537,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TodayRoute: typeof TodayRoute
   ApiActionRoute: typeof ApiActionRoute
+  ApiAuthoredStatsRoute: typeof ApiAuthoredStatsRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiBlocksRoute: typeof ApiBlocksRoute
   ApiBookmarksExportRoute: typeof ApiBookmarksExportRoute
@@ -825,6 +838,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAvatarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/authored-stats': {
+      id: '/api/authored-stats'
+      path: '/api/authored-stats'
+      fullPath: '/api/authored-stats'
+      preLoaderRoute: typeof ApiAuthoredStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/action': {
       id: '/api/action'
       path: '/api/action'
@@ -853,6 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TodayRoute: TodayRoute,
   ApiActionRoute: ApiActionRoute,
+  ApiAuthoredStatsRoute: ApiAuthoredStatsRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiBlocksRoute: ApiBlocksRoute,
   ApiBookmarksExportRoute: ApiBookmarksExportRoute,
