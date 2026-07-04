@@ -168,6 +168,16 @@ function MyPostsRoute() {
 		errorFallback: "Authored posts unavailable",
 		originalsOnly: tab === "originals",
 		repliesOnly: tab === "replies",
+		sort:
+			sortBy === "newest"
+				? "created-desc"
+				: sortBy === "oldest"
+					? "created-asc"
+					: sortBy === "likes"
+						? "likes-desc"
+						: sortBy === "replies"
+							? "replies-desc"
+							: undefined,
 	});
 	const selectedAccount = useMemo(
 		() =>
@@ -176,26 +186,7 @@ function MyPostsRoute() {
 		[meta?.accounts, selectedAccountId],
 	);
 
-	const sortedItems = useMemo(() => {
-		const list = [...items];
-		if (sortBy === "newest") {
-			return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-		}
-		if (sortBy === "oldest") {
-			return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-		}
-		if (sortBy === "likes") {
-			return list.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
-		}
-		if (sortBy === "replies") {
-			return list.sort((a, b) => {
-				const bReplies = b.replyCount ?? b.localReplyCount ?? 0;
-				const aReplies = a.replyCount ?? a.localReplyCount ?? 0;
-				return bReplies - aReplies;
-			});
-		}
-		return list;
-	}, [items, sortBy]);
+	const sortedItems = items;
 
 	const authoredCount = meta?.stats.authored ?? items.length;
 	const subtitles = meta

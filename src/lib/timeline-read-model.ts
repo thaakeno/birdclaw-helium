@@ -543,6 +543,18 @@ function timelineSortSql(sort: TimelineSort) {
 				orderSql: `${savedOrder} desc, t.created_at desc, t.id desc`,
 				ascending: false,
 			};
+		case "likes-desc":
+			return {
+				keySql: "t.like_count",
+				orderSql: "t.like_count desc, t.created_at desc, t.id desc",
+				ascending: false,
+			};
+		case "replies-desc":
+			return {
+				keySql: "(select count(*) from tweets child where child.reply_to_id = t.id)",
+				orderSql: "(select count(*) from tweets child where child.reply_to_id = t.id) desc, t.created_at desc, t.id desc",
+				ascending: false,
+			};
 		case "created-desc":
 		default:
 			return {
@@ -608,7 +620,8 @@ export function listTimelineItems({
 		!since?.trim() &&
 		!until?.trim() &&
 		includeReplies &&
-		qualityFilter === "all";
+		qualityFilter === "all" &&
+		(!sort || sort === "created-desc" || sort === "saved-desc");
 
 	if (likedOnly || bookmarkedOnly) {
 		// This CTE is also reused by the all-account dedupe subquery below. Keep

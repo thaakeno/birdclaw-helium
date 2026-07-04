@@ -349,7 +349,7 @@ export interface TimelineQuery {
 	author?: string;
 	search?: string;
 	replyFilter?: ReplyFilter;
-	sort?: "created-desc" | "created-asc" | "saved-desc" | "saved-asc";
+	sort?: "created-desc" | "created-asc" | "saved-desc" | "saved-asc" | "likes-desc" | "replies-desc";
 	since?: string;
 	until?: string;
 	untilId?: string;

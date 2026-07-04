@@ -46,7 +46,9 @@ function parseTimelineSort(value: string | null): TimelineQuery["sort"] {
 		value === "created-desc" ||
 		value === "created-asc" ||
 		value === "saved-desc" ||
-		value === "saved-asc"
+		value === "saved-asc" ||
+		value === "likes-desc" ||
+		value === "replies-desc"
 	) {
 		return value;
 	}
