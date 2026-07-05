@@ -1130,43 +1130,84 @@ export function collectProfileAnalysisContextEffect(
 				`@${profile.handle}`,
 			);
 			const externalUserId = getExternalUserId(profile.id) ?? profile.id;
-			const context = yield* listUserTweetsViaBirdEffect({
-				handle: profile.handle || handle,
-				maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
-				all: refreshMode === "deep" && maxPages > 1,
-				maxPages: refreshMode === "newest" ? 1 : maxPages,
-			}).pipe(
-				Effect.map((birdPayload) =>
+			const context = yield* Effect.gen(function* () {
+				let currentMaxPages = refreshMode === "newest" ? 1 : maxPages;
+				let birdPayload = yield* listUserTweetsViaBirdEffect({
+					handle: profile.handle || handle,
+					maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
+					all: refreshMode === "deep" && maxPages > 1,
+					maxPages: currentMaxPages,
+				});
+
+				const lastLocalTweetTime = localContext.tweets.length > 0
+					? new Date(localContext.tweets[0].createdAt).getTime()
+					: 0;
+
+				if (
+					options.refresh &&
+					refreshMode !== "deep" &&
+					lastLocalTweetTime > 0 &&
 					birdPayload.data.length > 0
-						? mergeLocalAndLiveProfileContext({
-								local: localContext,
-								live: {
-									...buildContextFromPayloads({
-										account,
-										handle: profile.handle || handle,
-										profile,
-										externalUserId,
-										tweetResponses: [birdPayload],
-										conversationResponses: [],
-										conversationRoots: [],
-										tweetPages: Number(birdPayload.meta?.page_count ?? 1),
-										conversationPages: 0,
-										fetchCached: false,
-									}),
-									health: {
-										mode: refreshMode,
-										source: "live",
-										localTweets:
-											localContext.health?.localTweets ??
-											localContext.tweets.length,
-										visibleTweets: birdPayload.data.length,
-										liveTweets: birdPayload.data.length,
-										message: `${String(localContext.health?.localTweets ?? localContext.tweets.length)} local posts - latest live fetch ${String(birdPayload.data.length)} posts`,
-									},
+				) {
+					const safetyCap = 5;
+					while (currentMaxPages < safetyCap) {
+						const oldestFetchedTweetTime = new Date(
+							birdPayload.data[birdPayload.data.length - 1].created_at
+						).getTime();
+
+						if (oldestFetchedTweetTime > lastLocalTweetTime) {
+							currentMaxPages += 1;
+							emitStatus(
+								handlers,
+								"Backfilling profile tweets",
+								`@${profile.handle} · Page ${currentMaxPages} to close gap...`
+							);
+							const nextPagePayload = yield* listUserTweetsViaBirdEffect({
+								handle: profile.handle || handle,
+								maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
+								all: false,
+								maxPages: currentMaxPages,
+							});
+							if (nextPagePayload.data.length <= birdPayload.data.length) {
+								break;
+							}
+							birdPayload = nextPagePayload;
+						} else {
+							break;
+						}
+					}
+				}
+
+				return birdPayload.data.length > 0
+					? mergeLocalAndLiveProfileContext({
+							local: localContext,
+							live: {
+								...buildContextFromPayloads({
+									account,
+									handle: profile.handle || handle,
+									profile,
+									externalUserId,
+									tweetResponses: [birdPayload],
+									conversationResponses: [],
+									conversationRoots: [],
+									tweetPages: Number(birdPayload.meta?.page_count ?? 1),
+									conversationPages: 0,
+									fetchCached: false,
+								}),
+								health: {
+									mode: refreshMode,
+									source: "live",
+									localTweets:
+										localContext.health?.localTweets ??
+										localContext.tweets.length,
+									visibleTweets: birdPayload.data.length,
+									liveTweets: birdPayload.data.length,
+									message: `${String(localContext.health?.localTweets ?? localContext.tweets.length)} local posts - latest live fetch ${String(birdPayload.data.length)} posts`,
 								},
-							})
-						: localContext,
-				),
+							},
+						})
+					: localContext;
+			}).pipe(
 				Effect.catchAll((error) => {
 					emitStatus(
 						handlers,
