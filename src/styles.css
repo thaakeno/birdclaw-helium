@@ -97,6 +97,11 @@ body {
 	border-radius: 4px;
 }
 
+input:focus-visible,
+textarea:focus-visible {
+	outline: none;
+}
+
 button,
 a {
 	-webkit-user-select: none;

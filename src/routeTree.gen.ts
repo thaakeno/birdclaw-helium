@@ -34,6 +34,7 @@ import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ApiSettingsAiRouteImport } from './routes/api/settings-ai'
 import { Route as ApiSearchDiscussionRouteImport } from './routes/api/search-discussion'
+import { Route as ApiSavedAuthorsRouteImport } from './routes/api/saved-authors'
 import { Route as ApiQuotesRouteImport } from './routes/api/quotes'
 import { Route as ApiQueryRouteImport } from './routes/api/query'
 import { Route as ApiProfileHydrateRouteImport } from './routes/api/profile-hydrate'
@@ -178,6 +179,11 @@ const ApiSearchDiscussionRoute = ApiSearchDiscussionRouteImport.update({
   path: '/api/search-discussion',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSavedAuthorsRoute = ApiSavedAuthorsRouteImport.update({
+  id: '/api/saved-authors',
+  path: '/api/saved-authors',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiQuotesRoute = ApiQuotesRouteImport.update({
   id: '/api/quotes',
   path: '/api/quotes',
@@ -304,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/api/profile-hydrate': typeof ApiProfileHydrateRoute
   '/api/query': typeof ApiQueryRoute
   '/api/quotes': typeof ApiQuotesRoute
+  '/api/saved-authors': typeof ApiSavedAuthorsRoute
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
   '/api/settings-ai': typeof ApiSettingsAiRoute
   '/api/status': typeof ApiStatusRoute
@@ -349,6 +356,7 @@ export interface FileRoutesByTo {
   '/api/profile-hydrate': typeof ApiProfileHydrateRoute
   '/api/query': typeof ApiQueryRoute
   '/api/quotes': typeof ApiQuotesRoute
+  '/api/saved-authors': typeof ApiSavedAuthorsRoute
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
   '/api/settings-ai': typeof ApiSettingsAiRoute
   '/api/status': typeof ApiStatusRoute
@@ -395,6 +403,7 @@ export interface FileRoutesById {
   '/api/profile-hydrate': typeof ApiProfileHydrateRoute
   '/api/query': typeof ApiQueryRoute
   '/api/quotes': typeof ApiQuotesRoute
+  '/api/saved-authors': typeof ApiSavedAuthorsRoute
   '/api/search-discussion': typeof ApiSearchDiscussionRoute
   '/api/settings-ai': typeof ApiSettingsAiRoute
   '/api/status': typeof ApiStatusRoute
@@ -442,6 +451,7 @@ export interface FileRouteTypes {
     | '/api/profile-hydrate'
     | '/api/query'
     | '/api/quotes'
+    | '/api/saved-authors'
     | '/api/search-discussion'
     | '/api/settings-ai'
     | '/api/status'
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/api/profile-hydrate'
     | '/api/query'
     | '/api/quotes'
+    | '/api/saved-authors'
     | '/api/search-discussion'
     | '/api/settings-ai'
     | '/api/status'
@@ -532,6 +543,7 @@ export interface FileRouteTypes {
     | '/api/profile-hydrate'
     | '/api/query'
     | '/api/quotes'
+    | '/api/saved-authors'
     | '/api/search-discussion'
     | '/api/settings-ai'
     | '/api/status'
@@ -578,6 +590,7 @@ export interface RootRouteChildren {
   ApiProfileHydrateRoute: typeof ApiProfileHydrateRoute
   ApiQueryRoute: typeof ApiQueryRoute
   ApiQuotesRoute: typeof ApiQuotesRoute
+  ApiSavedAuthorsRoute: typeof ApiSavedAuthorsRoute
   ApiSearchDiscussionRoute: typeof ApiSearchDiscussionRoute
   ApiSettingsAiRoute: typeof ApiSettingsAiRoute
   ApiStatusRoute: typeof ApiStatusRoute
@@ -766,6 +779,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchDiscussionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/saved-authors': {
+      id: '/api/saved-authors'
+      path: '/api/saved-authors'
+      fullPath: '/api/saved-authors'
+      preLoaderRoute: typeof ApiSavedAuthorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/quotes': {
       id: '/api/quotes'
       path: '/api/quotes'
@@ -930,6 +950,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProfileHydrateRoute: ApiProfileHydrateRoute,
   ApiQueryRoute: ApiQueryRoute,
   ApiQuotesRoute: ApiQuotesRoute,
+  ApiSavedAuthorsRoute: ApiSavedAuthorsRoute,
   ApiSearchDiscussionRoute: ApiSearchDiscussionRoute,
   ApiSettingsAiRoute: ApiSettingsAiRoute,
   ApiStatusRoute: ApiStatusRoute,

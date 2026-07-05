@@ -168,9 +168,9 @@ export function TweetMediaGrid({
 							return (
 								<div
 									key={item.url + String(index)}
-									className={tweetMediaTileClass(
-										index,
-										Math.min(items.length, 4),
+									className={cx(
+										tweetMediaTileClass(index, Math.min(items.length, 4)),
+										"bg-black",
 									)}
 									style={tileStyle}
 								>
@@ -206,9 +206,9 @@ export function TweetMediaGrid({
 										? `Fetch tweet video ${String(index + 1)}`
 										: `Open tweet media ${String(index + 1)}`
 								}
-								className={tweetMediaTileClass(
-									index,
-									Math.min(items.length, 4),
+								className={cx(
+									tweetMediaTileClass(index, Math.min(items.length, 4)),
+									itemLooksLikeVideo && "bg-black",
 								)}
 								onClick={(event) => {
 									event.stopPropagation();
@@ -503,11 +503,30 @@ function BirdclawVideoPlayer({
 	src: string;
 }) {
 	const videoRef = useRef<HTMLVideoElement | null>(null);
+	const ambienceVideoRef = useRef<HTMLVideoElement | null>(null);
 	const [duration, setDuration] = useState(0);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [isMuted, setIsMuted] = useState(muted);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [hasError, setHasError] = useState(false);
+
+	useEffect(() => {
+		const ambienceVideo = ambienceVideoRef.current;
+		if (!ambienceVideo || poster) return;
+		const foregroundVideo = videoRef.current;
+		try {
+			if (foregroundVideo) {
+				ambienceVideo.currentTime = foregroundVideo.currentTime;
+			}
+			if (isPlaying) {
+				void ambienceVideo.play();
+			} else {
+				ambienceVideo.pause();
+			}
+		} catch {
+			// Ambient video is decorative; playback failures should never affect the real player.
+		}
+	}, [isPlaying, poster]);
 
 	async function togglePlayback() {
 		const video = videoRef.current;
@@ -546,20 +565,34 @@ function BirdclawVideoPlayer({
 				modal && "max-h-[84vh] max-w-[96vw] rounded-xl shadow-2xl",
 			)}
 		>
-			{poster ? (
-				<img
-					alt=""
-					aria-hidden="true"
-					className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-45 blur-2xl saturate-125"
-					src={poster}
-				/>
-			) : null}
-			<div className="pointer-events-none absolute inset-0 bg-black/30" />
+			<div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-black">
+				{poster ? (
+					<img
+						alt=""
+						aria-hidden="true"
+						className="size-full scale-125 object-cover opacity-70 blur-2xl saturate-150"
+						src={poster}
+					/>
+				) : (
+					<video
+						aria-hidden="true"
+						className="size-full scale-125 object-cover opacity-45 blur-2xl saturate-150"
+						loop={loop}
+						muted
+						playsInline
+						preload="metadata"
+						ref={ambienceVideoRef}
+						src={src}
+						tabIndex={-1}
+					/>
+				)}
+				<div className="absolute inset-0 bg-black/20" />
+			</div>
 			<video
 				aria-label={label}
 				autoPlay={autoPlay}
 				className={cx(
-					"relative z-10 block size-full object-contain",
+					"relative z-10 mx-auto block size-full object-contain",
 					modal && "max-h-[84vh] max-w-[96vw]",
 				)}
 				loop={loop}

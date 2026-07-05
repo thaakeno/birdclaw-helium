@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
 	Download,
 	Image,
@@ -60,6 +60,19 @@ type AuthorFilterOption = {
 	avatarUrl: string | undefined;
 	avatarHue: number;
 	profileId: string;
+	postCount?: number;
+};
+
+type SavedAuthorsResponse = {
+	ok?: boolean;
+	authors?: Array<{
+		handle?: string;
+		displayName?: string;
+		avatarUrl?: string;
+		avatarHue?: number;
+		profileId?: string;
+		postCount?: number;
+	}>;
 };
 
 function SavedFilterButton({
@@ -92,10 +105,12 @@ function SavedFilterButton({
 }
 
 function AuthorFilterPicker({
+	loading,
 	onChange,
 	options,
 	value,
 }: {
+	loading: boolean;
 	onChange: (value: string) => void;
 	options: AuthorFilterOption[];
 	value: string;
@@ -104,16 +119,17 @@ function AuthorFilterPicker({
 	const [query, setQuery] = useState("");
 	const normalizedQuery = query.trim().replace(/^@/, "").toLowerCase();
 	const selectedHandle = value.trim().replace(/^@/, "");
-	const filteredOptions = useMemo(() => {
-		if (!normalizedQuery) return options.slice(0, 80);
-		return options
-			.filter(
-				(option) =>
-					option.handle.toLowerCase().includes(normalizedQuery) ||
-					option.displayName.toLowerCase().includes(normalizedQuery),
-			)
-			.slice(0, 80);
+	const matchedOptions = useMemo(() => {
+		if (!normalizedQuery) return options;
+		return options.filter(
+			(option) =>
+				option.handle.toLowerCase().includes(normalizedQuery) ||
+				option.displayName.toLowerCase().includes(normalizedQuery),
+		);
 	}, [normalizedQuery, options]);
+	const filteredOptions = useMemo(() => {
+		return matchedOptions.slice(0, 280);
+	}, [matchedOptions]);
 
 	function applyAuthor(handle: string) {
 		onChange(`@${handle}`);
@@ -149,12 +165,12 @@ function AuthorFilterPicker({
 			{open ? (
 				<div
 					aria-modal="true"
-					className="fixed inset-0 z-[9999] grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
+					className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/55 p-4 pt-[max(72px,8vh)] backdrop-blur-sm"
 					onClick={() => setOpen(false)}
 					role="dialog"
 				>
 					<div
-						className="flex max-h-[min(680px,88vh)] w-full max-w-[460px] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[0_24px_80px_var(--shadow-strong)]"
+						className="flex max-h-[calc(100vh-112px)] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[0_24px_80px_var(--shadow-strong)]"
 						onClick={(event) => event.stopPropagation()}
 					>
 						<div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
@@ -163,7 +179,7 @@ function AuthorFilterPicker({
 									Filter by user
 								</div>
 								<div className="text-[13px] text-[var(--ink-soft)]">
-									Choose a loaded author
+									Search all saved authors
 								</div>
 							</div>
 							<button
@@ -187,10 +203,10 @@ function AuthorFilterPicker({
 								/>
 							</label>
 						</div>
-						<div className="min-h-0 overflow-y-auto overscroll-contain py-1 [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
+						<div className="custom-scrollbar min-h-0 overflow-y-auto overscroll-contain py-1">
 							{filteredOptions.map((option) => (
 								<button
-									className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+									className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]"
 									key={option.handle}
 									onClick={() => applyAuthor(option.handle)}
 									type="button"
@@ -209,13 +225,29 @@ function AuthorFilterPicker({
 											@{option.handle}
 										</span>
 									</span>
+									{typeof option.postCount === "number" ? (
+										<span className="shrink-0 rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[12px] font-bold text-[var(--ink-soft)]">
+											{option.postCount.toLocaleString()}
+										</span>
+									) : null}
 								</button>
 							))}
 							{filteredOptions.length === 0 ? (
 								<div className="px-4 py-8 text-center text-[13px] text-[var(--ink-soft)]">
-									No loaded authors match that search.
+									{loading
+										? "Loading saved authors..."
+										: "No saved authors match that search."}
 								</div>
 							) : null}
+						</div>
+						<div className="border-t border-[var(--line)] px-4 py-2 text-[12px] text-[var(--ink-soft)]">
+							{loading && options.length === 0
+								? "Loading saved authors..."
+								: `Showing ${filteredOptions.length.toLocaleString()} of ${matchedOptions.length.toLocaleString()} matches${
+										matchedOptions.length !== options.length
+											? ` from ${options.length.toLocaleString()} saved authors`
+											: ""
+									}`}
 						</div>
 					</div>
 				</div>
@@ -237,6 +269,10 @@ export function SavedTimelineView({
 	const [quotedOnly, setQuotedOnly] = useState(false);
 	const [originalsOnly, setOriginalsOnly] = useState(false);
 	const [author, setAuthor] = useState("");
+	const [remoteAuthorOptions, setRemoteAuthorOptions] = useState<
+		AuthorFilterOption[]
+	>([]);
+	const [authorOptionsLoading, setAuthorOptionsLoading] = useState(false);
 	const [syncMaxPages, setSyncMaxPages] = useState(5);
 	const {
 		meta,
@@ -277,7 +313,7 @@ export function SavedTimelineView({
 	}, [filter, items.length, loadingLabel, meta]);
 	const syncKind = filter === "liked" ? "likes" : "bookmarks";
 	const accounts = meta?.accounts ?? [];
-	const authorOptions = useMemo(() => {
+	const visibleAuthorOptions = useMemo(() => {
 		const seen = new Set<string>();
 		return items
 			.map((item) => ({
@@ -295,6 +331,63 @@ export function SavedTimelineView({
 			})
 			.slice(0, 80);
 	}, [items]);
+	const authorOptions =
+		remoteAuthorOptions.length > 0 ? remoteAuthorOptions : visibleAuthorOptions;
+
+	useEffect(() => {
+		const controller = new AbortController();
+		let active = true;
+		setAuthorOptionsLoading(true);
+		const params = new URLSearchParams({
+			collection: filter === "liked" ? "likes" : "bookmarks",
+			limit: "10000",
+		});
+		if (selectedAccountId) params.set("account", selectedAccountId);
+		fetch(`/api/saved-authors?${params.toString()}`, {
+			signal: controller.signal,
+		})
+			.then((response) =>
+				response.ok ? (response.json() as Promise<SavedAuthorsResponse>) : null,
+			)
+			.then((payload) => {
+				if (!active) return;
+				if (!payload?.ok || !payload.authors) return;
+				setRemoteAuthorOptions(
+					payload.authors
+						.filter(
+							(author): author is Required<SavedAuthorsResponse>["authors"][number] =>
+								Boolean(author.handle && author.displayName && author.profileId),
+						)
+						.map((author) => ({
+							handle: String(author.handle),
+							displayName: String(author.displayName),
+							avatarUrl:
+								typeof author.avatarUrl === "string"
+									? author.avatarUrl
+									: undefined,
+							avatarHue: Number(author.avatarHue ?? 0),
+							profileId: String(author.profileId),
+							postCount:
+								typeof author.postCount === "number"
+									? author.postCount
+									: undefined,
+						})),
+				);
+			})
+			.catch((error: unknown) => {
+				if (!active) return;
+				if ((error as { name?: string }).name !== "AbortError") {
+					setRemoteAuthorOptions([]);
+				}
+			})
+			.finally(() => {
+				if (active) setAuthorOptionsLoading(false);
+			});
+		return () => {
+			active = false;
+			controller.abort();
+		};
+	}, [filter, selectedAccountId]);
 
 	return (
 		<TimelineFeedShell
@@ -406,6 +499,7 @@ export function SavedTimelineView({
 									</select>
 								) : null}
 								<AuthorFilterPicker
+									loading={authorOptionsLoading}
 									onChange={setAuthor}
 									options={authorOptions}
 									value={author}
