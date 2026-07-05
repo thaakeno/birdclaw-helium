@@ -86,6 +86,7 @@ interface SyncProgress {
 	displayName?: string;
 	avatarUrl?: string;
 	avatarHue?: number;
+	profileId?: string;
 	status: "idle" | "checking" | "synced" | "error";
 	message: string;
 }
@@ -137,6 +138,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				displayName: profile?.displayName || handle,
 				avatarUrl: profile?.avatarUrl,
 				avatarHue: profile?.avatarHue,
+				profileId: profile?.profileId,
 				status: "checking" as const,
 				message: "Checking posts...",
 			},
@@ -300,6 +302,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				displayName: p.displayName || p.handle,
 				avatarUrl: p.avatarUrl,
 				avatarHue: p.avatarHue,
+				profileId: p.profileId,
 				status: "idle" as const,
 				message: "Waiting...",
 			}));
@@ -467,7 +470,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 						<span className={sidebarBrandTitleClass}>
 							birdclaw
 							<span className="ml-1 text-[9px] font-mono font-normal tracking-wide text-[var(--ink-soft)] opacity-70">
-								_helium v0.8.5
+								helium v0.8.5
 							</span>
 						</span>
 						<span className={sidebarBrandTaglineClass}>
@@ -675,6 +678,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 									avatarUrl={option.avatarUrl}
 									hue={option.avatarHue ?? 0}
 									name={option.displayName ?? option.handle}
+									profileId={option.profileId}
 								/>
 								<div className="min-w-0 flex-1">
 									<div className="block truncate text-[13px] font-bold leading-tight text-[var(--ink)]">
