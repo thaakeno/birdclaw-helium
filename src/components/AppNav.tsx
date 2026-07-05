@@ -137,7 +137,10 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 			);
 			if (response.ok) {
 				const payload = (await response.json()) as {
-					context?: { tweets?: Array<{ createdAt: string }> };
+					context?: {
+						tweets?: Array<{ createdAt: string }>;
+						health?: { liveTweets?: number };
+					};
 				};
 				const tweets = payload.context?.tweets ?? [];
 				const profiles = readPinnedProfiles();
@@ -147,17 +150,23 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				const lastSync = profile?.lastSyncedAt
 					? new Date(profile.lastSyncedAt).getTime()
 					: 0;
+
+				const newestTweetDate = tweets.length > 0
+					? new Date(tweets[0].createdAt).toISOString()
+					: new Date().toISOString();
+
 				const newTweets = tweets.filter(
 					(t) => new Date(t.createdAt).getTime() > lastSync,
 				);
-				const newCount = lastSync > 0 ? newTweets.length : 0;
+				const fetchedLiveCount = payload.context?.health?.liveTweets ?? tweets.length;
+				const newCount = lastSync > 0 ? newTweets.length : fetchedLiveCount;
 
 				writePinnedProfiles(
 					profiles.map((p) =>
 						p.handle.toLowerCase() === handle.toLowerCase()
 							? {
 									...p,
-									lastSyncedAt: new Date().toISOString(),
+									lastSyncedAt: newestTweetDate,
 									newCount: (p.newCount ?? 0) + newCount,
 								}
 							: p,
@@ -305,7 +314,10 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 					);
 					if (response.ok) {
 						const payload = (await response.json()) as {
-							context?: { tweets?: Array<{ createdAt: string }> };
+							context?: {
+								tweets?: Array<{ createdAt: string }>;
+								health?: { liveTweets?: number };
+							};
 						};
 						const tweets = payload.context?.tweets ?? [];
 
@@ -319,17 +331,22 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 								? new Date(latestProfile.lastSyncedAt).getTime()
 								: 0;
 
+							const newestTweetDate = tweets.length > 0
+								? new Date(tweets[0].createdAt).toISOString()
+								: new Date().toISOString();
+
 							const newTweets = tweets.filter(
 								(t) => new Date(t.createdAt).getTime() > lastSync,
 							);
-							const newCount = lastSync > 0 ? newTweets.length : 0;
+							const fetchedLiveCount = payload.context?.health?.liveTweets ?? tweets.length;
+							const newCount = lastSync > 0 ? newTweets.length : fetchedLiveCount;
 
 							writePinnedProfiles(
 								latestProfiles.map((p) =>
 									p.handle.toLowerCase() === handle.toLowerCase()
 										? {
 												...p,
-												lastSyncedAt: new Date().toISOString(),
+												lastSyncedAt: newestTweetDate,
 												newCount: (p.newCount ?? 0) + newCount,
 											}
 										: p,
