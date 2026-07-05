@@ -20,6 +20,7 @@ import {
 	UserSearch,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AvatarChip } from "./AvatarChip";
 import {
 	cx,
 	navLinkActiveClass,
@@ -44,6 +45,7 @@ import {
 	NAV_ORDER_KEY,
 	NAV_PREFERENCES_EVENT,
 	orderNavItems,
+	readPinnedProfiles,
 	readBoolean,
 	readStringArray,
 	SIDEBAR_COLLAPSED_KEY,
@@ -79,12 +81,16 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 	const [collapsedPreference, setCollapsedPreference] = useState(false);
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
+	const [pinnedProfiles, setPinnedProfiles] = useState<
+		ReturnType<typeof readPinnedProfiles>
+	>([]);
 
 	useEffect(() => {
 		function load() {
 			setCollapsedPreference(readBoolean(SIDEBAR_COLLAPSED_KEY));
 			setHidden(readStringArray(NAV_HIDDEN_KEY));
 			setOrder(readStringArray(NAV_ORDER_KEY));
+			setPinnedProfiles(readPinnedProfiles());
 		}
 		load();
 		window.addEventListener(NAV_PREFERENCES_EVENT, load);
@@ -152,6 +158,48 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 							</Link>
 						);
 					})}
+					{pinnedProfiles.length > 0 ? (
+						<div
+							className={cx(
+								"my-1 border-t border-[var(--line)] pt-1",
+								isCompact && "flex flex-col items-center",
+							)}
+						>
+							{pinnedProfiles.map((profile) => {
+								const to = `/profiles/${encodeURIComponent(profile.handle)}`;
+								const active = pathname === to;
+								const label = profile.displayName || `@${profile.handle}`;
+								return (
+									<Link
+										aria-label={label}
+										className={cx(
+											isCompact ? navLinkCompactClass : navLinkClass,
+											active && navLinkActiveClass,
+										)}
+										key={profile.handle.toLowerCase()}
+										to={to}
+									>
+										<span className="grid size-[22px] shrink-0 place-items-center overflow-hidden rounded-full">
+											<AvatarChip
+												avatarUrl={profile.avatarUrl}
+												hue={profile.avatarHue ?? 210}
+												name={label}
+												profileId={profile.profileId}
+												size="small"
+											/>
+										</span>
+										<span
+											className={
+												isCompact ? navLinkLabelCompactClass : navLinkLabelClass
+											}
+										>
+											{label}
+										</span>
+									</Link>
+								);
+							})}
+						</div>
+					) : null}
 				</nav>
 			</div>
 			<div className={sidebarFooterClass}>

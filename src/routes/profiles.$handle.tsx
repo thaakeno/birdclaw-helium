@@ -1,26 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, Loader2, RefreshCw, Sparkles, TrendingUp } from "lucide-react";
+import {
+	ExternalLink,
+	Loader2,
+	Pin,
+	PinOff,
+	RefreshCw,
+	Sparkles,
+	TrendingUp,
+} from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SyncNowButton } from "#/components/SyncNowButton";
 
 import { AvatarChip } from "#/components/AvatarChip";
-import { SmartTimestamp } from "#/components/SmartTimestamp";
-import { TweetMediaGrid } from "#/components/TweetMediaGrid";
+import { TimelineCard } from "#/components/TimelineCard";
 import { TweetRichText } from "#/components/TweetRichText";
+import { ConversationSurfaceScope } from "#/lib/conversation-surface";
 import {
 	cx,
-	feedRowBodyClass,
-	feedRowClass,
-	feedRowDotClass,
-	feedRowHandleClass,
-	feedRowHeaderClass,
-	feedRowNameClass,
-	feedRowTextClass,
-	feedRowTimestampClass,
+	feedClass,
 	secondaryButtonClass,
 	selectFieldClass,
-	timestampClass,
 } from "#/lib/ui";
 import {
 	cleanProfileHandle,
@@ -36,8 +36,18 @@ import {
 } from "#/components/ProfileAnalysisClient";
 import { formatCompactNumber } from "#/lib/present";
 import type { ProfileAnalysisContext } from "#/lib/profile-analysis";
+import {
+	readPinnedProfiles,
+	writePinnedProfiles,
+	type PinnedProfileNavItem,
+} from "#/lib/nav-preferences";
 import { profileDescriptionEntitiesFromXurl } from "#/lib/tweet-render";
-import type { ProfileRecord, TweetEntities } from "#/lib/types";
+import type {
+	EmbeddedTweet,
+	ProfileRecord,
+	TimelineItem,
+	TweetEntities,
+} from "#/lib/types";
 
 export const Route = createFileRoute("/profiles/$handle")({
 	component: ProfilesHandleRoute,
@@ -46,6 +56,9 @@ export const Route = createFileRoute("/profiles/$handle")({
 const profileHeaderButtonClass =
 	"inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-4 py-1.5 text-[14px] font-bold text-[var(--ink)] shadow-sm transition-colors duration-150 hover:bg-[var(--bg-hover)] disabled:cursor-default disabled:opacity-55";
 const profileMentionRe = /(^|[^\w@./])@([A-Za-z0-9_]{1,15})\b/g;
+
+const profileTimelineShellClass =
+	"overflow-hidden border-y border-[var(--line)] bg-[var(--bg)]";
 
 function stableHue(value: string) {
 	let hash = 0;
@@ -146,18 +159,35 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 		if (!cleanHandle) return false;
 		if (cleanHandle.toLowerCase() === "thaakeno") return true;
 		if (activeContext?.accountHandle) {
-			return cleanHandle.toLowerCase() === activeContext.accountHandle.replace(/^@/, "").toLowerCase();
+			return (
+				cleanHandle.toLowerCase() ===
+				activeContext.accountHandle.replace(/^@/, "").toLowerCase()
+			);
 		}
 		return false;
 	}, [cleanHandle, activeContext?.accountHandle]);
 
-	const [profileTab, setProfileTab] = useState<"timeline" | "insights">("timeline");
+	const [profileTab, setProfileTab] = useState<"timeline" | "insights">(
+		"timeline",
+	);
+	const [pinnedProfiles, setPinnedProfiles] = useState<PinnedProfileNavItem[]>(
+		[],
+	);
+	const pinnedProfileHandle = (profile?.handle ?? cleanHandle).replace(
+		/^@/,
+		"",
+	);
+	const isPinnedProfile = pinnedProfiles.some(
+		(item) => item.handle.toLowerCase() === pinnedProfileHandle.toLowerCase(),
+	);
 
 	const statsQuery = useQuery({
 		queryKey: ["authored-stats", activeContext?.accountId],
 		queryFn: async () => {
 			if (!activeContext?.accountId) return null;
-			const response = await fetch(`/api/authored-stats?account=${activeContext.accountId}`);
+			const response = await fetch(
+				`/api/authored-stats?account=${activeContext.accountId}`,
+			);
 			if (!response.ok) throw new Error("Failed to fetch stats");
 			return response.json() as Promise<{
 				totalPosts: number;
@@ -168,8 +198,18 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 				replyRatio: number;
 				avgLikes: number;
 				avgReplies: number;
-				mostLikedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
-				mostRepliedTweet: { id: string; text: string; likeCount: number; replyCount: number } | null;
+				mostLikedTweet: {
+					id: string;
+					text: string;
+					likeCount: number;
+					replyCount: number;
+				} | null;
+				mostRepliedTweet: {
+					id: string;
+					text: string;
+					likeCount: number;
+					replyCount: number;
+				} | null;
 				radarItems: Array<{
 					id: string;
 					text: string;
@@ -221,6 +261,45 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 		}
 	}, [cleanHandle]);
 
+	useEffect(() => {
+		function loadPinnedProfiles() {
+			setPinnedProfiles(readPinnedProfiles());
+		}
+		loadPinnedProfiles();
+		window.addEventListener("birdclaw:nav-preferences", loadPinnedProfiles);
+		window.addEventListener("storage", loadPinnedProfiles);
+		return () => {
+			window.removeEventListener(
+				"birdclaw:nav-preferences",
+				loadPinnedProfiles,
+			);
+			window.removeEventListener("storage", loadPinnedProfiles);
+		};
+	}, []);
+
+	function togglePinnedProfile() {
+		if (!pinnedProfileHandle) return;
+		const normalized = pinnedProfileHandle.toLowerCase();
+		if (isPinnedProfile) {
+			writePinnedProfiles(
+				pinnedProfiles.filter(
+					(item) => item.handle.toLowerCase() !== normalized,
+				),
+			);
+			return;
+		}
+		writePinnedProfiles([
+			{
+				handle: pinnedProfileHandle,
+				displayName,
+				avatarUrl: profile?.avatarUrl,
+				avatarHue: profile?.avatarHue,
+				profileId: profile?.id,
+			},
+			...pinnedProfiles,
+		]);
+	}
+
 	return (
 		<section className="flex min-h-screen flex-col">
 			<header className="border-b border-[var(--line)] bg-[var(--bg)]">
@@ -262,6 +341,19 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 								>
 									<ExternalLink className="size-4" strokeWidth={1.8} />X
 								</a>
+								<button
+									className={profileHeaderButtonClass}
+									disabled={!pinnedProfileHandle}
+									onClick={togglePinnedProfile}
+									type="button"
+								>
+									{isPinnedProfile ? (
+										<PinOff className="size-4" strokeWidth={1.8} />
+									) : (
+										<Pin className="size-4" strokeWidth={1.8} />
+									)}
+									{isPinnedProfile ? "Unpin" : "Pin"}
+								</button>
 								<button
 									className={profileHeaderButtonClass}
 									disabled={!cleanHandle || contextLoading}
@@ -342,7 +434,7 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 							"px-4 py-3 text-[14px] font-bold border-b-2 transition-colors",
 							profileTab === "timeline"
 								? "border-[var(--accent)] text-[var(--ink)]"
-								: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+								: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]",
 						)}
 						type="button"
 					>
@@ -354,7 +446,7 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 							"px-4 py-3 text-[14px] font-bold border-b-2 transition-colors",
 							profileTab === "insights"
 								? "border-[var(--accent)] text-[var(--ink)]"
-								: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
+								: "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]",
 						)}
 						type="button"
 					>
@@ -375,7 +467,7 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 						{contextError}
 					</div>
 				) : null}
-				
+
 				{profileTab === "timeline" ? (
 					<ProfilePostPreview context={activeContext} handle={cleanHandle} />
 				) : (
@@ -386,34 +478,56 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 									<TrendingUp className="size-4 text-[var(--accent)]" />
 									Archive Insights & Stats
 								</div>
-								
+
 								<div className="flex flex-col divide-y divide-[var(--line)]">
 									{/* Averages & Overview Grid */}
 									<div className="grid grid-cols-1 md:grid-cols-2 divide-y divide-[var(--line)] md:divide-y-0 md:divide-x">
 										<div className="p-4 flex flex-col gap-3">
-											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Overview</h3>
+											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+												Overview
+											</h3>
 											<div className="grid grid-cols-2 gap-4">
 												<div>
-													<div className="text-[20px] font-extrabold text-[var(--ink)]">{stats.totalPosts.toLocaleString()}</div>
-													<div className="text-[12px] text-[var(--ink-soft)]">Total Posts</div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">
+														{stats.totalPosts.toLocaleString()}
+													</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">
+														Total Posts
+													</div>
 												</div>
 												<div>
-													<div className="text-[20px] font-extrabold text-[var(--ink)]">{(stats.totalLikes + stats.totalReplies).toLocaleString()}</div>
-													<div className="text-[12px] text-[var(--ink-soft)]">Total Engagement</div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">
+														{(
+															stats.totalLikes + stats.totalReplies
+														).toLocaleString()}
+													</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">
+														Total Engagement
+													</div>
 												</div>
 											</div>
 										</div>
-										
+
 										<div className="p-4 flex flex-col gap-3">
-											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Averages</h3>
+											<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+												Averages
+											</h3>
 											<div className="grid grid-cols-2 gap-4">
 												<div>
-													<div className="text-[20px] font-extrabold text-[var(--ink)]">{stats.avgLikes}</div>
-													<div className="text-[12px] text-[var(--ink-soft)]">Likes / Post</div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">
+														{stats.avgLikes}
+													</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">
+														Likes / Post
+													</div>
 												</div>
 												<div>
-													<div className="text-[20px] font-extrabold text-[var(--ink)]">{stats.avgReplies}</div>
-													<div className="text-[12px] text-[var(--ink-soft)]">Replies / Post</div>
+													<div className="text-[20px] font-extrabold text-[var(--ink)]">
+														{stats.avgReplies}
+													</div>
+													<div className="text-[12px] text-[var(--ink-soft)]">
+														Replies / Post
+													</div>
 												</div>
 											</div>
 										</div>
@@ -422,31 +536,42 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 									{/* Engagement Balance Progress Bar */}
 									<div className="flex flex-col gap-2.5 p-4 bg-[var(--bg-hover)]">
 										<div className="flex items-center justify-between text-[13px]">
-											<span className="font-bold text-[var(--ink)]">Engagement Balance</span>
-											<span className={cx(
-												"font-extrabold text-[12px] px-2 py-0.5 rounded-full",
-												stats.replyRatio < 20 
-													? "bg-orange-500/10 text-orange-500 border border-orange-500/25 animate-pulse" 
-													: "bg-green-500/10 text-green-500 border border-green-500/25"
-											)}>
-												{stats.replyRatio}% replies {stats.replyRatio < 20 && "⚠️ Isolation Risk"}
+											<span className="font-bold text-[var(--ink)]">
+												Engagement Balance
+											</span>
+											<span
+												className={cx(
+													"font-extrabold text-[12px] px-2 py-0.5 rounded-full",
+													stats.replyRatio < 20
+														? "bg-orange-500/10 text-orange-500 border border-orange-500/25 animate-pulse"
+														: "bg-green-500/10 text-green-500 border border-green-500/25",
+												)}
+											>
+												{stats.replyRatio}% replies{" "}
+												{stats.replyRatio < 20 && "⚠️ Isolation Risk"}
 											</span>
 										</div>
 										<div className="h-3 w-full overflow-hidden rounded-full bg-[var(--line)] flex">
-											<div 
-												style={{ width: `${100 - stats.replyRatio}%` }} 
-												className="h-full bg-[var(--accent)] transition-all duration-500" 
+											<div
+												style={{ width: `${100 - stats.replyRatio}%` }}
+												className="h-full bg-[var(--accent)] transition-all duration-500"
 												title={`Broadcasts: ${stats.broadcastsCount}`}
 											/>
-											<div 
-												style={{ width: `${stats.replyRatio}%` }} 
-												className="h-full bg-green-500 transition-all duration-500" 
+											<div
+												style={{ width: `${stats.replyRatio}%` }}
+												className="h-full bg-green-500 transition-all duration-500"
 												title={`Replies: ${stats.repliesCount}`}
 											/>
 										</div>
 										<div className="flex justify-between text-[11px] font-medium text-[var(--ink-soft)]">
-											<span>Broadcasts: {stats.broadcastsCount} ({Math.round(100 - stats.replyRatio)}%)</span>
-											<span>Replies: {stats.repliesCount} ({Math.round(stats.replyRatio)}%)</span>
+											<span>
+												Broadcasts: {stats.broadcastsCount} (
+												{Math.round(100 - stats.replyRatio)}%)
+											</span>
+											<span>
+												Replies: {stats.repliesCount} (
+												{Math.round(stats.replyRatio)}%)
+											</span>
 										</div>
 									</div>
 
@@ -459,22 +584,34 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 											</h3>
 											<div className="flex flex-col gap-3 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
 												{stats.radarItems.map((item) => {
-													const timeDiff = Date.now() - new Date(item.createdAt).getTime();
+													const timeDiff =
+														Date.now() - new Date(item.createdAt).getTime();
 													const under30m = timeDiff < 30 * 60 * 1000;
 													const under2h = timeDiff < 2 * 60 * 60 * 1000;
-													
-													const timeLabel = timeDiff < 60 * 1000 
-														? "Just now" 
-														: timeDiff < 60 * 60 * 1000 
-															? `${Math.floor(timeDiff / 60000)}m ago` 
-															: timeDiff < 24 * 60 * 60 * 1000 
-																? `${Math.floor(timeDiff / 3600000)}h ago` 
-																: new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+													const timeLabel =
+														timeDiff < 60 * 1000
+															? "Just now"
+															: timeDiff < 60 * 60 * 1000
+																? `${Math.floor(timeDiff / 60000)}m ago`
+																: timeDiff < 24 * 60 * 60 * 1000
+																	? `${Math.floor(timeDiff / 3600000)}h ago`
+																	: new Date(item.createdAt).toLocaleDateString(
+																			"en-US",
+																			{ month: "short", day: "numeric" },
+																		);
 
 													return (
-														<div key={item.id} className="group flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3 transition-all hover:border-[var(--accent-soft)] hover:bg-[var(--bg-hover)]">
+														<div
+															key={item.id}
+															className="group flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3 transition-all hover:border-[var(--accent-soft)] hover:bg-[var(--bg-hover)]"
+														>
 															{item.authorAvatarUrl ? (
-																<img src={item.authorAvatarUrl} alt="" className="size-9 rounded-full object-cover shrink-0 ring-1 ring-[var(--line)]" />
+																<img
+																	src={item.authorAvatarUrl}
+																	alt=""
+																	className="size-9 rounded-full object-cover shrink-0 ring-1 ring-[var(--line)]"
+																/>
 															) : (
 																<div className="size-9 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] font-bold flex items-center justify-center shrink-0">
 																	{item.authorName.slice(0, 1).toUpperCase()}
@@ -482,22 +619,29 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 															)}
 															<div className="min-w-0 flex-1">
 																<div className="flex flex-wrap items-center gap-1.5 text-[12px]">
-																	<span className="font-bold text-[var(--ink)]">{item.authorName}</span>
-																	<span className="text-[var(--ink-soft)]">@{item.authorHandle}</span>
-																	<span className="rounded-full bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ink-soft)]">
-																		{(item.authorFollowers / 1000).toFixed(1)}k followers
+																	<span className="font-bold text-[var(--ink)]">
+																		{item.authorName}
 																	</span>
-																	<span className="text-[var(--ink-soft)] ml-auto text-[11px]">{timeLabel}</span>
+																	<span className="text-[var(--ink-soft)]">
+																		@{item.authorHandle}
+																	</span>
+																	<span className="rounded-full bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ink-soft)]">
+																		{(item.authorFollowers / 1000).toFixed(1)}k
+																		followers
+																	</span>
+																	<span className="text-[var(--ink-soft)] ml-auto text-[11px]">
+																		{timeLabel}
+																	</span>
 																</div>
-																
+
 																<p className="mt-1.5 text-[13px] leading-[1.45] text-[var(--ink)] line-clamp-2 select-text">
 																	{item.text}
 																</p>
-																
+
 																<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-[var(--ink-soft)]">
 																	<span>{item.likeCount} likes</span>
 																	<span>{item.replyCount} replies</span>
-																	
+
 																	{under30m ? (
 																		<span className="inline-flex items-center gap-1 font-bold text-green-500">
 																			<span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -509,14 +653,15 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 																			High Priority (under 2h)
 																		</span>
 																	) : null}
-																	
-																	<a 
+
+																	<a
 																		href={`https://x.com/${item.authorHandle}/status/${item.id}`}
 																		target="_blank"
 																		rel="noreferrer"
 																		className="ml-auto font-semibold text-[var(--accent)] hover:underline flex items-center gap-0.5"
 																	>
-																		Engage on X <ExternalLink className="size-3" />
+																		Engage on X{" "}
+																		<ExternalLink className="size-3" />
 																	</a>
 																</div>
 															</div>
@@ -530,7 +675,8 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 							</div>
 						) : (
 							<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-6 text-[14px] text-[var(--ink-soft)]">
-								No stats available yet. Sync your profile to calculate engagement.
+								No stats available yet. Sync your profile to calculate
+								engagement.
 							</div>
 						)}
 					</div>
@@ -556,16 +702,24 @@ function ProfilePostPreview({
 	context: ProfileAnalysisContext | null;
 	handle: string;
 }) {
-	const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes" | "replies">("newest");
+	const [sortBy, setSortBy] = useState<
+		"newest" | "oldest" | "likes" | "replies"
+	>("newest");
 
 	const sortedTweets = useMemo(() => {
 		if (!context) return [];
 		const list = [...context.tweets];
 		if (sortBy === "newest") {
-			return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+			return list.sort(
+				(a, b) =>
+					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+			);
 		}
 		if (sortBy === "oldest") {
-			return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+			return list.sort(
+				(a, b) =>
+					new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+			);
 		}
 		if (sortBy === "likes") {
 			return list.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
@@ -574,7 +728,14 @@ function ProfilePostPreview({
 			return list.sort((a, b) => (b.replyCount ?? 0) - (a.replyCount ?? 0));
 		}
 		return list;
-	}, [context?.tweets, sortBy]);
+	}, [context, sortBy]);
+
+	const timelineItems = useMemo(() => {
+		if (!context) return [];
+		return sortedTweets.map((tweet) =>
+			profileTweetToTimelineItem(context, tweet),
+		);
+	}, [context, sortedTweets]);
 
 	if (!context) {
 		return (
@@ -584,11 +745,9 @@ function ProfilePostPreview({
 		);
 	}
 
-	const tweets = sortedTweets.slice(0, 100);
-
 	return (
-		<div className="overflow-hidden border-y border-[var(--line)] bg-[var(--bg)]">
-			<div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+		<div className={profileTimelineShellClass}>
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
 				<div>
 					<h2 className="m-0 text-[16px] font-bold text-[var(--ink)]">
 						Fetched posts
@@ -597,10 +756,13 @@ function ProfilePostPreview({
 						{formatProfileAnalysisCounts(context)}
 					</p>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
 					<select
 						aria-label="Sort posts"
-						className={cx(selectFieldClass, "h-9 w-[130px] rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-3 text-[13px] font-medium text-[var(--ink)]")}
+						className={cx(
+							selectFieldClass,
+							"h-9 w-[130px] rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-3 text-[13px] font-medium text-[var(--ink)]",
+						)}
 						onChange={(e) => setSortBy(e.target.value as any)}
 						value={sortBy}
 					>
@@ -620,59 +782,127 @@ function ProfilePostPreview({
 					</a>
 				</div>
 			</div>
-			<div className="max-h-[70vh] overflow-y-auto overscroll-contain [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
-				{tweets.length > 0 ? (
-					tweets.map((tweet) => (
-						<article className={feedRowClass} key={tweet.id}>
-							<AvatarChip
-								avatarUrl={context.profile.avatarUrl}
-								hue={context.profile.avatarHue}
-								name={context.profile.displayName}
-								profileId={context.profile.id}
+			<ConversationSurfaceScope>
+				<div className={feedClass}>
+					{timelineItems.length > 0 ? (
+						timelineItems.map((item) => (
+							<TimelineCard
+								key={item.id}
+								item={item}
+								onReply={() => {}}
+								showReplyControls={false}
 							/>
-							<div className={feedRowBodyClass}>
-								<header className={feedRowHeaderClass}>
-									<span className={feedRowNameClass}>
-										{context.profile.displayName}
-									</span>
-									<span className={feedRowHandleClass}>
-										@{context.profile.handle}
-									</span>
-									<span className={feedRowDotClass}>·</span>
-									<SmartTimestamp
-										className={feedRowTimestampClass}
-										value={tweet.createdAt}
-									/>
-									<a
-										aria-label="Open on X"
-										className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
-										href={tweet.url}
-										rel="noreferrer"
-										target="_blank"
-									>
-										<ExternalLink className="size-3.5" strokeWidth={1.8} />
-										Open
-									</a>
-								</header>
-								<TweetRichText
-									className={feedRowTextClass}
-									entities={tweet.entities ?? {}}
-									text={tweet.text}
-								/>
-								<TweetMediaGrid items={tweet.media ?? []} postUrl={tweet.url} />
-								<div className={timestampClass}>
-									{formatCompactNumber(tweet.replyCount)} replies ·{" "}
-									{formatCompactNumber(tweet.likeCount)} likes
-								</div>
-							</div>
-						</article>
-					))
-				) : (
-					<div className="px-4 py-8 text-center text-[14px] text-[var(--ink-soft)]">
-						No fetched posts for @{handle} yet.
-					</div>
-				)}
-			</div>
+						))
+					) : (
+						<div className="px-4 py-8 text-center text-[14px] text-[var(--ink-soft)]">
+							No fetched posts for @{handle} yet.
+						</div>
+					)}
+				</div>
+			</ConversationSurfaceScope>
 		</div>
 	);
+}
+
+function profileTweetToTimelineItem(
+	context: ProfileAnalysisContext,
+	tweet: ProfileAnalysisContext["tweets"][number],
+): TimelineItem {
+	return {
+		id: tweet.id,
+		accountId: context.accountId,
+		accountHandle: context.accountHandle,
+		kind: "search",
+		text: tweet.text,
+		createdAt: tweet.createdAt,
+		replyToId: tweet.replyToId ?? null,
+		isReplied: false,
+		replyCount: tweet.replyCount ?? 0,
+		likeCount: tweet.likeCount ?? 0,
+		retweetCount: tweet.retweetCount ?? 0,
+		quoteCount: tweet.quoteCount ?? 0,
+		viewsCount: 0,
+		mediaCount: tweet.mediaCount ?? tweet.media?.length ?? 0,
+		bookmarked: tweet.bookmarkedCount > 0,
+		liked: false,
+		author: profileForHandle(context, tweet.author),
+		entities: tweet.entities ?? {},
+		media: tweet.media ?? [],
+		replyToTweet: null,
+		quotedTweet: findQuotedConversationTweet(context, tweet.id),
+	};
+}
+
+function profileForHandle(
+	context: ProfileAnalysisContext,
+	handle: string,
+): ProfileRecord {
+	const normalized = handle.replace(/^@/, "").toLowerCase();
+	const hydrated =
+		normalized === context.profile.handle.toLowerCase()
+			? context.profile
+			: context.profiles?.find(
+					(candidate) => candidate.handle.toLowerCase() === normalized,
+				);
+	if (hydrated) return hydrated;
+	return {
+		id: `profile_handle_${normalized || "unknown"}`,
+		handle: handle.replace(/^@/, "") || context.profile.handle,
+		displayName: handle.replace(/^@/, "") || context.profile.displayName,
+		bio: "",
+		followersCount: 0,
+		avatarHue: stableHue(handle || context.profile.handle),
+		createdAt: "",
+	};
+}
+
+function findQuotedConversationTweet(
+	context: ProfileAnalysisContext,
+	tweetId: string,
+): EmbeddedTweet | null {
+	const quoted = context.conversations.find(
+		(tweet) => tweet.conversationRootId === tweetId && tweet.id !== tweetId,
+	);
+	return quoted ? conversationTweetToEmbeddedTweet(context, quoted) : null;
+}
+
+function conversationTweetToEmbeddedTweet(
+	context: ProfileAnalysisContext,
+	tweet: ProfileAnalysisContext["conversations"][number],
+): EmbeddedTweet {
+	return {
+		id: tweet.id,
+		text: tweet.text,
+		createdAt: tweet.createdAt,
+		replyToId: tweet.replyToId ?? null,
+		replyCount: tweet.replyCount,
+		likeCount: tweet.likeCount,
+		retweetCount: tweet.retweetCount,
+		quoteCount: tweet.quoteCount,
+		mediaCount: tweet.mediaCount,
+		author: profileForConversationTweet(context, tweet),
+		entities: tweet.entities ?? {},
+		media: tweet.media ?? [],
+	};
+}
+
+function profileForConversationTweet(
+	context: ProfileAnalysisContext,
+	tweet: ProfileAnalysisContext["conversations"][number],
+): ProfileRecord {
+	const normalized = tweet.author.replace(/^@/, "").toLowerCase();
+	const hydrated = context.profiles?.find(
+		(candidate) => candidate.handle.toLowerCase() === normalized,
+	);
+	if (hydrated) return hydrated;
+	return {
+		id: tweet.profileId,
+		handle: tweet.author,
+		displayName: tweet.name || tweet.author,
+		bio: tweet.bio,
+		followersCount: tweet.followersCount,
+		avatarHue: stableHue(tweet.author),
+		avatarUrl: tweet.avatarUrl,
+		createdAt: tweet.createdAt,
+	};
 }

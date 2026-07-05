@@ -2,10 +2,19 @@ export const NAV_PREFERENCES_EVENT = "birdclaw:nav-preferences";
 export const NAV_ORDER_KEY = "birdclaw.nav.order";
 export const NAV_HIDDEN_KEY = "birdclaw.nav.hidden";
 export const SIDEBAR_COLLAPSED_KEY = "birdclaw.sidebar.collapsed";
+export const PINNED_PROFILES_KEY = "birdclaw.nav.pinnedProfiles";
 
 export interface NavPreferenceItem {
 	to: string;
 	label: string;
+}
+
+export interface PinnedProfileNavItem {
+	handle: string;
+	displayName?: string;
+	avatarUrl?: string;
+	avatarHue?: number;
+	profileId?: string;
 }
 
 export function readStringArray(key: string) {
@@ -23,6 +32,58 @@ export function readStringArray(key: string) {
 export function writeStringArray(key: string, value: string[]) {
 	if (typeof window === "undefined") return;
 	window.localStorage.setItem(key, JSON.stringify(value));
+	window.dispatchEvent(new Event(NAV_PREFERENCES_EVENT));
+}
+
+export function readPinnedProfiles() {
+	if (typeof window === "undefined") return [];
+	try {
+		const parsed = JSON.parse(
+			window.localStorage.getItem(PINNED_PROFILES_KEY) ?? "[]",
+		);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item): PinnedProfileNavItem[] => {
+			if (!item || typeof item !== "object") return [];
+			const record = item as Record<string, unknown>;
+			const handle = String(record.handle ?? "")
+				.trim()
+				.replace(/^@/, "");
+			if (!handle) return [];
+			return [
+				{
+					handle,
+					...(typeof record.displayName === "string"
+						? { displayName: record.displayName }
+						: {}),
+					...(typeof record.avatarUrl === "string"
+						? { avatarUrl: record.avatarUrl }
+						: {}),
+					...(typeof record.avatarHue === "number"
+						? { avatarHue: record.avatarHue }
+						: {}),
+					...(typeof record.profileId === "string"
+						? { profileId: record.profileId }
+						: {}),
+				},
+			];
+		});
+	} catch {
+		return [];
+	}
+}
+
+export function writePinnedProfiles(value: PinnedProfileNavItem[]) {
+	if (typeof window === "undefined") return;
+	const unique = new Map<string, PinnedProfileNavItem>();
+	for (const item of value) {
+		const handle = item.handle.trim().replace(/^@/, "");
+		if (!handle) continue;
+		unique.set(handle.toLowerCase(), { ...item, handle });
+	}
+	window.localStorage.setItem(
+		PINNED_PROFILES_KEY,
+		JSON.stringify([...unique.values()].slice(0, 12)),
+	);
 	window.dispatchEvent(new Event(NAV_PREFERENCES_EVENT));
 }
 
