@@ -121,6 +121,7 @@ export interface ProfileAnalysisContext {
 		localTweets: number;
 		visibleTweets: number;
 		liveTweets?: number;
+		newTweetsCount?: number;
 		message: string;
 	};
 	hash: string;
@@ -763,6 +764,10 @@ function mergeLocalAndLiveProfileContext({
 	live: ProfileAnalysisContext;
 	local: ProfileAnalysisContext;
 }) {
+	const newTweetsCount = live.tweets.filter(
+		(t) => !local.tweets.some((lt) => lt.id === t.id),
+	).length;
+
 	if (local.tweets.length === 0 || live.tweets.length >= local.tweets.length) {
 		return rehashProfileContext({
 			...live,
@@ -772,6 +777,7 @@ function mergeLocalAndLiveProfileContext({
 				localTweets: local.health?.localTweets ?? local.tweets.length,
 				visibleTweets: live.tweets.length,
 				liveTweets: live.tweets.length,
+				newTweetsCount,
 				message: `${String(local.health?.localTweets ?? local.tweets.length)} local posts - latest live fetch ${String(live.tweets.length)} posts - using live fetch`,
 			},
 		});
@@ -814,6 +820,7 @@ function mergeLocalAndLiveProfileContext({
 			localTweets: local.health?.localTweets ?? local.tweets.length,
 			visibleTweets: tweets.length,
 			liveTweets: live.tweets.length,
+			newTweetsCount,
 			message: `${String(local.health?.localTweets ?? local.tweets.length)} local posts - latest live fetch ${String(live.tweets.length)} posts - using local archive`,
 		},
 	});
