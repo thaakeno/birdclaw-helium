@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+	ChevronDown,
 	ExternalLink,
 	Loader2,
 	Pin,
@@ -150,6 +151,15 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	const [contextLoading, setContextLoading] = useState(false);
 	const [contextError, setContextError] = useState<string | null>(null);
 	const autoRunHandleRef = useRef("");
+	const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
+
+	useEffect(() => {
+		if (!syncDropdownOpen) return;
+		const close = () => setSyncDropdownOpen(false);
+		window.addEventListener("click", close);
+		return () => window.removeEventListener("click", close);
+	}, [syncDropdownOpen]);
+
 	const profile = analysis.context?.profile ?? context?.profile;
 	const displayName = profile?.displayName || `@${cleanHandle}`;
 	const bio = profile?.bio ?? "";
@@ -383,39 +393,68 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 									)}
 									{isPinnedProfile ? "Unpin" : "Pin"}
 								</button>
-								<button
-									className={profileHeaderButtonClass}
-									disabled={!cleanHandle || contextLoading}
-									onClick={() => void fetchProfileContext("local")}
-									type="button"
-								>
-									Use local archive
-								</button>
-								<button
-									className={profileHeaderButtonClass}
-									disabled={!cleanHandle || contextLoading}
-									onClick={() => void fetchProfileContext("newest")}
-									type="button"
-								>
-									{contextLoading ? (
-										<Loader2
-											className="size-4 animate-spin"
-											strokeWidth={1.8}
-										/>
-									) : (
-										<RefreshCw className="size-4" strokeWidth={1.8} />
+								<div className="relative inline-flex items-stretch rounded-full border border-[var(--line-strong)] bg-[var(--bg)] shadow-sm">
+									<button
+										className="inline-flex items-center justify-center gap-1.5 rounded-l-full bg-transparent pl-4 pr-3 py-1.5 text-[14px] font-bold text-[var(--ink)] hover:bg-[var(--bg-hover)] disabled:opacity-55"
+										disabled={!cleanHandle || contextLoading}
+										onClick={() => void fetchProfileContext("newest")}
+										type="button"
+									>
+										{contextLoading ? (
+											<Loader2 className="size-4 animate-spin" strokeWidth={1.8} />
+										) : (
+											<RefreshCw className="size-4" strokeWidth={1.8} />
+										)}
+										Sync Profile
+									</button>
+									<span className="w-px bg-[var(--line-strong)]" />
+									<button
+										className="inline-flex items-center justify-center rounded-r-full bg-transparent px-2.5 py-1.5 text-[14px] font-bold text-[var(--ink)] hover:bg-[var(--bg-hover)] disabled:opacity-55"
+										disabled={!cleanHandle || contextLoading}
+										onClick={(e) => {
+											e.stopPropagation();
+											setSyncDropdownOpen(!syncDropdownOpen);
+										}}
+										type="button"
+										aria-label="More sync options"
+									>
+										<ChevronDown className="size-4" />
+									</button>
+									{syncDropdownOpen && (
+										<div className="absolute right-0 top-full z-[100] mt-1.5 w-48 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg-elevated)] py-1 shadow-lg text-[13px] text-[var(--ink)]">
+											<button
+												className="block w-full px-4 py-2 text-left font-semibold hover:bg-[var(--bg-hover)]"
+												onClick={() => {
+													setSyncDropdownOpen(false);
+													void fetchProfileContext("newest");
+												}}
+												type="button"
+											>
+												Fetch newest
+											</button>
+											<button
+												className="block w-full px-4 py-2 text-left font-semibold hover:bg-[var(--bg-hover)]"
+												onClick={() => {
+													setSyncDropdownOpen(false);
+													void fetchProfileContext("deep");
+												}}
+												type="button"
+											>
+												Deep refresh
+											</button>
+											<button
+												className="block w-full px-4 py-2 text-left font-semibold hover:bg-[var(--bg-hover)]"
+												onClick={() => {
+													setSyncDropdownOpen(false);
+													void fetchProfileContext("local");
+												}}
+												type="button"
+											>
+												Load local only
+											</button>
+										</div>
 									)}
-									Fetch newest
-								</button>
-								<button
-									className={profileHeaderButtonClass}
-									disabled={!cleanHandle || contextLoading}
-									onClick={() => void fetchProfileContext("deep")}
-									type="button"
-								>
-									<RefreshCw className="size-4" strokeWidth={1.8} />
-									Deep refresh
-								</button>
+								</div>
 								{isCurrentUser && (
 									<SyncNowButton
 										kind="authored"

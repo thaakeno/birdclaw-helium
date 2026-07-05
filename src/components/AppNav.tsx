@@ -12,6 +12,7 @@ import {
 	Home,
 	Inbox,
 	Link as LinkIcon,
+	Loader2,
 	Mail,
 	MessagesSquare,
 	Settings,
@@ -80,6 +81,8 @@ const links = [
 	{ to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+let startupSyncStarted = false;
+
 export function AppNav({ compact = false }: { compact?: boolean }) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
@@ -107,6 +110,102 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 		y: number;
 	} | null>(null);
 
+	const [syncState, setSyncState] = useState<{
+		isSyncing: boolean;
+		activeHandle: string | null;
+		logs: string[];
+		isVisible: boolean;
+	} | null>(null);
+
+	const syncSingleProfile = async (handle: string) => {
+		setPinnedMenu(null);
+		setSyncState({
+			isSyncing: true,
+			activeHandle: handle,
+			logs: [`Manual sync started for @${handle}...`],
+			isVisible: true,
+		});
+
+		try {
+			const time = new Date().toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+			});
+			const response = await fetch(
+				`/api/profile-context?handle=${encodeURIComponent(handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
+			);
+			if (response.ok) {
+				const payload = (await response.json()) as {
+					context?: { tweets?: Array<{ createdAt: string }> };
+				};
+				const tweets = payload.context?.tweets ?? [];
+				const profiles = readPinnedProfiles();
+				const profile = profiles.find(
+					(p) => p.handle.toLowerCase() === handle.toLowerCase(),
+				);
+				const lastSync = profile?.lastSyncedAt
+					? new Date(profile.lastSyncedAt).getTime()
+					: 0;
+				const newTweets = tweets.filter(
+					(t) => new Date(t.createdAt).getTime() > lastSync,
+				);
+				const newCount = lastSync > 0 ? newTweets.length : 0;
+
+				writePinnedProfiles(
+					profiles.map((p) =>
+						p.handle.toLowerCase() === handle.toLowerCase()
+							? {
+									...p,
+									lastSyncedAt: new Date().toISOString(),
+									newCount: (p.newCount ?? 0) + newCount,
+								}
+							: p,
+					),
+				);
+
+				setSyncState((prev) =>
+					prev
+						? {
+								...prev,
+								isSyncing: false,
+								activeHandle: null,
+								logs: [
+									...prev.logs,
+									`[${time}] Synced @${handle}: ${newCount > 0 ? `+${newCount} new` : "up to date"}`,
+								],
+							}
+						: null,
+				);
+			} else {
+				throw new Error(`HTTP ${String(response.status)}`);
+			}
+		} catch (err) {
+			const errorTime = new Date().toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+			});
+			setSyncState((prev) =>
+				prev
+					? {
+							...prev,
+							isSyncing: false,
+							activeHandle: null,
+							logs: [
+								...prev.logs,
+								`[${errorTime}] Failed: ${err instanceof Error ? err.message : String(err)}`,
+							],
+						}
+					: null,
+			);
+		}
+
+		setTimeout(() => {
+			setSyncState((prev) => (prev ? { ...prev, isVisible: false } : null));
+		}, 4000);
+	};
+
 	useEffect(() => {
 		function load() {
 			setCollapsedPreference(readBoolean(SIDEBAR_COLLAPSED_KEY));
@@ -122,6 +221,169 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 			window.removeEventListener(NAV_PREFERENCES_EVENT, load);
 			window.removeEventListener("storage", load);
 		};
+	}, []);
+
+	useEffect(() => {
+		// Reset unread count when visiting a pinned profile page
+		const match = pathname.match(/^\/profiles\/([^/]+)/);
+		if (match) {
+			const handle = decodeURIComponent(match[1]);
+			const found = pinnedProfiles.find(
+				(p) => p.handle.toLowerCase() === handle.toLowerCase(),
+			);
+			if (found && (found.newCount ?? 0) > 0) {
+				writePinnedProfiles(
+					pinnedProfiles.map((p) =>
+						p.handle.toLowerCase() === handle.toLowerCase()
+							? { ...p, newCount: 0 }
+							: p,
+					),
+				);
+			}
+		}
+	}, [pathname, pinnedProfiles]);
+
+	useEffect(() => {
+		if (startupSyncStarted) return;
+		startupSyncStarted = true;
+
+		const runStartupSync = async () => {
+			setSyncState({
+				isSyncing: true,
+				activeHandle: null,
+				logs: ["Starting background sync..."],
+				isVisible: true,
+			});
+
+			const profiles = readPinnedProfiles();
+			if (profiles.length === 0) {
+				setSyncState((prev) =>
+					prev
+						? {
+								...prev,
+								isSyncing: false,
+								logs: [...prev.logs, "No pinned profiles to sync."],
+							}
+						: null,
+				);
+				setTimeout(() => {
+					setSyncState((prev) =>
+						prev ? { ...prev, isVisible: false } : null,
+					);
+				}, 3000);
+				return;
+			}
+
+			const updatedProfiles = [...profiles];
+			for (let i = 0; i < profiles.length; i++) {
+				const profile = profiles[i];
+				const time = new Date().toLocaleTimeString([], {
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				});
+				setSyncState((prev) =>
+					prev
+						? {
+								...prev,
+								activeHandle: profile.handle,
+								logs: [...prev.logs, `[${time}] Checking @${profile.handle}...`],
+							}
+						: null,
+				);
+
+				try {
+					const response = await fetch(
+						`/api/profile-context?handle=${encodeURIComponent(profile.handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
+					);
+					if (response.ok) {
+						const payload = (await response.json()) as {
+							context?: { tweets?: Array<{ createdAt: string }> };
+						};
+						const tweets = payload.context?.tweets ?? [];
+						const lastSync = profile.lastSyncedAt
+							? new Date(profile.lastSyncedAt).getTime()
+							: 0;
+
+						const newTweets = tweets.filter(
+							(t) => new Date(t.createdAt).getTime() > lastSync,
+						);
+						const newCount = lastSync > 0 ? newTweets.length : 0;
+
+						updatedProfiles[i] = {
+							...profile,
+							lastSyncedAt: new Date().toISOString(),
+							newCount: (profile.newCount ?? 0) + newCount,
+						};
+
+						const statusTime = new Date().toLocaleTimeString([], {
+							hour: "2-digit",
+							minute: "2-digit",
+							second: "2-digit",
+						});
+						setSyncState((prev) =>
+							prev
+								? {
+										...prev,
+										logs: [
+											...prev.logs,
+											`[${statusTime}] Synced @${profile.handle}: ${newCount > 0 ? `+${newCount} new` : "up to date"}`,
+										],
+									}
+								: null,
+						);
+					} else {
+						throw new Error(`HTTP ${String(response.status)}`);
+					}
+				} catch (err) {
+					const errorTime = new Date().toLocaleTimeString([], {
+						hour: "2-digit",
+						minute: "2-digit",
+						second: "2-digit",
+					});
+					setSyncState((prev) =>
+						prev
+							? {
+									...prev,
+									logs: [
+										...prev.logs,
+										`[${errorTime}] Failed @${profile.handle}: ${err instanceof Error ? err.message : String(err)}`,
+									],
+								}
+							: null,
+					);
+				}
+
+				await new Promise((resolve) => setTimeout(resolve, 800));
+			}
+
+			writePinnedProfiles(updatedProfiles);
+
+			const completionTime = new Date().toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+			});
+			setSyncState((prev) =>
+				prev
+					? {
+							...prev,
+							isSyncing: false,
+							activeHandle: null,
+							logs: [...prev.logs, `[${completionTime}] Sync complete.`],
+						}
+					: null,
+			);
+
+			setTimeout(() => {
+				setSyncState((prev) => (prev ? { ...prev, isVisible: false } : null));
+			}, 4000);
+		};
+
+		const timer = setTimeout(() => {
+			void runStartupSync();
+		}, 1500);
+		return () => clearTimeout(timer);
 	}, []);
 
 	const isCompact = compact || collapsedPreference;
@@ -178,7 +440,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 												selectedAccount.id
 											}
 											profileId={selectedAccount.profileId}
-											size="small"
+											size="xsmall"
 										/>
 									</span>
 								) : (
@@ -234,7 +496,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 												hue={profile.avatarHue ?? 210}
 												name={label}
 												profileId={profile.profileId}
-												size="small"
+												size="xsmall"
 											/>
 										</span>
 										<span
@@ -245,7 +507,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 											{label}
 											{profile.newCount && profile.newCount > 0 ? (
 												<span className="ml-auto rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-													{profile.newCount}
+													+{profile.newCount}
 												</span>
 											) : null}
 										</span>
@@ -305,27 +567,40 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 						);
 						setPinnedMenu(null);
 					}}
-					onRefresh={async () => {
-						const handle = pinnedMenu.handle;
-						await fetch(
-							`/api/profile-context?handle=${encodeURIComponent(handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
-						).catch(() => undefined);
-						writePinnedProfiles(
-							pinnedProfiles.map((profile) =>
-								profile.handle.toLowerCase() === handle.toLowerCase()
-									? {
-											...profile,
-											lastSyncedAt: new Date().toISOString(),
-											newCount: 0,
-										}
-									: profile,
-							),
-						);
-						setPinnedMenu(null);
-					}}
+					onRefresh={() => void syncSingleProfile(pinnedMenu.handle)}
 					position={{ x: pinnedMenu.x, y: pinnedMenu.y }}
 				/>
 			) : null}
+			{syncState?.isVisible && (
+				<div className="fixed bottom-4 right-4 z-[9999] w-80 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.15)] backdrop-blur-md transition-all duration-300">
+					<div className="flex items-center gap-3">
+						{syncState.isSyncing ? (
+							<Loader2 className="size-5 animate-spin text-[var(--accent)]" />
+						) : (
+							<span className="size-2 rounded-full bg-green-500" />
+						)}
+						<div className="flex-1 min-w-0">
+							<div className="text-[14px] font-bold text-[var(--ink)]">
+								{syncState.isSyncing
+									? "Syncing pinned profiles..."
+									: "Sync complete"}
+							</div>
+							{syncState.activeHandle && (
+								<div className="text-[12px] text-[var(--ink-soft)] truncate">
+									Currently checking @{syncState.activeHandle}
+								</div>
+							)}
+						</div>
+					</div>
+					<div className="mt-3 max-h-32 overflow-y-auto rounded-lg bg-[var(--bg)] p-2 text-[11px] font-mono text-[var(--ink-soft)] divide-y divide-[var(--line)]">
+						{syncState.logs.map((log, index) => (
+							<div key={index} className="py-1">
+								{log}
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 		</aside>
 	);
 }

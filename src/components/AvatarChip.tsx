@@ -18,7 +18,7 @@ export function AvatarChip({
 	avatarUrl?: string;
 	name: string;
 	hue: number;
-	size?: "default" | "large" | "small";
+	size?: "default" | "large" | "small" | "xsmall";
 }) {
 	const avatarSrc =
 		profileId && avatarUrl ? avatarPath(profileId, avatarUrl) : null;
@@ -31,6 +31,7 @@ export function AvatarChip({
 				avatarChipClass,
 				size === "large" && avatarChipLargeClass,
 				size === "small" && avatarChipSmallClass,
+				size === "xsmall" && "size-[22px] text-[9px] font-bold",
 			)}
 			style={{ backgroundColor: `hsl(${String(hue)} 72% 50%)` }}
 		>
