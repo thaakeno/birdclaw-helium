@@ -81,6 +81,15 @@ const links = [
 	{ to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+interface SyncProgress {
+	handle: string;
+	displayName?: string;
+	avatarUrl?: string;
+	avatarHue?: number;
+	status: "idle" | "checking" | "synced" | "error";
+	message: string;
+}
+
 let startupSyncStarted = false;
 
 export function AppNav({ compact = false }: { compact?: boolean }) {
@@ -113,25 +122,33 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 	const [syncState, setSyncState] = useState<{
 		isSyncing: boolean;
 		activeHandle: string | null;
-		logs: string[];
+		logs: SyncProgress[];
 		isVisible: boolean;
 	} | null>(null);
 
 	const syncSingleProfile = async (handle: string) => {
 		setPinnedMenu(null);
+		const profile = pinnedProfiles.find(
+			(p) => p.handle.toLowerCase() === handle.toLowerCase(),
+		);
+		const initialProgress: SyncProgress[] = [
+			{
+				handle: handle,
+				displayName: profile?.displayName || handle,
+				avatarUrl: profile?.avatarUrl,
+				avatarHue: profile?.avatarHue,
+				status: "checking" as const,
+				message: "Checking posts...",
+			},
+		];
 		setSyncState({
 			isSyncing: true,
 			activeHandle: handle,
-			logs: [`Manual sync started for @${handle}...`],
+			logs: initialProgress,
 			isVisible: true,
 		});
 
 		try {
-			const time = new Date().toLocaleTimeString([], {
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit",
-			});
 			const response = await fetch(
 				`/api/profile-context?handle=${encodeURIComponent(handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
 			);
@@ -144,11 +161,11 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				};
 				const tweets = payload.context?.tweets ?? [];
 				const profiles = readPinnedProfiles();
-				const profile = profiles.find(
+				const pRecord = profiles.find(
 					(p) => p.handle.toLowerCase() === handle.toLowerCase(),
 				);
-				const lastSync = profile?.lastSyncedAt
-					? new Date(profile.lastSyncedAt).getTime()
+				const lastSync = pRecord?.lastSyncedAt
+					? new Date(pRecord.lastSyncedAt).getTime()
 					: 0;
 
 				const newestTweetDate = tweets.length > 0
@@ -179,10 +196,15 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 								...prev,
 								isSyncing: false,
 								activeHandle: null,
-								logs: [
-									...prev.logs,
-									`[${time}] Synced @${handle}: ${newCount > 0 ? `+${newCount} new` : "up to date"}`,
-								],
+								logs: prev.logs.map((item) =>
+									item.handle.toLowerCase() === handle.toLowerCase()
+										? {
+												...item,
+												status: "synced" as const,
+												message: newCount > 0 ? `+${newCount} new` : "Up to date",
+											}
+										: item,
+								),
 							}
 						: null,
 				);
@@ -190,21 +212,21 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				throw new Error(`HTTP ${String(response.status)}`);
 			}
 		} catch (err) {
-			const errorTime = new Date().toLocaleTimeString([], {
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit",
-			});
 			setSyncState((prev) =>
 				prev
 					? {
 							...prev,
 							isSyncing: false,
 							activeHandle: null,
-							logs: [
-								...prev.logs,
-								`[${errorTime}] Failed: ${err instanceof Error ? err.message : String(err)}`,
-							],
+							logs: prev.logs.map((item) =>
+								item.handle.toLowerCase() === handle.toLowerCase()
+									? {
+											...item,
+											status: "error" as const,
+											message: err instanceof Error ? err.message : String(err),
+										}
+									: item,
+							),
 						}
 					: null,
 			);
@@ -257,24 +279,14 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 		startupSyncStarted = true;
 
 		const runStartupSync = async () => {
-			setSyncState({
-				isSyncing: true,
-				activeHandle: null,
-				logs: ["Starting background sync..."],
-				isVisible: true,
-			});
-
 			const initialProfiles = readPinnedProfiles();
 			if (initialProfiles.length === 0) {
-				setSyncState((prev) =>
-					prev
-						? {
-								...prev,
-								isSyncing: false,
-								logs: [...prev.logs, "No pinned profiles to sync."],
-							}
-						: null,
-				);
+				setSyncState({
+					isSyncing: false,
+					activeHandle: null,
+					logs: [],
+					isVisible: true,
+				});
 				setTimeout(() => {
 					setSyncState((prev) =>
 						prev ? { ...prev, isVisible: false } : null,
@@ -282,6 +294,22 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				}, 3000);
 				return;
 			}
+
+			const initialProgress: SyncProgress[] = initialProfiles.map((p) => ({
+				handle: p.handle,
+				displayName: p.displayName || p.handle,
+				avatarUrl: p.avatarUrl,
+				avatarHue: p.avatarHue,
+				status: "idle" as const,
+				message: "Waiting...",
+			}));
+
+			setSyncState({
+				isSyncing: true,
+				activeHandle: null,
+				logs: initialProgress,
+				isVisible: true,
+			});
 
 			const handlesToSync = initialProfiles.map((p) => p.handle);
 
@@ -293,17 +321,16 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				);
 				if (!profile) continue; // Skipped since it was unpinned
 
-				const time = new Date().toLocaleTimeString([], {
-					hour: "2-digit",
-					minute: "2-digit",
-					second: "2-digit",
-				});
 				setSyncState((prev) =>
 					prev
 						? {
 								...prev,
 								activeHandle: handle,
-								logs: [...prev.logs, `[${time}] Checking @${handle}...`],
+								logs: prev.logs.map((item) =>
+									item.handle.toLowerCase() === handle.toLowerCase()
+										? { ...item, status: "checking" as const, message: "Checking posts..." }
+										: item,
+								),
 							}
 						: null,
 				);
@@ -353,19 +380,19 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 								),
 							);
 
-							const statusTime = new Date().toLocaleTimeString([], {
-								hour: "2-digit",
-								minute: "2-digit",
-								second: "2-digit",
-							});
 							setSyncState((prev) =>
 								prev
 									? {
 											...prev,
-											logs: [
-												...prev.logs,
-												`[${statusTime}] Synced @${handle}: ${newCount > 0 ? `+${newCount} new` : "up to date"}`,
-											],
+											logs: prev.logs.map((item) =>
+												item.handle.toLowerCase() === handle.toLowerCase()
+													? {
+															...item,
+															status: "synced" as const,
+															message: newCount > 0 ? `+${newCount} new` : "Up to date",
+														}
+													: item,
+											),
 										}
 									: null,
 							);
@@ -374,19 +401,19 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 						throw new Error(`HTTP ${String(response.status)}`);
 					}
 				} catch (err) {
-					const errorTime = new Date().toLocaleTimeString([], {
-						hour: "2-digit",
-						minute: "2-digit",
-						second: "2-digit",
-					});
 					setSyncState((prev) =>
 						prev
 							? {
 									...prev,
-									logs: [
-										...prev.logs,
-										`[${errorTime}] Failed @${handle}: ${err instanceof Error ? err.message : String(err)}`,
-									],
+									logs: prev.logs.map((item) =>
+										item.handle.toLowerCase() === handle.toLowerCase()
+											? {
+													...item,
+													status: "error" as const,
+													message: err instanceof Error ? err.message : String(err),
+												}
+											: item,
+									),
 								}
 							: null,
 					);
@@ -395,18 +422,12 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				await new Promise((resolve) => setTimeout(resolve, 800));
 			}
 
-			const completionTime = new Date().toLocaleTimeString([], {
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit",
-			});
 			setSyncState((prev) =>
 				prev
 					? {
 							...prev,
 							isSyncing: false,
 							activeHandle: null,
-							logs: [...prev.logs, `[${completionTime}] Sync complete.`],
 						}
 					: null,
 			);
@@ -443,7 +464,12 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 							isCompact ? sidebarBrandCopyCompactClass : sidebarBrandCopyClass
 						}
 					>
-						<span className={sidebarBrandTitleClass}>birdclaw</span>
+						<span className={sidebarBrandTitleClass}>
+							birdclaw
+							<span className="ml-1 text-[9px] font-mono font-normal tracking-wide text-[var(--ink-soft)] opacity-70">
+								_helium v0.8.5
+							</span>
+						</span>
 						<span className={sidebarBrandTaglineClass}>
 							Fast search for your archive.
 						</span>
@@ -619,32 +645,80 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				/>
 			) : null}
 			{syncState?.isVisible && (
-				<div className="fixed bottom-4 right-4 z-[9999] w-80 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.15)] backdrop-blur-md transition-all duration-300">
-					<div className="flex items-center gap-3">
-						{syncState.isSyncing ? (
-							<Loader2 className="size-5 animate-spin text-[var(--accent)]" />
-						) : (
-							<span className="size-2 rounded-full bg-green-500" />
-						)}
-						<div className="flex-1 min-w-0">
-							<div className="text-[14px] font-bold text-[var(--ink)]">
-								{syncState.isSyncing
-									? "Syncing pinned profiles..."
-									: "Sync complete"}
-							</div>
-							{syncState.activeHandle && (
-								<div className="text-[12px] text-[var(--ink-soft)] truncate">
-									Currently checking @{syncState.activeHandle}
-								</div>
+				<div className="fixed bottom-4 right-4 z-[9999] w-[320px] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[0_18px_50px_var(--shadow-strong)] transition-all duration-300">
+					<div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3 bg-[var(--bg-active)]/30">
+						<div className="flex items-center gap-2 min-w-0">
+							{syncState.isSyncing ? (
+								<Loader2 className="size-4 animate-spin text-[var(--accent)]" />
+							) : (
+								<span className="size-2 rounded-full bg-green-500" />
 							)}
+							<span className="text-[13px] font-bold text-[var(--ink)] truncate">
+								{syncState.isSyncing
+									? "Syncing profiles..."
+									: "Sync complete"}
+							</span>
 						</div>
+						{syncState.isSyncing && syncState.activeHandle && (
+							<span className="text-[11px] text-[var(--ink-soft)] font-medium animate-pulse">
+								@{syncState.activeHandle}
+							</span>
+						)}
 					</div>
-					<div className="mt-3 max-h-32 overflow-y-auto rounded-lg bg-[var(--bg)] p-2 text-[11px] font-mono text-[var(--ink-soft)] divide-y divide-[var(--line)]">
-						{syncState.logs.map((log, index) => (
-							<div key={index} className="py-1">
-								{log}
+					<div className="custom-scrollbar max-h-[220px] overflow-y-auto divide-y divide-[var(--line)] bg-[var(--bg)]">
+						{syncState.logs.map((option) => (
+							<div
+								className="flex w-full items-center gap-3 px-3 py-2.5 transition-colors hover:bg-[var(--bg-hover)]"
+								key={option.handle}
+							>
+								<AvatarChip
+									avatarUrl={option.avatarUrl}
+									hue={option.avatarHue ?? 0}
+									name={option.displayName ?? option.handle}
+								/>
+								<div className="min-w-0 flex-1">
+									<div className="block truncate text-[13px] font-bold leading-tight text-[var(--ink)]">
+										{option.displayName}
+									</div>
+									<div className="block truncate text-[11px] leading-tight text-[var(--ink-soft)]">
+										@{option.handle}
+									</div>
+								</div>
+								<div className="shrink-0 text-right">
+									{option.status === "checking" && (
+										<span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">
+											<Loader2 className="size-3 animate-spin" />
+											checking
+										</span>
+									)}
+									{option.status === "synced" && (
+										<span className={cx(
+											"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold",
+											option.message.toLowerCase().includes("up to date")
+												? "bg-[var(--bg-active)] text-[var(--ink-soft)]"
+												: "bg-[var(--accent-soft)] text-[var(--accent)]"
+										)}>
+											{option.message}
+										</span>
+									)}
+									{option.status === "error" && (
+										<span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-500">
+											failed
+										</span>
+									)}
+									{option.status === "idle" && (
+										<span className="text-[11px] font-medium text-[var(--ink-soft)]">
+											queued
+										</span>
+									)}
+								</div>
 							</div>
 						))}
+						{syncState.logs.length === 0 && (
+							<div className="px-4 py-6 text-center text-[12px] text-[var(--ink-soft)]">
+								No active syncing items.
+							</div>
+						)}
 					</div>
 				</div>
 			)}
