@@ -7,6 +7,14 @@ import {
 	sensitiveRequestErrorResponse,
 } from "#/lib/http-effect";
 
+function isRepostSql(tweetAlias: string, edgeAlias: string) {
+	return `(
+		${tweetAlias}.text like 'RT @%'
+		or ${edgeAlias}.raw_json like '%"type":"retweeted"%'
+		or ${edgeAlias}.raw_json like '%"type": "retweeted"%'
+	)`;
+}
+
 export const Route = createFileRoute("/api/authored-stats")({
 	server: {
 		handlers: {
@@ -40,6 +48,7 @@ export const Route = createFileRoute("/api/authored-stats")({
 								totalReplies: 0,
 								avgLikes: 0,
 								avgReplies: 0,
+								repostsCount: 0,
 								mostLikedTweet: null,
 								mostRepliedTweet: null,
 							});
@@ -50,16 +59,26 @@ export const Route = createFileRoute("/api/authored-stats")({
 								`
 								select 
 									count(*) as totalPosts,
-									sum(case when t.reply_to_id is null then 1 else 0 end) as broadcastsCount,
-									sum(case when t.reply_to_id is not null then 1 else 0 end) as repliesCount,
+									sum(case when ${isRepostSql("t", "e")} then 1 else 0 end) as repostsCount,
+									sum(case when t.reply_to_id is null and not (${isRepostSql("t", "e")}) then 1 else 0 end) as broadcastsCount,
+									sum(case when t.reply_to_id is not null and not (${isRepostSql("t", "e")}) then 1 else 0 end) as repliesCount,
 									sum(coalesce(like_count, 0)) as totalLikes,
 									sum((select count(*) from tweets child where child.reply_to_id = t.id)) as totalReplies
-								from tweets t
-								where t.author_profile_id = ?
+								from tweet_account_edges e
+								join tweets t on t.id = e.tweet_id
+								where e.account_id = ?
+									and e.kind = 'authored'
 								`,
 							)
-							.get(profileId) as
-							| { totalPosts: number; broadcastsCount: number; repliesCount: number; totalLikes: number; totalReplies: number }
+							.get(accountId) as
+							| {
+									totalPosts: number;
+									repostsCount: number;
+									broadcastsCount: number;
+									repliesCount: number;
+									totalLikes: number;
+									totalReplies: number;
+							  }
 							| undefined;
 
 						const mostLikedRow = db
@@ -137,6 +156,7 @@ export const Route = createFileRoute("/api/authored-stats")({
 						const totalPosts = statsRow?.totalPosts ?? 0;
 						const totalLikes = statsRow?.totalLikes ?? 0;
 						const totalReplies = statsRow?.totalReplies ?? 0;
+						const repostsCount = statsRow?.repostsCount ?? 0;
 						const broadcastsCount = statsRow?.broadcastsCount ?? 0;
 						const repliesCount = statsRow?.repliesCount ?? 0;
 
@@ -144,6 +164,7 @@ export const Route = createFileRoute("/api/authored-stats")({
 							totalPosts,
 							totalLikes,
 							totalReplies,
+							repostsCount,
 							broadcastsCount,
 							repliesCount,
 							replyRatio:

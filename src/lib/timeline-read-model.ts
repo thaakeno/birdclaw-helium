@@ -422,6 +422,7 @@ function buildRetweetedTweet(
 	}
 
 	const author = resolveProfileByHandle(manualRetweet.handle);
+	const fallbackMedia = parseJsonField<TweetMediaItem[]>(row.media_json, []);
 	return {
 		id: `${String(row.id)}:retweeted`,
 		text: manualRetweet.text,
@@ -429,7 +430,7 @@ function buildRetweetedTweet(
 		replyToId: null,
 		isReplied: Boolean(row.is_replied),
 		likeCount: Number(row.like_count ?? 0),
-		mediaCount: 0,
+		mediaCount: Number(row.media_count ?? fallbackMedia.length),
 		bookmarked: Boolean(row.bookmarked),
 		liked: Boolean(row.liked),
 		author,
@@ -441,7 +442,7 @@ function buildRetweetedTweet(
 			{ [author.id]: author },
 			resolveProfileByHandle,
 		),
-		media: [],
+		media: fallbackMedia,
 	};
 }
 

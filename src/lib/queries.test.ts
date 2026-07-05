@@ -1053,6 +1053,9 @@ describe("birdclaw queries", () => {
 			id: "tweet_retweet_missing_ref",
 			text: "RT @Dimillian: Missing original tweet content",
 			createdAt: "2026-03-09T12:03:00.000Z",
+			mediaCount: 1,
+			mediaJson:
+				'[{"url":"https://pbs.twimg.com/media/retweet.jpg","type":"image","width":1200,"height":800,"thumbnailUrl":"https://pbs.twimg.com/media/retweet.jpg:small"}]',
 		});
 		db.prepare(
 			`
@@ -1126,13 +1129,19 @@ describe("birdclaw queries", () => {
 			id: "tweet_retweet_missing_ref:retweeted",
 			text: "Missing original tweet content",
 			likeCount: 0,
-			mediaCount: 0,
+			mediaCount: 1,
 			bookmarked: false,
 			liked: false,
 			author: {
 				handle: "Dimillian",
 			},
 		});
+		expect(missingRetweetItem?.retweetedTweet?.media).toEqual([
+			expect.objectContaining({
+				url: "https://pbs.twimg.com/media/retweet.jpg",
+				type: "image",
+			}),
+		]);
 		expect(replyItem?.replyToTweet?.id).toBe("tweet_001");
 		expect(mediaItem?.media[0]?.altText).toBe("Pricing survey chart");
 		expect(mediaItem?.entities.urls?.[0]?.title).toBe(

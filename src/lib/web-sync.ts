@@ -210,6 +210,7 @@ const WEB_SYNC_PLANS: Record<WebSyncKind, WebSyncPlan> = {
 					mode: "bird",
 					limit: options.limit ?? 100,
 					maxPages: options.maxPages ?? 10,
+					pageDelayMs: 300,
 				});
 				return [
 					{

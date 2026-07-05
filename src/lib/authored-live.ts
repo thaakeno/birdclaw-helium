@@ -35,6 +35,7 @@ export interface SyncAuthoredTweetsOptions {
 	mode?: AuthoredSyncMode;
 	limit?: number;
 	maxPages?: number;
+	pageDelayMs?: number;
 	sinceId?: string;
 	untilId?: string;
 }
@@ -803,24 +804,6 @@ function mergePages({
 	};
 }
 
-function withoutRetweets(payload: XurlMentionsResponse): XurlMentionsResponse {
-	const data = payload.data.filter(
-		(tweet) =>
-			!tweet.text.trimStart().startsWith("RT @") &&
-			!tweet.referenced_tweets?.some(
-				(reference) => reference.type === "retweeted",
-			),
-	);
-	return {
-		...payload,
-		data,
-		meta: {
-			...payload.meta,
-			result_count: data.length,
-		},
-	};
-}
-
 function buildBirdResult({
 	accountId,
 	userId,
@@ -895,6 +878,7 @@ export function syncAuthoredTweetsEffect({
 	mode = "xurl",
 	limit = DEFAULT_LIMIT,
 	maxPages,
+	pageDelayMs,
 	sinceId,
 	untilId,
 }: SyncAuthoredTweetsOptions) {
@@ -907,13 +891,12 @@ export function syncAuthoredTweetsEffect({
 				account,
 				db,
 			});
-			const payload = withoutRetweets(
-				yield* liveTransportGateway.bird.listUserTweets({
-					handle: identity.username,
-					maxResults: pageLimit,
-					...(parsedMaxPages !== null ? { maxPages: parsedMaxPages } : {}),
-				}),
-			);
+			const payload = yield* liveTransportGateway.bird.listUserTweets({
+				handle: identity.username,
+				maxResults: pageLimit,
+				...(parsedMaxPages !== null ? { maxPages: parsedMaxPages } : {}),
+				...(pageDelayMs !== undefined ? { delayMs: pageDelayMs } : {}),
+			});
 			yield* databaseWriteEffect((writeDb) =>
 				ingestTweetPayload(writeDb, {
 					accountId: identity.accountId,

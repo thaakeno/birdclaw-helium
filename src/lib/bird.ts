@@ -1020,16 +1020,21 @@ export function listUserTweetsViaBirdEffect({
 	handle,
 	maxResults,
 	maxPages,
+	delayMs,
 }: {
 	handle: string;
 	maxResults: number;
 	all?: boolean;
 	maxPages?: number;
+	delayMs?: number;
 }): Effect.Effect<XurlMentionsResponse, unknown> {
 	return Effect.gen(function* () {
 		const args = ["user-tweets", handle, "-n", String(maxResults)];
 		if (maxPages !== undefined) {
 			args.push("--max-pages", String(maxPages));
+		}
+		if (delayMs !== undefined) {
+			args.push("--delay", String(Math.max(0, Math.floor(delayMs))));
 		}
 		const stdout = yield* runBirdTweetJsonCommandEffect(args);
 		const payload = yield* parseBirdJsonEffect(stdout);
@@ -1042,6 +1047,7 @@ export function listUserTweetsViaBird(options: {
 	maxResults: number;
 	all?: boolean;
 	maxPages?: number;
+	delayMs?: number;
 }): Promise<XurlMentionsResponse> {
 	return runEffectPromise(listUserTweetsViaBirdEffect(options));
 }

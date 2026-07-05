@@ -529,15 +529,24 @@ function BirdclawVideoPlayer({
 	return (
 		<div
 			className={cx(
-				"group/video relative size-full overflow-hidden bg-black",
+				"group/video relative grid size-full place-items-center overflow-hidden bg-black",
 				modal && "max-h-[84vh] max-w-[96vw] rounded-xl shadow-2xl",
 			)}
 		>
+			{poster ? (
+				<img
+					alt=""
+					aria-hidden="true"
+					className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-45 blur-2xl saturate-125"
+					src={poster}
+				/>
+			) : null}
+			<div className="pointer-events-none absolute inset-0 bg-black/30" />
 			<video
 				aria-label={label}
 				autoPlay={autoPlay}
 				className={cx(
-					"block size-full bg-black object-contain",
+					"relative z-10 block size-full object-contain",
 					modal && "max-h-[84vh] max-w-[96vw]",
 				)}
 				loop={loop}

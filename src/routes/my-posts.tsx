@@ -65,9 +65,11 @@ function accountXUrl(account: AccountRecord | undefined) {
 function MyPostsProfilePanel({
 	account,
 	count,
+	repostsCount,
 }: {
 	account: AccountRecord | undefined;
 	count: number;
+	repostsCount: number;
 }) {
 	return (
 		<section className="border-b border-[var(--line)] bg-[var(--bg)]">
@@ -100,14 +102,21 @@ function MyPostsProfilePanel({
 						{accountHandle(account)}
 					</p>
 					<p className="mt-3 text-[14px] leading-[1.45] text-[var(--ink)]">
-						Locally archived originals and replies fetched through Birdclaw.
+						Locally archived originals, replies, and reposts fetched through
+						Birdclaw.
 					</p>
 					<div className="mt-3 flex flex-wrap gap-4 text-[14px]">
 						<span>
 							<strong className="font-bold text-[var(--ink)]">
 								{count.toLocaleString()}
 							</strong>{" "}
-							<span className="text-[var(--ink-soft)]">posts and replies</span>
+							<span className="text-[var(--ink-soft)]">local items</span>
+						</span>
+						<span>
+							<strong className="font-bold text-[var(--ink)]">
+								{repostsCount.toLocaleString()}
+							</strong>{" "}
+							<span className="text-[var(--ink-soft)]">reposts</span>
 						</span>
 					</div>
 				</div>
@@ -136,8 +145,8 @@ function MyPostsFooter({
 						</div>
 						<p className="mt-1 text-[13px] leading-[1.45] text-[var(--ink-soft)]">
 							{count.toLocaleString()} authored posts are local. Fetching uses
-							the authenticated Bird helper and stores originals plus replies,
-							not reposts.
+							the authenticated Bird helper and stores originals, replies, and
+							reposts.
 						</p>
 						<div className="mt-3">{syncControl}</div>
 					</div>
@@ -194,6 +203,7 @@ function MyPostsRoute() {
 				totalPosts: number;
 				totalLikes: number;
 				totalReplies: number;
+				repostsCount: number;
 				broadcastsCount: number;
 				repliesCount: number;
 				replyRatio: number;
@@ -228,8 +238,9 @@ function MyPostsRoute() {
 	const sortedItems = items;
 
 	const authoredCount = meta?.stats.authored ?? items.length;
+	const repostsCount = stats?.repostsCount ?? 0;
 	const subtitles = meta
-		? `${authoredCount.toLocaleString()} local posts and replies - ${meta.transport.statusText}`
+		? `${authoredCount.toLocaleString()} local posts, replies, and reposts - ${meta.transport.statusText}`
 		: "Loading authored posts...";
 	const syncButton = (
 		<SyncNowButton
@@ -335,7 +346,11 @@ function MyPostsRoute() {
 			loadingMore={loadingMore}
 			onLoadMore={loadMore}
 		>
-			<MyPostsProfilePanel account={selectedAccount} count={authoredCount} />
+			<MyPostsProfilePanel
+				account={selectedAccount}
+				count={authoredCount}
+				repostsCount={repostsCount}
+			/>
 
 
 			{stats && stats.totalPosts > 0 && (
@@ -359,7 +374,7 @@ function MyPostsRoute() {
 					{!statsCollapsed && (
 						<div className="flex flex-col border-t border-[var(--line)] divide-y divide-[var(--line)]">
 							{/* Grid Metrics Section */}
-							<div className="grid grid-cols-1 md:grid-cols-3 divide-y divide-[var(--line)] md:divide-y-0 md:divide-x">
+							<div className="grid grid-cols-1 md:grid-cols-4 divide-y divide-[var(--line)] md:divide-y-0 md:divide-x">
 								{/* Column 1: Overview */}
 								<div className="flex flex-col gap-4 p-4">
 									<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
@@ -377,6 +392,26 @@ function MyPostsRoute() {
 												{(stats.totalLikes + stats.totalReplies).toLocaleString()}
 											</div>
 											<div className="text-[12px] text-[var(--ink-soft)]">Total Engagement</div>
+										</div>
+									</div>
+								</div>
+
+								<div className="flex flex-col gap-4 p-4">
+									<h3 className="m-0 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+										Profile Mix
+									</h3>
+									<div className="grid grid-cols-2 gap-4">
+										<div>
+											<div className="text-[20px] font-extrabold text-[var(--ink)]">
+												{stats.repostsCount.toLocaleString()}
+											</div>
+											<div className="text-[12px] text-[var(--ink-soft)]">Reposts</div>
+										</div>
+										<div>
+											<div className="text-[20px] font-extrabold text-[var(--ink)]">
+												{(stats.broadcastsCount + stats.repliesCount).toLocaleString()}
+											</div>
+											<div className="text-[12px] text-[var(--ink-soft)]">Own Posts</div>
 										</div>
 									</div>
 								</div>

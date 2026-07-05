@@ -533,6 +533,43 @@ describe("bird transport wrapper", () => {
 		]);
 	});
 
+	it("passes user tweet page delay options to bird", async () => {
+		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
+		mockBirdStdoutOnce("[]");
+
+		const { listUserTweetsViaBird } = await import("./bird");
+
+		await expect(
+			listUserTweetsViaBird({
+				handle: "thaakeno",
+				maxResults: 100,
+				maxPages: 10,
+				delayMs: 300,
+			}),
+		).resolves.toEqual({
+			data: [],
+			includes: undefined,
+			meta: {
+				result_count: 0,
+				page_count: 1,
+				next_token: null,
+				newest_id: undefined,
+				oldest_id: undefined,
+			},
+		});
+		expectBirdCommandCall(1, [
+			"user-tweets",
+			"thaakeno",
+			"-n",
+			"100",
+			"--max-pages",
+			"10",
+			"--delay",
+			"300",
+			"--json-full",
+		]);
+	});
+
 	it("preserves structured JSON from failed bird DM mutations", async () => {
 		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
 		const payload = { success: false, error: "not found" };

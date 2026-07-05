@@ -39,7 +39,8 @@ function parsePositiveInteger(value: unknown, max: number) {
 function parseSyncOptions(kind: string, body: Record<string, unknown>) {
 	const options: WebSyncOptions = {};
 	const limitCap = kind === "dms" ? 200 : 100;
-	const pageCap = kind === "bookmarks" || kind === "likes" ? 5 : 3;
+	const pageCap =
+		kind === "authored" ? 10 : kind === "bookmarks" || kind === "likes" ? 5 : 3;
 	const limit = parsePositiveInteger(body.limit, limitCap);
 	const maxPages = parsePositiveInteger(body.maxPages, pageCap);
 	if (kind === "dms") {

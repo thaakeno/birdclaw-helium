@@ -113,6 +113,35 @@ describe("api sync route", () => {
 		});
 	});
 
+	it("allows authored syncs to use Bird's ten page cap", async () => {
+		startWebSyncMock.mockReturnValue({
+			id: "sync_authored_1",
+			kind: "authored",
+			status: "running",
+			startedAt: "2026-05-15T12:00:00.000Z",
+			inProgress: true,
+			summary: "Syncing My posts",
+		});
+
+		const response = await POST({
+			request: new Request("http://localhost/api/sync", {
+				method: "POST",
+				body: JSON.stringify({
+					kind: "authored",
+					accountId: "acct_primary",
+					limit: 100,
+					maxPages: 10,
+				}),
+			}),
+		});
+
+		expect(response.status).toBe(202);
+		expect(startWebSyncMock).toHaveBeenCalledWith("authored", "acct_primary", {
+			limit: 100,
+			maxPages: 10,
+		});
+	});
+
 	it("returns sync job status by id", async () => {
 		getWebSyncJobMock.mockReturnValue({
 			id: "sync_timeline_1",
