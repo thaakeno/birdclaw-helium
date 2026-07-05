@@ -537,7 +537,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 											{profile.newCount && profile.newCount > 0 ? (
 												<span
 													className={cx(
-														"absolute -top-1.5 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[var(--accent)] px-0.5 text-[8px] font-bold text-white shadow-[0_0_0_1.5px_var(--bg)]",
+														"absolute -top-1.5 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#1d9bf0] px-0.5 text-[8px] font-bold text-white shadow-[0_0_0_1.5px_var(--bg)]",
 														!isCompact && "min-[1100px]:hidden",
 													)}
 												>
@@ -552,7 +552,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 										>
 											{label}
 											{profile.newCount && profile.newCount > 0 ? (
-												<span className="ml-auto rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+												<span className="ml-auto rounded-full bg-[#1d9bf0] px-1.5 py-0.5 text-[10px] font-bold text-white">
 													+{profile.newCount}
 												</span>
 											) : null}

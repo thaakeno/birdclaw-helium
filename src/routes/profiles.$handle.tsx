@@ -334,7 +334,6 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 				avatarUrl: profile?.avatarUrl,
 				avatarHue: profile?.avatarHue,
 				profileId: profile?.id,
-				lastSyncedAt: new Date().toISOString(),
 			},
 			...pinnedProfiles,
 		]);
