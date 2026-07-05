@@ -691,6 +691,73 @@ function getViewsCountFromRaw(raw: unknown) {
 	return Number.isFinite(count) ? count : undefined;
 }
 
+function extractRetweetedStatusFromRaw(raw: unknown): BirdTweetItem | null {
+	if (!raw || typeof raw !== "object") return null;
+	const record = raw as Record<string, any>;
+	let tweetResult = record.legacy?.retweeted_status_result?.result;
+	if (!tweetResult) return null;
+	if (tweetResult.__typename === "TweetWithVisibilityResults") {
+		tweetResult = tweetResult.tweet;
+	}
+	const legacy = tweetResult.legacy;
+	if (!legacy) return null;
+
+	const restId = tweetResult.rest_id;
+	if (typeof restId !== "string") return null;
+
+	const userResult = tweetResult.core?.user_results?.result;
+	let userLegacy = userResult?.legacy;
+	if (userResult?.__typename === "UserWithVisibilityResults") {
+		userLegacy = userResult.user?.legacy;
+	}
+
+	const authorId = legacy.user_id_str;
+	const author: BirdTweetAuthor | undefined = userLegacy
+		? {
+				username: userLegacy.screen_name,
+				name: userLegacy.name,
+				profileImageUrl: userLegacy.profile_image_url_https,
+			}
+		: undefined;
+
+	const media: BirdTweetMedia[] = [];
+	const rawMedia = legacy.extended_entities?.media || legacy.entities?.media;
+	if (Array.isArray(rawMedia)) {
+		for (const m of rawMedia) {
+			media.push({
+				type: m.type,
+				url: m.media_url_https,
+				previewUrl: m.media_url_https,
+				videoUrl: m.video_info?.variants?.find((v: any) => v.url && v.content_type === "video/mp4")?.url,
+				width: m.original_info?.width,
+				height: m.original_info?.height,
+				durationMs: m.video_info?.duration_millis,
+				altText: m.ext_alt_text,
+				variants: m.video_info?.variants?.map((v: any) => ({
+					url: v.url,
+					contentType: v.content_type,
+					bitRate: v.bitrate,
+				})),
+			});
+		}
+	}
+
+	return {
+		id: restId,
+		text: legacy.full_text ?? "",
+		createdAt: legacy.created_at ?? "",
+		replyCount: Number(legacy.reply_count ?? 0),
+		retweetCount: Number(legacy.retweet_count ?? 0),
+		likeCount: Number(legacy.favorite_count ?? 0),
+		conversationId: legacy.conversation_id_str,
+		inReplyToStatusId: legacy.in_reply_to_status_id_str,
+		author,
+		authorId,
+		_raw: tweetResult,
+		media,
+	};
+}
+
 function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 	const users = new Map<string, XurlMentionUser>();
 	const includedTweets = new Map<string, XurlMentionData>();
@@ -723,6 +790,14 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 			const quotedTweet = normalizeItem(item.quotedTweet, true);
 			if (quotedTweet.id !== item.id) {
 				includedTweets.set(quotedTweet.id, quotedTweet);
+			}
+		}
+
+		const retweetedStatus = extractRetweetedStatusFromRaw(item._raw);
+		if (retweetedStatus) {
+			const retweetedTweet = normalizeItem(retweetedStatus, true);
+			if (retweetedTweet.id !== item.id) {
+				includedTweets.set(retweetedTweet.id, retweetedTweet);
 			}
 		}
 

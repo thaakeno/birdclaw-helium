@@ -949,11 +949,11 @@ export function syncAuthoredTweetsEffect({
 				...(pageDelayMs !== undefined ? { delayMs: pageDelayMs } : {}),
 			});
 			const payload = filterPayloadAfterSince(rawPayload, localSinceId);
-			if (payload.data.length > 0) {
+			if (rawPayload.data.length > 0) {
 				yield* databaseWriteEffect((writeDb) => {
 					ingestTweetPayload(writeDb, {
 						accountId: identity.accountId,
-						payload,
+						payload: rawPayload,
 						source: "bird",
 						edgeKind: "authored",
 					});
