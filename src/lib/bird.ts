@@ -602,7 +602,10 @@ function toTweetEntities(item: BirdTweetItem) {
 	};
 }
 
-function toReferencedTweets(item: BirdTweetItem) {
+function toReferencedTweets(
+	item: BirdTweetItem,
+	retweetedStatusId?: string | null,
+) {
 	const references: XurlReferencedTweet[] = [];
 	if (typeof item.inReplyToStatusId === "string" && item.inReplyToStatusId) {
 		references.push({ type: "replied_to", id: item.inReplyToStatusId });
@@ -623,7 +626,7 @@ function toReferencedTweets(item: BirdTweetItem) {
 			? item.retweetedStatusId
 			: typeof item.retweetedTweet?.id === "string" && item.retweetedTweet.id
 				? item.retweetedTweet.id
-				: null;
+				: retweetedStatusId;
 	if (retweetedTweetId) {
 		references.push({ type: "retweeted", id: retweetedTweetId });
 	}
@@ -707,16 +710,24 @@ function extractRetweetedStatusFromRaw(raw: unknown): BirdTweetItem | null {
 
 	const userResult = tweetResult.core?.user_results?.result;
 	let userLegacy = userResult?.legacy;
+	let userCore = userResult?.core;
+	let userAvatar = userResult?.avatar;
 	if (userResult?.__typename === "UserWithVisibilityResults") {
 		userLegacy = userResult.user?.legacy;
+		userCore = userResult.user?.core;
+		userAvatar = userResult.user?.avatar;
 	}
 
 	const authorId = legacy.user_id_str;
-	const author: BirdTweetAuthor | undefined = userLegacy
+	const authorUsername = userLegacy?.screen_name ?? userCore?.screen_name;
+	const authorName = userLegacy?.name ?? userCore?.name;
+	const authorAvatar =
+		userLegacy?.profile_image_url_https ?? userAvatar?.image_url;
+	const author: BirdTweetAuthor | undefined = authorUsername || authorName || authorAvatar
 		? {
-				username: userLegacy.screen_name,
-				name: userLegacy.name,
-				profileImageUrl: userLegacy.profile_image_url_https,
+				username: authorUsername,
+				name: authorName,
+				profileImageUrl: authorAvatar,
 			}
 		: undefined;
 
@@ -823,7 +834,7 @@ function normalizeBirdTweets(items: BirdTweetItem[]): XurlMentionsResponse {
 					}
 				: {}),
 			entities: toTweetEntities(item),
-			referenced_tweets: toReferencedTweets(item),
+			referenced_tweets: toReferencedTweets(item, retweetedStatus?.id),
 			public_metrics: preserveMissingMetrics
 				? {
 						...(item.replyCount === undefined

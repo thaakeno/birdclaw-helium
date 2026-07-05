@@ -319,6 +319,9 @@ function buildEmbeddedTweet(
 				? Number(row[`${prefix}local_reply_count`])
 				: undefined,
 		quoteCount: edgeRawJson ? getQuoteCountFromRawJson(edgeRawJson) : undefined,
+		retweetCount: edgeRawJson
+			? getRetweetCountFromRawJson(edgeRawJson)
+			: undefined,
 		viewsCount: edgeRawJson ? getViewsCountFromRawJson(edgeRawJson) : undefined,
 	};
 }
@@ -383,6 +386,16 @@ function getQuoteCountFromRawJson(rawJson: unknown) {
 	return Number.isFinite(count) ? count : undefined;
 }
 
+function getRetweetCountFromRawJson(rawJson: unknown) {
+	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
+	const metrics = raw.public_metrics || raw.legacy;
+	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
+		return undefined;
+	}
+	const count = Number((metrics as { retweet_count?: unknown }).retweet_count);
+	return Number.isFinite(count) ? count : undefined;
+}
+
 function getViewsCountFromRawJson(rawJson: unknown) {
 	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
 	const views = raw.views;
@@ -439,6 +452,7 @@ function buildRetweetedTweet(
 		replyToId: null,
 		isReplied: Boolean(row.is_replied),
 		likeCount: Number(row.like_count ?? 0),
+		retweetCount: getRetweetCountFromRawJson(row.edge_raw_json),
 		mediaCount: Number(row.media_count ?? fallbackMedia.length),
 		bookmarked: Boolean(row.bookmarked),
 		liked: Boolean(row.liked),
@@ -1019,6 +1033,7 @@ export function listTimelineItems({
 			replyCount: getReplyCountFromRawJson(row.edge_raw_json),
 			localReplyCount: Number(row.local_reply_count ?? 0),
 			likeCount: Number(row.like_count),
+			retweetCount: getRetweetCountFromRawJson(row.edge_raw_json),
 			quoteCount: getQuoteCountFromRawJson(row.edge_raw_json),
 			viewsCount: getViewsCountFromRawJson(row.edge_raw_json),
 			mediaCount: Number(row.media_count),

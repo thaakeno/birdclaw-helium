@@ -570,6 +570,110 @@ describe("bird transport wrapper", () => {
 		]);
 	});
 
+	it("links bird retweet wrappers to the nested original tweet", async () => {
+		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
+		mockBirdStdoutOnce(
+			JSON.stringify([
+				{
+					id: "tweet_wrapper",
+					text: "RT @ava: Original app idea https://t.co/video",
+					createdAt: "Sun Jul 05 09:55:59 +0000 2026",
+					replyCount: 0,
+					retweetCount: 24,
+					likeCount: 0,
+					conversationId: "tweet_wrapper",
+					authorId: "viewer_1",
+					author: { username: "thaakeno", name: "thaakeno" },
+					_raw: {
+						legacy: {
+							retweeted_status_result: {
+								result: {
+									__typename: "Tweet",
+									rest_id: "tweet_original",
+									core: {
+										user_results: {
+											result: {
+												__typename: "User",
+												rest_id: "author_2",
+												core: {
+													screen_name: "ava",
+													name: "Ava",
+												},
+												avatar: {
+													image_url:
+														"https://pbs.twimg.com/profile_images/ava_normal.jpg",
+												},
+											},
+										},
+									},
+									legacy: {
+										id_str: "tweet_original",
+										full_text: "Original app idea https://t.co/video",
+										created_at: "Sun Jul 05 08:55:59 +0000 2026",
+										conversation_id_str: "tweet_original",
+										user_id_str: "author_2",
+										reply_count: 17,
+										retweet_count: 25,
+										favorite_count: 1216,
+										quote_count: 3,
+									},
+									views: { count: "36427" },
+								},
+							},
+						},
+					},
+				},
+			]),
+		);
+
+		const { listUserTweetsViaBird } = await import("./bird");
+
+		const payload = await listUserTweetsViaBird({
+			handle: "thaakeno",
+			maxResults: 1,
+			maxPages: 1,
+		});
+
+		expect(payload.data[0]).toMatchObject({
+			id: "tweet_wrapper",
+			referenced_tweets: [{ type: "retweeted", id: "tweet_original" }],
+		});
+		expect(payload.includes?.tweets).toEqual([
+			expect.objectContaining({
+				id: "tweet_original",
+				author_id: "author_2",
+				text: "Original app idea https://t.co/video",
+				public_metrics: expect.objectContaining({
+					reply_count: 17,
+					retweet_count: 25,
+					like_count: 1216,
+					quote_count: 3,
+				}),
+				views: { count: "36427", state: "EnabledWithCount" },
+			}),
+		]);
+		expect(payload.includes?.users).toEqual(
+			expect.arrayContaining([
+				{
+					id: "author_2",
+					username: "ava",
+					name: "Ava",
+					profile_image_url:
+						"https://pbs.twimg.com/profile_images/ava_normal.jpg",
+				},
+			]),
+		);
+		expectBirdCommandCall(1, [
+			"user-tweets",
+			"thaakeno",
+			"-n",
+			"1",
+			"--max-pages",
+			"1",
+			"--json-full",
+		]);
+	});
+
 	it("preserves structured JSON from failed bird DM mutations", async () => {
 		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
 		const payload = { success: false, error: "not found" };

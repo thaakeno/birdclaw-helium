@@ -238,7 +238,7 @@ describe("TimelineCard", () => {
 		);
 	});
 
-	it("uses the wrapper tweet id for manual retweet interactions", () => {
+	it("disables conversation fetches for unresolved manual retweets", () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
 			json: async () => ({ ok: true, anchorId: "tweet_manual", items: [] }),
@@ -278,15 +278,17 @@ describe("TimelineCard", () => {
 		);
 
 		expect(screen.getByText("Original app idea")).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Reply" }));
-		expect(onReply).toHaveBeenCalledWith("tweet_manual");
+		expect(screen.queryByRole("button", { name: "Reply" })).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Open on X" })).toHaveAttribute(
+			"href",
+			"https://x.com/sam/status/tweet_manual",
+		);
 
 		const row = container.querySelector("[data-perf='timeline-card']");
 		if (!row) throw new Error("timeline card missing");
 		fireEvent.click(row);
-		expect(fetchMock).toHaveBeenCalledWith(
-			"/api/conversation?tweetId=tweet_manual",
-		);
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(onReply).not.toHaveBeenCalled();
 	});
 
 	it("keeps duplicate retweet rows independently expandable", async () => {
@@ -690,7 +692,7 @@ describe("TimelineCard", () => {
 		).toBeNull();
 	});
 
-	it("keeps unresolved t.co links when the media tweet has other text", () => {
+	it("hides trailing unresolved media t.co links when the tweet has other text", () => {
 		render(
 			<TimelineCard
 				item={{
@@ -724,10 +726,7 @@ describe("TimelineCard", () => {
 		);
 
 		expect(screen.getByText("Read this")).toBeInTheDocument();
-		expect(screen.getByRole("link", { name: "t.co/article" })).toHaveAttribute(
-			"href",
-			"https://t.co/article",
-		);
+		expect(screen.queryByRole("link", { name: "t.co/article" })).not.toBeInTheDocument();
 		expect(screen.getByAltText("Article image")).toBeInTheDocument();
 	});
 

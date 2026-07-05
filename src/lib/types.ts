@@ -139,6 +139,7 @@ export interface EmbeddedTweet {
 	replyCount?: number;
 	localReplyCount?: number;
 	likeCount?: number;
+	retweetCount?: number;
 	quoteCount?: number;
 	viewsCount?: number;
 	mediaCount?: number;
@@ -182,6 +183,7 @@ export interface TimelineItem {
 	replyCount?: number;
 	localReplyCount?: number;
 	likeCount: number;
+	retweetCount?: number;
 	quoteCount?: number;
 	viewsCount?: number;
 	mediaCount: number;

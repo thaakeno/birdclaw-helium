@@ -175,19 +175,34 @@ export function upsertProfileFromXUser(
 	}
 
 	const profileId = buildExternalProfileId(externalUserId);
-	const existingRow = db
+	const existingHandleRow = db
 		.prepare(
 			`
       select id
       from profiles
-      where id = ? or handle = ?
+      where handle = ?
       limit 1
       `,
 		)
-		.get(profileId, username) as { id: string } | undefined;
+		.get(username) as { id: string } | undefined;
 
-	if (existingRow) {
-		return updateExistingProfileFromUser(db, existingRow.id, user);
+	if (existingHandleRow) {
+		return updateExistingProfileFromUser(db, existingHandleRow.id, user);
+	}
+
+	const existingIdRow = db
+		.prepare(
+			`
+      select id
+      from profiles
+      where id = ?
+      limit 1
+      `,
+		)
+		.get(profileId) as { id: string } | undefined;
+
+	if (existingIdRow) {
+		return updateExistingProfileFromUser(db, existingIdRow.id, user);
 	}
 
 	const displayName = String(user.name ?? "").trim() || username;

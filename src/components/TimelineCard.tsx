@@ -117,6 +117,16 @@ function isUnresolvedShortUrlEntity(entry: TweetUrlEntity) {
 	return !entry.displayUrl && isShortUrl(entry.url);
 }
 
+function isTrailingUnresolvedShortUrlEntity(
+	entry: TweetUrlEntity,
+	text: string,
+) {
+	if (!isUnresolvedShortUrlEntity(entry)) return false;
+	const range = normalizeTweetUrlEntityRangeForText(text, entry);
+	const trailingText = text.slice(range.end).trim();
+	return trailingText.length === 0;
+}
+
 function unresolvedShortUrlRanges(text: string, entities: TweetEntities) {
 	return (entities.urls ?? [])
 		.filter(isUnresolvedShortUrlEntity)
@@ -196,7 +206,8 @@ function getVisibleEntities(
 		urls: (entities.urls ?? []).filter(
 			(entry) =>
 				!isMediaUrlEntity(entry, mediaUrls, tweetId) &&
-				!(hideUnresolvedShortUrls && isUnresolvedShortUrlEntity(entry)),
+				!(hideUnresolvedShortUrls && isUnresolvedShortUrlEntity(entry)) &&
+				!isTrailingUnresolvedShortUrlEntity(entry, text),
 		),
 	};
 }
@@ -218,7 +229,8 @@ function getHiddenMediaUrlRanges(
 		.filter(
 			(entry) =>
 				isMediaUrlEntity(entry, mediaUrls, tweetId) ||
-				(hideUnresolvedShortUrls && isUnresolvedShortUrlEntity(entry)),
+				(hideUnresolvedShortUrls && isUnresolvedShortUrlEntity(entry)) ||
+				isTrailingUnresolvedShortUrlEntity(entry, text),
 		)
 		.map((entry) => normalizeTweetUrlEntityRangeForText(text, entry));
 }
@@ -400,16 +412,19 @@ export function TimelineCard({
 		y: number;
 	} | null>(null);
 	const [activeExpandedTab, setActiveExpandedTab] = useState<"replies" | "quotes">("replies");
-	const canReply =
-		showReplyControls && item.kind !== "like" && item.kind !== "bookmark";
 	const displayTweet = item.retweetedTweet ?? item;
 	const displayTweetId = displayTweet.id;
+	const unresolvedRetweet =
+		Boolean(item.retweetedTweet) && displayTweetId === `${item.id}:retweeted`;
+	const canReply =
+		showReplyControls &&
+		!unresolvedRetweet &&
+		item.kind !== "like" &&
+		item.kind !== "bookmark";
 	const interactionTweetId =
-		item.retweetedTweet && displayTweetId === `${item.id}:retweeted`
-			? item.id
-			: displayTweetId;
+		item.retweetedTweet && !unresolvedRetweet ? displayTweetId : item.id;
 	const displayAuthor = displayTweet.author;
-	const displayTweetUrl = tweetUrl(displayTweet);
+	const displayTweetUrl = unresolvedRetweet ? tweetUrl(item) : tweetUrl(displayTweet);
 	const conversation = useConversationSurface(item.id, interactionTweetId);
 	const visibleEntities = getVisibleEntities(
 		displayTweet.entities,
@@ -433,16 +448,19 @@ export function TimelineCard({
 	const displayLocalReplyCount =
 		displayTweet.localReplyCount ?? item.localReplyCount ?? 0;
 	const displayLikeCount = displayTweet.likeCount ?? item.likeCount;
+	const displayRetweetCount = displayTweet.retweetCount ?? item.retweetCount ?? 0;
 	const displayBookmarked = displayTweet.bookmarked ?? item.bookmarked;
 	const displayLiked = displayTweet.liked ?? item.liked;
 	const displayQuoteCount = displayTweet.quoteCount ?? item.quoteCount ?? 0;
 	const displayViewsCount = displayTweet.viewsCount ?? item.viewsCount ?? 0;
-	const hasConversation = Boolean(
+	const canFetchConversation = !unresolvedRetweet;
+	const hasConversation = canFetchConversation && Boolean(
 		item.retweetedTweet
 			? displayTweet.replyToId
 			: item.replyToTweet || item.replyToId,
 	);
 	const syncThread = async () => {
+		if (!canFetchConversation) return;
 		setThreadSyncState("syncing");
 		try {
 			const response = await fetch("/api/thread-sync", {
@@ -508,10 +526,11 @@ export function TimelineCard({
 				event.preventDefault();
 				setContextMenu({ x: event.clientX, y: event.clientY });
 			}}
-			onFocus={conversation.prefetch}
-			onMouseEnter={conversation.prefetch}
+			onFocus={canFetchConversation ? conversation.prefetch : undefined}
+			onMouseEnter={canFetchConversation ? conversation.prefetch : undefined}
 			onClick={(event) => {
 				if (isInteractiveTarget(event.target)) return;
+				if (!canFetchConversation) return;
 				conversation.toggle();
 			}}
 		>
@@ -654,74 +673,90 @@ export function TimelineCard({
 								<span>{formatCompactNumber(displayViewsCount)}</span>
 							</span>
 						) : null}
-						<button
-							aria-expanded={conversation.isOpen && activeExpandedTab === "replies"}
-							aria-label={
-								conversation.isOpen && activeExpandedTab === "replies"
-									? "Hide local thread"
-									: "Show local thread"
-							}
-							className={cx(
-								feedActionButtonClass,
-								conversation.isOpen && activeExpandedTab === "replies" && "text-[var(--accent)]"
-							)}
-							onClick={(event) => {
-								event.stopPropagation();
-								setActiveExpandedTab("replies");
-								if (!conversation.isOpen) {
-									conversation.toggle();
-								} else if (activeExpandedTab === "replies") {
-									conversation.toggle();
-								}
-							}}
-							title={
-								displayLocalReplyCount > 0
-									? `${formatCompactNumber(displayLocalReplyCount)} archived replies`
-									: displayReplyCount > 0
-										? `${formatCompactNumber(displayReplyCount)} replies reported by X`
-										: "Show archived replies"
-							}
-							type="button"
-						>
-							<span className={feedActionIconWrapClass}>
-								<MessageCircle
-									className={feedActionIconClass}
-									strokeWidth={1.9}
-								/>
+						{canFetchConversation ? (
+							<>
+								<button
+									aria-expanded={conversation.isOpen && activeExpandedTab === "replies"}
+									aria-label={
+										conversation.isOpen && activeExpandedTab === "replies"
+											? "Hide local thread"
+											: "Show local thread"
+									}
+									className={cx(
+										feedActionButtonClass,
+										conversation.isOpen && activeExpandedTab === "replies" && "text-[var(--accent)]"
+									)}
+									onClick={(event) => {
+										event.stopPropagation();
+										setActiveExpandedTab("replies");
+										if (!conversation.isOpen) {
+											conversation.toggle();
+										} else if (activeExpandedTab === "replies") {
+											conversation.toggle();
+										}
+									}}
+									title={
+										displayLocalReplyCount > 0
+											? `${formatCompactNumber(displayLocalReplyCount)} archived replies`
+											: displayReplyCount > 0
+												? `${formatCompactNumber(displayReplyCount)} replies reported by X`
+												: "Show archived replies"
+									}
+									type="button"
+								>
+									<span className={feedActionIconWrapClass}>
+										<MessageCircle
+											className={feedActionIconClass}
+											strokeWidth={1.9}
+										/>
+									</span>
+									<span>
+										{formatCompactNumber(
+											displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount,
+										)}
+									</span>
+								</button>
+								<button
+									aria-expanded={conversation.isOpen && activeExpandedTab === "quotes"}
+									aria-label="Quote tweets"
+									className={cx(
+										feedActionButtonClass,
+										conversation.isOpen && activeExpandedTab === "quotes" && "text-[var(--accent)]"
+									)}
+									onClick={(event) => {
+										event.stopPropagation();
+										setActiveExpandedTab("quotes");
+										if (!conversation.isOpen) {
+											conversation.toggle();
+										} else if (activeExpandedTab === "quotes") {
+											conversation.toggle();
+										}
+									}}
+									title={`${formatCompactNumber(displayQuoteCount)} quote tweets`}
+									type="button"
+								>
+									<span className={feedActionIconWrapClass}>
+										<Quote
+											className={feedActionIconClass}
+											strokeWidth={1.9}
+										/>
+									</span>
+									<span>{formatCompactNumber(displayQuoteCount)}</span>
+								</button>
+							</>
+						) : null}
+						{displayRetweetCount > 0 ? (
+							<span
+								aria-label={`${formatCompactNumber(displayRetweetCount)} reposts`}
+								className={cx(feedActionButtonClass, "pointer-events-none")}
+								title={`${formatCompactNumber(displayRetweetCount)} reposts`}
+							>
+								<span className={feedActionIconWrapClass}>
+									<Repeat2 className={feedActionIconClass} strokeWidth={1.9} />
+								</span>
+								<span>{formatCompactNumber(displayRetweetCount)}</span>
 							</span>
-							<span>
-								{formatCompactNumber(
-									displayLocalReplyCount > 0 ? displayLocalReplyCount : displayReplyCount,
-								)}
-							</span>
-						</button>
-						<button
-							aria-expanded={conversation.isOpen && activeExpandedTab === "quotes"}
-							aria-label="Quote tweets"
-							className={cx(
-								feedActionButtonClass,
-								conversation.isOpen && activeExpandedTab === "quotes" && "text-[var(--accent)]"
-							)}
-							onClick={(event) => {
-								event.stopPropagation();
-								setActiveExpandedTab("quotes");
-								if (!conversation.isOpen) {
-									conversation.toggle();
-								} else if (activeExpandedTab === "quotes") {
-									conversation.toggle();
-								}
-							}}
-							title={`${formatCompactNumber(displayQuoteCount)} quote tweets`}
-							type="button"
-						>
-							<span className={feedActionIconWrapClass}>
-								<Quote
-									className={feedActionIconClass}
-									strokeWidth={1.9}
-								/>
-							</span>
-							<span>{formatCompactNumber(displayQuoteCount)}</span>
-						</button>
+						) : null}
 						<span
 							aria-label={`${formatCompactNumber(displayLikeCount)} likes`}
 							className={cx(
@@ -771,7 +806,7 @@ export function TimelineCard({
 						</a>
 					</div>
 				</footer>
-				{conversation.isOpen ? (
+				{conversation.isOpen && canFetchConversation ? (
 					<>
 						{/* Tabs selection bar */}
 						<div className="flex items-center justify-between border-b border-[var(--line)] px-2 mt-3">
@@ -843,6 +878,7 @@ export function TimelineCard({
 				? createPortal(
 						<TimelineCardContextMenu
 							authorHandle={displayAuthor.handle}
+							canFetchThread={canFetchConversation}
 							onClose={() => setContextMenu(null)}
 							onFetchThread={() => void syncThread()}
 							position={contextMenu}
@@ -860,6 +896,7 @@ export function TimelineCard({
 
 function TimelineCardContextMenu({
 	authorHandle,
+	canFetchThread,
 	onClose,
 	onFetchThread,
 	position,
@@ -869,6 +906,7 @@ function TimelineCardContextMenu({
 	replies,
 }: {
 	authorHandle: string;
+	canFetchThread: boolean;
 	onClose: () => void;
 	onFetchThread: () => void;
 	position: { x: number; y: number };
@@ -926,17 +964,19 @@ function TimelineCardContextMenu({
 				<UserSearch className="size-5" strokeWidth={2} />
 				Analyse @{authorHandle}
 			</a>
-			<button
-				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
-				onClick={() => {
-					onFetchThread();
-					onClose();
-				}}
-				type="button"
-			>
-				<RefreshCw className="size-5" strokeWidth={2} />
-				Fetch thread
-			</button>
+			{canFetchThread ? (
+				<button
+					className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+					onClick={() => {
+						onFetchThread();
+						onClose();
+					}}
+					type="button"
+				>
+					<RefreshCw className="size-5" strokeWidth={2} />
+					Fetch thread
+				</button>
+			) : null}
 			<button
 				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
 				onClick={() => void copyText(tweetId)}
