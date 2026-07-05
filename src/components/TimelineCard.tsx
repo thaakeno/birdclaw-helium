@@ -7,7 +7,6 @@ import {
 	ExternalLink,
 	Eye,
 	Heart,
-	LoaderCircle,
 	MessageCircle,
 	MoreHorizontal,
 	Quote,
@@ -498,22 +497,6 @@ export function TimelineCard({
 			setMediaSyncState("error");
 		}
 	};
-	useEffect(() => {
-		if (conversation.isOpen && activeExpandedTab === "replies") {
-			if (displayLocalReplyCount === 0 && threadSyncState === "idle") {
-				void syncThread();
-			}
-		}
-	}, [conversation.isOpen, activeExpandedTab, displayLocalReplyCount]);
-
-	useEffect(() => {
-		if (conversation.isOpen) {
-			if (displayViewsCount === 0 && mediaSyncState === "idle") {
-				void hydrateTweetMedia();
-			}
-		}
-	}, [conversation.isOpen, displayViewsCount, mediaSyncState]);
-
 	return (
 		<article
 			className={cx(
@@ -844,6 +827,7 @@ export function TimelineCard({
 								renderCard={(quoteItem) => (
 									<TimelineCard
 										item={quoteItem as any}
+										onReply={() => {}}
 										showReplyControls={true}
 									/>
 								)}

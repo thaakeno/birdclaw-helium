@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { listQuotesViaBird, listThreadViaBird } from "#/lib/bird";
+import { listQuotesViaBird } from "#/lib/bird";
 import { getNativeDb } from "#/lib/db";
 import {
 	jsonResponse,
@@ -75,7 +75,6 @@ export const Route = createFileRoute("/api/quotes")({
 							});
 
 							const fresh = getCachedQuotes(db, accountId, tweetId);
-							triggerBackgroundThreadSync(db, accountId, fresh);
 							return jsonResponse({
 								ok: true,
 								tweetId,
@@ -191,28 +190,4 @@ function getCachedQuotes(db: any, accountId: string, tweetId: string) {
 		quoteCount: getQuoteCount(row.edge_raw_json),
 		viewsCount: getViewsCount(row.edge_raw_json),
 	}));
-}
-
-function triggerBackgroundThreadSync(db: any, accountId: string, quotes: any[]) {
-	// Sync threads sequentially in the background to avoid rate limit spikes
-	Promise.resolve().then(async () => {
-		for (const quote of quotes) {
-			try {
-				const threadPayload = await listThreadViaBird({
-					tweetId: quote.id,
-					all: false, // only get first page of replies to keep it super fast
-					maxPages: 1,
-					timeoutMs: 15_000,
-				});
-				ingestTweetPayload(db, {
-					accountId,
-					payload: threadPayload as any,
-					source: "bird",
-					markRepliesAsReplied: true,
-				});
-			} catch (e) {
-				console.error(`Background thread pre-fetch failed for quote ${quote.id}:`, e);
-			}
-		}
-	});
 }

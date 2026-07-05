@@ -65,7 +65,6 @@ export function QuotesThread({
 	useEffect(() => {
 		const load = async () => {
 			await fetchQuotes(false);
-			await fetchQuotes(true);
 		};
 		void load();
 	}, [tweetId, accountId]);

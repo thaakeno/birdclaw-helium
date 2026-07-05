@@ -330,6 +330,7 @@ describe("bird transport wrapper", () => {
 						reply_count: 0,
 						retweet_count: 0,
 						like_count: 0,
+						quote_count: 0,
 					},
 				}),
 				expect.objectContaining({
@@ -352,6 +353,7 @@ describe("bird transport wrapper", () => {
 						reply_count: 4,
 						retweet_count: 5,
 						like_count: 6,
+						quote_count: 0,
 					},
 				}),
 			],
@@ -421,6 +423,23 @@ describe("bird transport wrapper", () => {
 		await expect(listDirectMessagesViaBird({ maxResults: 5 })).rejects.toThrow(
 			"Live DM sync is not supported by the installed bird helper",
 		);
+	});
+
+	it("reports locked Helium cookies without retrying in a loop", async () => {
+		process.env.BIRDCLAW_BIRD_COMMAND = "/tmp/bird";
+		mockBirdRejectOnce(
+			Object.assign(new Error("Command failed"), {
+				stderr:
+					"Failed to copy Chrome cookie DB: EBUSY: resource busy or locked",
+			}),
+		);
+
+		const { listThreadViaBird } = await import("./bird");
+
+		await expect(listThreadViaBird({ tweetId: "1234567890" })).rejects.toThrow(
+			"Helium has the cookie database locked",
+		);
+		expect(execFileAsyncMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("tolerates bird json with raw newlines inside tweet text", async () => {

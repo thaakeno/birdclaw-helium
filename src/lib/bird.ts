@@ -19,6 +19,11 @@ import type {
 const execFileAsync = promisify(execFile);
 const BIRD_JSON_MAX_BUFFER_BYTES = 512 * 1024 * 1024;
 const BIRD_STDOUT_REDIRECT_SCRIPT = 'out="$1"; shift; exec "$@" > "$out"';
+const BIRD_EXEC_OPTIONS = { windowsHide: true } as const;
+const DEFAULT_BIRD_COMMAND_INTERVAL_MS = 1250;
+
+let birdCommandQueue: Promise<void> = Promise.resolve();
+let lastBirdCommandFinishedAt = 0;
 
 interface BirdTweetMedia {
 	type?: string;
@@ -233,6 +238,62 @@ function parseBirdJson(stdout: string) {
 	}
 }
 
+function parseNonNegativeEnvInteger(value: string | undefined, fallback: number) {
+	if (value === undefined || value.trim() === "") return fallback;
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+	return Math.floor(parsed);
+}
+
+function getBirdCommandIntervalMs() {
+	if (process.env.VITEST || process.env.NODE_ENV === "test") {
+		return parseNonNegativeEnvInteger(
+			process.env.BIRDCLAW_BIRD_COMMAND_INTERVAL_MS,
+			0,
+		);
+	}
+	return parseNonNegativeEnvInteger(
+		process.env.BIRDCLAW_BIRD_COMMAND_INTERVAL_MS,
+		DEFAULT_BIRD_COMMAND_INTERVAL_MS,
+	);
+}
+
+function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function enqueueBirdCommand<T>(task: () => Promise<T>) {
+	const run = birdCommandQueue
+		.catch(() => undefined)
+		.then(async () => {
+			const minIntervalMs = getBirdCommandIntervalMs();
+			const waitMs =
+				minIntervalMs > 0
+					? Math.max(0, lastBirdCommandFinishedAt + minIntervalMs - Date.now())
+					: 0;
+			if (waitMs > 0) {
+				await sleep(waitMs);
+			}
+			try {
+				return await task();
+			} finally {
+				lastBirdCommandFinishedAt = Date.now();
+			}
+		});
+	birdCommandQueue = run.then(
+		() => undefined,
+		() => undefined,
+	);
+	return run;
+}
+
+function isCookieDatabaseLockError(text: string) {
+	return (
+		/Failed to copy Chrome cookie DB/i.test(text) &&
+		/EBUSY|resource busy or locked|being used by another process/i.test(text)
+	);
+}
+
 function formatBirdCommandError(error: unknown, birdCommand: string) {
 	const text = [
 		error instanceof Error ? error.message : "",
@@ -263,6 +324,11 @@ function formatBirdCommandError(error: unknown, birdCommand: string) {
 	if (/unknown command ['"]?dms['"]?/i.test(text)) {
 		return new Error(
 			"Live DM sync is not supported by the installed bird helper because it does not provide `bird dms`. Import an official X archive to view local DMs, or install a bird helper version that supports live DM reads.",
+		);
+	}
+	if (isCookieDatabaseLockError(text)) {
+		return new Error(
+			"Bird could not read Helium's X cookies because Helium has the cookie database locked. Close Helium fully, wait a few seconds, then run the live sync/fetch again. Birdclaw stopped this request instead of retrying in a loop.",
 		);
 	}
 
@@ -310,17 +376,23 @@ export function runBirdJsonCommandEffect(args: string[], timeoutMs?: number) {
 			const { stdoutPath } = yield* makeBirdStdoutTempEffect();
 			yield* Effect.tryPromise({
 				try: () =>
-					execFileAsync(
-						getBirdShellCommand(),
-						[
-							"-c",
-							BIRD_STDOUT_REDIRECT_SCRIPT,
-							"birdclaw-bird",
-							stdoutPath,
-							birdCommand,
-							...args,
-						],
-						{ maxBuffer: BIRD_JSON_MAX_BUFFER_BYTES, timeout: timeoutMs },
+					enqueueBirdCommand(() =>
+						execFileAsync(
+							getBirdShellCommand(),
+							[
+								"-c",
+								BIRD_STDOUT_REDIRECT_SCRIPT,
+								"birdclaw-bird",
+								stdoutPath,
+								birdCommand,
+								...args,
+							],
+							{
+								...BIRD_EXEC_OPTIONS,
+								maxBuffer: BIRD_JSON_MAX_BUFFER_BYTES,
+								timeout: timeoutMs,
+							},
+						),
 					),
 				catch: (error) => formatBirdCommandError(error, birdCommand),
 			});
@@ -346,17 +418,23 @@ function runBirdJsonCommandAllowFailureEffect(
 			const { stdoutPath } = yield* makeBirdStdoutTempEffect();
 			yield* Effect.tryPromise({
 				try: () =>
-					execFileAsync(
-						getBirdShellCommand(),
-						[
-							"-c",
-							BIRD_STDOUT_REDIRECT_SCRIPT,
-							"birdclaw-bird",
-							stdoutPath,
-							birdCommand,
-							...args,
-						],
-						{ maxBuffer: BIRD_JSON_MAX_BUFFER_BYTES, timeout: timeoutMs },
+					enqueueBirdCommand(() =>
+						execFileAsync(
+							getBirdShellCommand(),
+							[
+								"-c",
+								BIRD_STDOUT_REDIRECT_SCRIPT,
+								"birdclaw-bird",
+								stdoutPath,
+								birdCommand,
+								...args,
+							],
+							{
+								...BIRD_EXEC_OPTIONS,
+								maxBuffer: BIRD_JSON_MAX_BUFFER_BYTES,
+								timeout: timeoutMs,
+							},
+						),
 					).catch((error: unknown) => {
 						const stdout = readFileSync(stdoutPath, "utf8");
 						if (stdout.trim().length > 0) {

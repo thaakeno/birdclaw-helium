@@ -38,15 +38,19 @@ function parsePositiveInteger(value: unknown, max: number) {
 
 function parseSyncOptions(kind: string, body: Record<string, unknown>) {
 	const options: WebSyncOptions = {};
-	const limit = parsePositiveInteger(body.limit, 1000);
-	const maxPages = parsePositiveInteger(body.maxPages, 250);
+	const limitCap = kind === "dms" ? 200 : 100;
+	const pageCap = kind === "bookmarks" || kind === "likes" ? 5 : 3;
+	const limit = parsePositiveInteger(body.limit, limitCap);
+	const maxPages = parsePositiveInteger(body.maxPages, pageCap);
 	if (kind === "dms") {
 		const inbox = parseDmInbox(body.inbox);
 		if (inbox) options.inbox = inbox;
 	}
 	if (limit) options.limit = limit;
 	if (maxPages) options.maxPages = maxPages;
-	if (typeof body.allPages === "boolean") options.allPages = body.allPages;
+	if (typeof body.allPages === "boolean") {
+		options.allPages = kind === "bookmarks" || kind === "likes" ? body.allPages : false;
+	}
 	return options;
 }
 
