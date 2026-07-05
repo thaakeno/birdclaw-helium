@@ -135,11 +135,11 @@ export function ingestTweetPayload(
 				where tweet_id = ?
 			`).run(JSON.stringify(tweet), tweet.id);
 
-			if (edgeKind && isPrimaryTweet) {
+			if (edgeKind) {
 				upsertTweetAccountEdge(db, {
 					accountId,
 					tweetId: tweet.id,
-					kind: edgeKind,
+					kind: isPrimaryTweet ? edgeKind : "thread_context",
 					source,
 					seenAt: observedAt,
 					rawJson: JSON.stringify(tweet),
