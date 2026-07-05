@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
 	Globe2,
 	MapPin,
@@ -535,9 +535,10 @@ function ClusterPopup({
 
 function ProfileRow({ feature }: { feature: MapFeature }) {
 	return (
-		<a
+		<Link
 			className="flex min-w-0 gap-3 border-b border-[var(--line)] px-4 py-3 transition-colors hover:bg-[var(--bg-hover)]"
-			href={`/profiles/${encodeURIComponent(feature.properties.handle)}`}
+			to="/profiles/$handle"
+			params={{ handle: feature.properties.handle }}
 		>
 			<Avatar feature={feature} size={40} className="ring-[var(--bg)]" />
 			<div className="min-w-0 flex-1">
@@ -562,7 +563,7 @@ function ProfileRow({ feature }: { feature: MapFeature }) {
 					</span>
 				</div>
 			</div>
-		</a>
+		</Link>
 	);
 }
 

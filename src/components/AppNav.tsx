@@ -509,7 +509,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 										}}
 										to={to}
 									>
-										<span className="grid size-[22px] shrink-0 place-items-center overflow-hidden rounded-full">
+										<span className="relative grid size-[22px] shrink-0 place-items-center overflow-visible rounded-full">
 											<AvatarChip
 												avatarUrl={profile.avatarUrl}
 												hue={profile.avatarHue ?? 210}
@@ -517,6 +517,16 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 												profileId={profile.profileId}
 												size="xsmall"
 											/>
+											{profile.newCount && profile.newCount > 0 ? (
+												<span
+													className={cx(
+														"absolute -top-1.5 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[var(--accent)] px-0.5 text-[8px] font-bold text-white shadow-[0_0_0_1.5px_var(--bg)]",
+														!isCompact && "min-[1100px]:hidden",
+													)}
+												>
+													+{profile.newCount}
+												</span>
+											) : null}
 										</span>
 										<span
 											className={
@@ -659,13 +669,14 @@ function PinnedProfileMenu({
 			onClick={(event) => event.stopPropagation()}
 			style={{ left, top }}
 		>
-			<a
+			<Link
 				className="block px-4 py-2.5 font-semibold hover:bg-[var(--bg-hover)]"
-				href={`/profiles/${encodeURIComponent(handle)}`}
+				to="/profiles/$handle"
+				params={{ handle }}
 				onClick={onClose}
 			>
 				Open @{handle}
-			</a>
+			</Link>
 			<button
 				className="block w-full px-4 py-2.5 text-left font-semibold hover:bg-[var(--bg-hover)]"
 				onClick={() => void onRefresh()}

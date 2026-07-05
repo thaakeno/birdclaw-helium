@@ -1,4 +1,5 @@
 import { Fragment, type MouseEventHandler, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { formatCompactNumber } from "#/lib/present";
 import type { PeriodDigestContext } from "#/lib/period-digest";
 import type { ProfileAnalysisContext } from "#/lib/profile-analysis";
@@ -572,13 +573,14 @@ export function renderInline(text: string, lookup: InlineLookup) {
 						<span className={tweetMentionClass}>{token}</span>
 					</ProfilePreview>
 				) : (
-					<a
+					<Link
 						key={tokenKey}
 						className={tweetMentionClass}
-						href={`/profiles/${encodeURIComponent(token.slice(1))}`}
+						to="/profiles/$handle"
+						params={{ handle: token.slice(1) }}
 					>
 						{token}
-					</a>
+					</Link>
 				),
 			);
 			continue;

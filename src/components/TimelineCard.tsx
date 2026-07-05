@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	BookmarkCheck,
@@ -956,14 +957,15 @@ function TimelineCardContextMenu({
 				<ExternalLink className="size-5" strokeWidth={2} />
 				Open on X
 			</a>
-			<a
+			<Link
 				className="flex items-center gap-3 px-4 py-3 font-semibold transition-colors hover:bg-[var(--bg-hover)]"
-				href={`/profiles/${encodeURIComponent(authorHandle)}`}
+				to="/profiles/$handle"
+				params={{ handle: authorHandle }}
 				onClick={onClose}
 			>
 				<UserSearch className="size-5" strokeWidth={2} />
 				Analyse @{authorHandle}
-			</a>
+			</Link>
 			{canFetchThread ? (
 				<button
 					className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"

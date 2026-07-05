@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { createPortal } from "react-dom";
 import { formatCompactNumber } from "#/lib/present";
 import {
@@ -85,14 +86,15 @@ export function ProfilePreview({
 			className={cx(profilePreviewClass, className)}
 			{...preview.referenceProps}
 		>
-			<a
+			<Link
 				aria-controls={preview.open ? preview.floatingId : undefined}
 				aria-expanded={preview.open}
 				className={profilePreviewTriggerClass}
-				href={`/profiles/${encodeURIComponent(profile.handle)}`}
+				to="/profiles/$handle"
+				params={{ handle: profile.handle }}
 			>
 				{children}
-			</a>
+			</Link>
 			{preview.open && typeof document !== "undefined"
 				? createPortal(
 						<span

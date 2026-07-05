@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	CheckCircle2,
@@ -279,12 +279,13 @@ function DigestSourceCard({ tweet }: { tweet: DigestTweet }) {
 			/>
 			<div className={feedRowBodyClass}>
 				<header className={feedRowHeaderClass}>
-					<a
+					<Link
 						className={feedRowNameClass}
-						href={`/profiles/${encodeURIComponent(tweet.author)}`}
+						to="/profiles/$handle"
+						params={{ handle: tweet.author }}
 					>
 						{tweet.name || tweet.author}
-					</a>
+					</Link>
 					<span className={feedRowHandleClass}>@{tweet.author}</span>
 					<span className={feedRowDotClass}>·</span>
 					<SmartTimestamp

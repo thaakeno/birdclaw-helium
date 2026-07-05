@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import {
 	collectTweetSegmentsForText,
@@ -110,13 +111,14 @@ export function TweetRichText({
 					);
 				} else if (segment.kind === "mention") {
 					node = (
-						<a
+						<Link
 							key={`segment-${String(index)}`}
 							className={tweetMentionClass}
-							href={`/profiles/${encodeURIComponent(segment.username)}`}
+							to="/profiles/$handle"
+							params={{ handle: segment.username }}
 						>
 							@{segment.username}
-						</a>
+						</Link>
 					);
 				} else if (segment.kind === "url") {
 					const href = safeHttpUrl(segment.expandedUrl);
