@@ -1146,14 +1146,13 @@ export function collectProfileAnalysisContextEffect(
 				if (
 					options.refresh &&
 					refreshMode !== "deep" &&
-					lastLocalTweetTime > 0 &&
 					birdPayload.data.length > 0
 				) {
 					const oldestFetchedTweetTime = new Date(
 						birdPayload.data[birdPayload.data.length - 1].created_at
 					).getTime();
 
-					if (oldestFetchedTweetTime > lastLocalTweetTime) {
+					if (lastLocalTweetTime === 0 || oldestFetchedTweetTime > lastLocalTweetTime) {
 						emitStatus(
 							handlers,
 							"Backfilling profile tweets",
