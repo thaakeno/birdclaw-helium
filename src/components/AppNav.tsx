@@ -546,13 +546,14 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 											) : null}
 										</span>
 										<span
-											className={
-												isCompact ? navLinkLabelCompactClass : navLinkLabelClass
-											}
+											className={cx(
+												isCompact ? navLinkLabelCompactClass : navLinkLabelClass,
+												"flex-1 min-w-0 flex items-center justify-between gap-2",
+											)}
 										>
-											{label}
+											<span className="truncate">{label}</span>
 											{profile.newCount && profile.newCount > 0 ? (
-												<span className="ml-auto rounded-full bg-[#1d9bf0] px-1.5 py-0.5 text-[10px] font-bold text-white">
+												<span className="shrink-0 rounded-full bg-[#1d9bf0] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
 													+{profile.newCount}
 												</span>
 											) : null}
