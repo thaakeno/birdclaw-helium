@@ -13,6 +13,7 @@ import {
 	useEffect,
 	useRef,
 	useState,
+	type CSSProperties,
 	type MutableRefObject,
 	type ReactNode,
 } from "react";
@@ -61,6 +62,8 @@ export function TweetMediaGrid({
 		!isVideoLikeMedia(visibleItems[0])
 			? visibleItems[0]
 			: null;
+	const singleMediaStyle =
+		visibleItems.length === 1 ? singleMediaContainerStyle(visibleItems[0]) : undefined;
 
 	async function hydrateVideo() {
 		if (!onHydrateVideo || hydratingVideo) return;
@@ -145,7 +148,10 @@ export function TweetMediaGrid({
 					/>
 				</button>
 			) : (
-				<div className={tweetMediaGridClass(Math.min(items.length, 4))}>
+				<div
+					className={tweetMediaGridClass(Math.min(items.length, 4))}
+					style={singleMediaStyle}
+				>
 					{visibleItems.map((item, index) => {
 						const itemLooksLikeVideo = isVideoLikeMedia(item);
 						const tileStyle =
@@ -170,7 +176,7 @@ export function TweetMediaGrid({
 									key={item.url + String(index)}
 									className={cx(
 										tweetMediaTileClass(index, Math.min(items.length, 4)),
-										"bg-black",
+										"bg-black shadow-[0_0_34px_color-mix(in_srgb,var(--accent)_14%,transparent)]",
 									)}
 									style={tileStyle}
 								>
@@ -188,6 +194,8 @@ export function TweetMediaGrid({
 										poster={item.thumbnailUrl}
 										rawUrl={directVideoUrl}
 										src={videoUrl}
+										videoHeight={item.height}
+										videoWidth={item.width}
 									/>
 									<MediaTileActions
 										index={index}
@@ -406,6 +414,8 @@ function MediaViewerModal({
 							poster={selectedItem.thumbnailUrl}
 							rawUrl={selectedVideoUrl}
 							src={browserVideoUrl(selectedVideoUrl)}
+							videoHeight={selectedItem.height}
+							videoWidth={selectedItem.width}
 						/>
 					) : (
 						<div className="grid min-h-64 min-w-80 place-items-center gap-3 rounded-2xl border border-white/20 bg-black p-6 text-white">
@@ -491,6 +501,8 @@ function BirdclawVideoPlayer({
 	poster,
 	rawUrl,
 	src,
+	videoHeight,
+	videoWidth,
 }: {
 	autoPlay?: boolean;
 	label: string;
@@ -501,6 +513,8 @@ function BirdclawVideoPlayer({
 	poster?: string;
 	rawUrl: string;
 	src: string;
+	videoHeight?: number;
+	videoWidth?: number;
 }) {
 	const videoRef = useRef<HTMLVideoElement | null>(null);
 	const ambienceVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -509,6 +523,7 @@ function BirdclawVideoPlayer({
 	const [isMuted, setIsMuted] = useState(muted);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [hasError, setHasError] = useState(false);
+	const foregroundVideoStyle = mediaAspectRatioStyle(videoWidth, videoHeight);
 
 	useEffect(() => {
 		const ambienceVideo = ambienceVideoRef.current;
@@ -592,7 +607,8 @@ function BirdclawVideoPlayer({
 				aria-label={label}
 				autoPlay={autoPlay}
 				className={cx(
-					"relative z-10 mx-auto block size-full object-contain",
+					"relative z-10 mx-auto block h-full max-h-full max-w-full object-contain",
+					foregroundVideoStyle ? "w-auto" : "w-full",
 					modal && "max-h-[84vh] max-w-[96vw]",
 				)}
 				loop={loop}
@@ -620,6 +636,7 @@ function BirdclawVideoPlayer({
 				poster={poster}
 				preload="metadata"
 				ref={videoRef}
+				style={foregroundVideoStyle}
 			>
 				<source src={src} type={videoContentType(rawUrl)} />
 			</video>
@@ -773,6 +790,29 @@ function MediaDialogLinks({
 
 function mediaPreviewUrl(item: TweetMediaItem) {
 	return item.thumbnailUrl ?? (item.type === "image" ? item.url : undefined);
+}
+
+function mediaAspectRatioStyle(
+	width: number | undefined,
+	height: number | undefined,
+): CSSProperties | undefined {
+	if (!width || !height || width <= 0 || height <= 0) return undefined;
+	return { aspectRatio: `${String(width)} / ${String(height)}` };
+}
+
+function singleMediaContainerStyle(
+	item: TweetMediaItem | undefined,
+): CSSProperties | undefined {
+	if (!item?.width || !item.height || item.width <= 0 || item.height <= 0) {
+		return undefined;
+	}
+	const maxHeight = 460;
+	const maxAspectWidth = Math.round((maxHeight * item.width) / item.height);
+	const naturalWidth = Math.min(item.width, maxAspectWidth);
+	return {
+		aspectRatio: `${String(item.width)} / ${String(item.height)}`,
+		width: `min(100%, ${String(naturalWidth)}px)`,
+	};
 }
 
 function playableVideoUrlForItem(item: TweetMediaItem) {

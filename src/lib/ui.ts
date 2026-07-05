@@ -126,7 +126,7 @@ export const feedRowStatePillOpenClass =
 
 /* Forms / inputs. */
 export const searchFieldShellClass =
-	"flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--line-strong)]";
+	"flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--line)] focus-within:bg-[var(--bg-hover)]";
 
 export const searchFieldIconClass =
 	"size-[18px] text-[var(--ink-soft)] shrink-0";
@@ -324,6 +324,7 @@ export function tweetMediaGridClass(count: number) {
 	return cx(
 		`tweet-media-grid tweet-media-grid-${String(capped)}`,
 		"mt-2 grid max-h-[460px] max-w-full gap-0.5 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)]",
+		count === 1 && "self-start",
 		layout,
 	);
 }
@@ -331,7 +332,7 @@ export function tweetMediaGridClass(count: number) {
 export function tweetMediaTileClass(index: number, count: number) {
 	return cx(
 		"tweet-media-tile relative block min-w-0 overflow-hidden border-0 bg-[var(--bg-active)] p-0 text-left",
-		count === 1 && "aspect-video max-h-[460px]",
+		count === 1 && "max-h-[460px]",
 		count === 2 && "aspect-square",
 		count === 3 && index === 0 && "row-span-2 aspect-[3/4]",
 		count === 3 && index !== 0 && "aspect-square",

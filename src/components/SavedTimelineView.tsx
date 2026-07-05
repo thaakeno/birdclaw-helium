@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
 	Download,
 	Image,
@@ -117,6 +117,7 @@ function AuthorFilterPicker({
 }) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
+	const containerRef = useRef<HTMLDivElement | null>(null);
 	const normalizedQuery = query.trim().replace(/^@/, "").toLowerCase();
 	const selectedHandle = value.trim().replace(/^@/, "");
 	const matchedOptions = useMemo(() => {
@@ -137,11 +138,39 @@ function AuthorFilterPicker({
 		setQuery("");
 	}
 
+	useEffect(() => {
+		if (!open) return;
+		const onPointerDown = (event: PointerEvent) => {
+			if (
+				containerRef.current &&
+				!containerRef.current.contains(event.target as Node)
+			) {
+				setOpen(false);
+			}
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setOpen(false);
+		};
+		document.addEventListener("pointerdown", onPointerDown);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
+
 	return (
-		<>
+		<div className="relative inline-flex max-w-full items-center gap-2" ref={containerRef}>
+			<input
+				aria-label="Filter saved posts by user"
+				className="sr-only"
+				onChange={(event) => onChange(event.target.value)}
+				tabIndex={-1}
+				value={value}
+			/>
 			<button
 				className={cx(
-					"inline-flex h-9 min-w-[150px] items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[13px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]",
+					"inline-flex h-9 min-w-[150px] max-w-[220px] items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[13px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]",
 					value && "border-[var(--line-strong)]",
 				)}
 				onClick={() => setOpen(true)}
@@ -164,95 +193,74 @@ function AuthorFilterPicker({
 			) : null}
 			{open ? (
 				<div
-					aria-modal="true"
-					className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/55 p-4 pt-[max(72px,8vh)] backdrop-blur-sm"
-					onClick={() => setOpen(false)}
-					role="dialog"
+					className="absolute left-0 top-[calc(100%+8px)] z-50 flex max-h-[360px] w-[min(360px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[0_18px_50px_var(--shadow-strong)]"
+					role="menu"
 				>
-					<div
-						className="flex max-h-[calc(100vh-112px)] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[0_24px_80px_var(--shadow-strong)]"
-						onClick={(event) => event.stopPropagation()}
-					>
-						<div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
-							<div>
-								<div className="text-[16px] font-bold text-[var(--ink)]">
-									Filter by user
-								</div>
-								<div className="text-[13px] text-[var(--ink-soft)]">
-									Search all saved authors
-								</div>
-							</div>
+					<div className="border-b border-[var(--line)] p-2.5">
+						<label className="flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3">
+							<Search
+								className="size-4 shrink-0 text-[var(--ink-soft)]"
+								strokeWidth={2}
+							/>
+							<input
+								autoFocus
+								className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-soft)]"
+								onChange={(event) => setQuery(event.target.value)}
+								placeholder="Search users"
+								value={query}
+							/>
+						</label>
+					</div>
+					<div className="custom-scrollbar min-h-0 overflow-y-auto overscroll-contain py-1">
+						{filteredOptions.map((option) => (
 							<button
-								aria-label="Close user filter"
-								className="grid size-9 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--ink)]"
-								onClick={() => setOpen(false)}
+								className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]"
+								key={option.handle}
+								onClick={() => applyAuthor(option.handle)}
+								role="menuitem"
 								type="button"
 							>
-								<X className="size-5" strokeWidth={2} />
-							</button>
-						</div>
-						<div className="border-b border-[var(--line)] p-3">
-							<label className="flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3.5">
-								<Search className="size-4 shrink-0 text-[var(--ink-soft)]" strokeWidth={2} />
-								<input
-									autoFocus
-									className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-soft)]"
-									onChange={(event) => setQuery(event.target.value)}
-									placeholder="Search name or @handle"
-									value={query}
+								<AvatarChip
+									avatarUrl={option.avatarUrl}
+									hue={option.avatarHue}
+									name={option.displayName}
+									profileId={option.profileId}
 								/>
-							</label>
-						</div>
-						<div className="custom-scrollbar min-h-0 overflow-y-auto overscroll-contain py-1">
-							{filteredOptions.map((option) => (
-								<button
-									className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]"
-									key={option.handle}
-									onClick={() => applyAuthor(option.handle)}
-									type="button"
-								>
-									<AvatarChip
-										avatarUrl={option.avatarUrl}
-										hue={option.avatarHue}
-										name={option.displayName}
-										profileId={option.profileId}
-									/>
-									<span className="min-w-0 flex-1">
-										<span className="block truncate text-[14px] font-bold text-[var(--ink)]">
-											{option.displayName}
-										</span>
-										<span className="block truncate text-[13px] text-[var(--ink-soft)]">
-											@{option.handle}
-										</span>
+								<span className="min-w-0 flex-1">
+									<span className="block truncate text-[14px] font-bold text-[var(--ink)]">
+										{option.displayName}
 									</span>
-									{typeof option.postCount === "number" ? (
-										<span className="shrink-0 rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[12px] font-bold text-[var(--ink-soft)]">
-											{option.postCount.toLocaleString()}
-										</span>
-									) : null}
-								</button>
-							))}
-							{filteredOptions.length === 0 ? (
-								<div className="px-4 py-8 text-center text-[13px] text-[var(--ink-soft)]">
-									{loading
-										? "Loading saved authors..."
-										: "No saved authors match that search."}
-								</div>
-							) : null}
-						</div>
-						<div className="border-t border-[var(--line)] px-4 py-2 text-[12px] text-[var(--ink-soft)]">
-							{loading && options.length === 0
-								? "Loading saved authors..."
-								: `Showing ${filteredOptions.length.toLocaleString()} of ${matchedOptions.length.toLocaleString()} matches${
-										matchedOptions.length !== options.length
-											? ` from ${options.length.toLocaleString()} saved authors`
-											: ""
-									}`}
-						</div>
+									<span className="block truncate text-[13px] text-[var(--ink-soft)]">
+										@{option.handle}
+									</span>
+								</span>
+								{typeof option.postCount === "number" ? (
+									<span className="shrink-0 rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[12px] font-bold text-[var(--ink-soft)]">
+										{option.postCount.toLocaleString()}
+									</span>
+								) : null}
+							</button>
+						))}
+						{filteredOptions.length === 0 ? (
+							<div className="px-4 py-8 text-center text-[13px] text-[var(--ink-soft)]">
+								{loading
+									? "Loading saved authors..."
+									: "No saved authors match that search."}
+							</div>
+						) : null}
+					</div>
+					<div className="border-t border-[var(--line)] px-3 py-2 text-[12px] text-[var(--ink-soft)]">
+						{loading && options.length === 0
+							? "Loading saved authors..."
+							: `${matchedOptions.length.toLocaleString()} matches${
+									matchedOptions.length !== options.length
+										? ` from ${options.length.toLocaleString()} authors`
+										: ""
+								}`}
 					</div>
 				</div>
 			) : null}
-		</>
+		</div>
 	);
 }
 
@@ -335,6 +343,10 @@ export function SavedTimelineView({
 		remoteAuthorOptions.length > 0 ? remoteAuthorOptions : visibleAuthorOptions;
 
 	useEffect(() => {
+		if (loading || error) {
+			setAuthorOptionsLoading(false);
+			return;
+		}
 		const controller = new AbortController();
 		let active = true;
 		setAuthorOptionsLoading(true);
@@ -387,7 +399,7 @@ export function SavedTimelineView({
 			active = false;
 			controller.abort();
 		};
-	}, [filter, selectedAccountId]);
+	}, [error, filter, loading, selectedAccountId]);
 
 	return (
 		<TimelineFeedShell
