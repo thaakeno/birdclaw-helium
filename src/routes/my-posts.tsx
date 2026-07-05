@@ -160,7 +160,7 @@ function MyPostsRoute() {
 	const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes" | "replies">("newest");
 	const [tab, setTab] = useState<MyPostsTab>("all");
 	const [search, setSearch] = useState("");
-	const [syncMaxPages, setSyncMaxPages] = useState(10);
+	const [syncMaxPages, setSyncMaxPages] = useState(1);
 	const [statsCollapsed, setStatsCollapsed] = useState(true);
 	const {
 		meta,
@@ -249,7 +249,7 @@ function MyPostsRoute() {
 			label="Fetch posts"
 			onSynced={refreshLocalView}
 			showAccountPicker
-			syncOptions={{ limit: 100, maxPages: syncMaxPages }}
+			syncOptions={{ limit: 50, maxPages: syncMaxPages }}
 		/>
 	);
 
@@ -283,6 +283,8 @@ function MyPostsRoute() {
 								title="More pages fetch more of your profile history"
 								value={syncMaxPages}
 							>
+								<option value={1}>1 page</option>
+								<option value={3}>3 pages</option>
 								<option value={5}>5 pages</option>
 								<option value={10}>10 pages</option>
 							</select>

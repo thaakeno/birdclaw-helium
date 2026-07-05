@@ -4,8 +4,11 @@ import {
 	Image,
 	MessageSquareQuote,
 	Rows3,
+	Search,
+	X,
 	UserRound,
 } from "lucide-react";
+import { AvatarChip } from "./AvatarChip";
 import { SyncNowButton } from "#/components/SyncNowButton";
 import { TimelineCard } from "#/components/TimelineCard";
 import {
@@ -51,6 +54,14 @@ const SORT_OPTIONS: Array<{
 	{ value: "replies-desc", label: "Most replied" },
 ];
 
+type AuthorFilterOption = {
+	handle: string;
+	displayName: string;
+	avatarUrl: string | undefined;
+	avatarHue: number;
+	profileId: string;
+};
+
 function SavedFilterButton({
 	active,
 	children,
@@ -77,6 +88,139 @@ function SavedFilterButton({
 		>
 			{children}
 		</button>
+	);
+}
+
+function AuthorFilterPicker({
+	onChange,
+	options,
+	value,
+}: {
+	onChange: (value: string) => void;
+	options: AuthorFilterOption[];
+	value: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const [query, setQuery] = useState("");
+	const normalizedQuery = query.trim().replace(/^@/, "").toLowerCase();
+	const selectedHandle = value.trim().replace(/^@/, "");
+	const filteredOptions = useMemo(() => {
+		if (!normalizedQuery) return options.slice(0, 80);
+		return options
+			.filter(
+				(option) =>
+					option.handle.toLowerCase().includes(normalizedQuery) ||
+					option.displayName.toLowerCase().includes(normalizedQuery),
+			)
+			.slice(0, 80);
+	}, [normalizedQuery, options]);
+
+	function applyAuthor(handle: string) {
+		onChange(`@${handle}`);
+		setOpen(false);
+		setQuery("");
+	}
+
+	return (
+		<>
+			<button
+				className={cx(
+					"inline-flex h-9 min-w-[150px] items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[13px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]",
+					value && "border-[var(--line-strong)]",
+				)}
+				onClick={() => setOpen(true)}
+				type="button"
+			>
+				<UserRound className="size-4 shrink-0 text-[var(--ink-soft)]" strokeWidth={2.1} />
+				<span className="min-w-0 truncate">
+					{selectedHandle ? `@${selectedHandle}` : "Filter user"}
+				</span>
+			</button>
+			{value ? (
+				<button
+					aria-label="Clear user filter"
+					className="grid size-9 place-items-center rounded-full border border-[var(--line)] text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--ink)]"
+					onClick={() => onChange("")}
+					type="button"
+				>
+					<X className="size-4" strokeWidth={2.2} />
+				</button>
+			) : null}
+			{open ? (
+				<div
+					aria-modal="true"
+					className="fixed inset-0 z-[9999] grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
+					onClick={() => setOpen(false)}
+					role="dialog"
+				>
+					<div
+						className="flex max-h-[min(680px,88vh)] w-full max-w-[460px] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[0_24px_80px_var(--shadow-strong)]"
+						onClick={(event) => event.stopPropagation()}
+					>
+						<div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
+							<div>
+								<div className="text-[16px] font-bold text-[var(--ink)]">
+									Filter by user
+								</div>
+								<div className="text-[13px] text-[var(--ink-soft)]">
+									Choose a loaded author
+								</div>
+							</div>
+							<button
+								aria-label="Close user filter"
+								className="grid size-9 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--ink)]"
+								onClick={() => setOpen(false)}
+								type="button"
+							>
+								<X className="size-5" strokeWidth={2} />
+							</button>
+						</div>
+						<div className="border-b border-[var(--line)] p-3">
+							<label className="flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3.5">
+								<Search className="size-4 shrink-0 text-[var(--ink-soft)]" strokeWidth={2} />
+								<input
+									autoFocus
+									className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-soft)]"
+									onChange={(event) => setQuery(event.target.value)}
+									placeholder="Search name or @handle"
+									value={query}
+								/>
+							</label>
+						</div>
+						<div className="min-h-0 overflow-y-auto overscroll-contain py-1 [scrollbar-color:var(--line-strong)_transparent] [scrollbar-width:thin]">
+							{filteredOptions.map((option) => (
+								<button
+									className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+									key={option.handle}
+									onClick={() => applyAuthor(option.handle)}
+									type="button"
+								>
+									<AvatarChip
+										avatarUrl={option.avatarUrl}
+										hue={option.avatarHue}
+										name={option.displayName}
+										profileId={option.profileId}
+									/>
+									<span className="min-w-0 flex-1">
+										<span className="block truncate text-[14px] font-bold text-[var(--ink)]">
+											{option.displayName}
+										</span>
+										<span className="block truncate text-[13px] text-[var(--ink-soft)]">
+											@{option.handle}
+										</span>
+									</span>
+								</button>
+							))}
+							{filteredOptions.length === 0 ? (
+								<div className="px-4 py-8 text-center text-[13px] text-[var(--ink-soft)]">
+									No loaded authors match that search.
+								</div>
+							) : null}
+						</div>
+					</div>
+				</div>
+			) : null}
+		</>
 	);
 }
 
@@ -138,7 +282,10 @@ export function SavedTimelineView({
 		return items
 			.map((item) => ({
 				handle: item.author.handle,
-				label: `${item.author.displayName} (@${item.author.handle})`,
+				displayName: item.author.displayName,
+				avatarUrl: item.author.avatarUrl,
+				avatarHue: item.author.avatarHue,
+				profileId: item.author.id,
 			}))
 			.filter((item) => {
 				const key = item.handle.toLowerCase();
@@ -148,7 +295,6 @@ export function SavedTimelineView({
 			})
 			.slice(0, 80);
 	}, [items]);
-	const authorListId = `${filter}-author-options`;
 
 	return (
 		<TimelineFeedShell
@@ -259,27 +405,11 @@ export function SavedTimelineView({
 										))}
 									</select>
 								) : null}
-								<label className="inline-flex h-9 min-w-[190px] items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[13px] text-[var(--ink)] focus-within:border-[color:color-mix(in_srgb,var(--accent)_55%,var(--line))] focus-within:shadow-[0_0_0_1px_var(--accent-soft)]">
-									<UserRound
-										className="size-4 shrink-0 text-[var(--ink-soft)]"
-										strokeWidth={2.1}
-									/>
-									<input
-										aria-label="Filter saved posts by user"
-										className="min-w-0 flex-1 border-0 bg-transparent outline-none placeholder:text-[var(--ink-soft)]"
-										list={authorListId}
-										onChange={(event) => setAuthor(event.target.value)}
-										placeholder="@user"
-										value={author}
-									/>
-								</label>
-								<datalist id={authorListId}>
-									{authorOptions.map((option) => (
-										<option key={option.handle} value={`@${option.handle}`}>
-											{option.label}
-										</option>
-									))}
-								</datalist>
+								<AuthorFilterPicker
+									onChange={setAuthor}
+									options={authorOptions}
+									value={author}
+								/>
 								<SavedFilterButton
 									active={mediaOnly}
 									onClick={() => setMediaOnly((value) => !value)}

@@ -577,7 +577,7 @@ export function TimelineCard({
 									) : (
 										<Circle className="size-3" strokeWidth={2.2} />
 									)}
-									{displayIsReplied ? "replied" : "open"}
+									{displayIsReplied ? "replied" : null}
 								</span>
 							) : null}
 						</span>
@@ -617,8 +617,7 @@ export function TimelineCard({
 				<footer className={feedRowActionsClass}>
 					<div
 						className={cx(
-							"grid w-full items-center text-[13px] text-[var(--ink-soft)]",
-							canReply ? "grid-cols-6" : "grid-cols-5",
+							"flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[13px] text-[var(--ink-soft)]",
 						)}
 					>
 						{canReply ? (
@@ -657,7 +656,11 @@ export function TimelineCard({
 						) : null}
 						<button
 							aria-expanded={conversation.isOpen && activeExpandedTab === "replies"}
-							aria-label="Replies thread"
+							aria-label={
+								conversation.isOpen && activeExpandedTab === "replies"
+									? "Hide local thread"
+									: "Show local thread"
+							}
 							className={cx(
 								feedActionButtonClass,
 								conversation.isOpen && activeExpandedTab === "replies" && "text-[var(--accent)]"
@@ -956,7 +959,7 @@ function TimelineCardContextMenu({
 				onClick={() => void copyText(formatTweetAsMarkdown(item, replies))}
 				type="button"
 			>
-				<Copy className="size-5 text-green-500" strokeWidth={2} />
+				<Copy className="size-5" strokeWidth={2} />
 				Copy as Markdown
 			</button>
 		</div>

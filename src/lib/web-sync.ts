@@ -208,8 +208,8 @@ const WEB_SYNC_PLANS: Record<WebSyncKind, WebSyncPlan> = {
 				const result = yield* syncAuthoredTweetsEffect({
 					account,
 					mode: "bird",
-					limit: options.limit ?? 100,
-					maxPages: options.maxPages ?? 10,
+					limit: options.limit ?? 50,
+					maxPages: options.maxPages ?? 1,
 					pageDelayMs: 300,
 				});
 				return [

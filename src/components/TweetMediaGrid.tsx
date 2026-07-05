@@ -222,12 +222,25 @@ export function TweetMediaGrid({
 								type="button"
 							>
 								{item.type === "image" || mediaPreviewUrl(item) ? (
-									<img
-										alt={item.altText ?? `Tweet media ${String(index + 1)}`}
-										className="tweet-media-image block size-full object-contain"
-										loading="lazy"
-										src={mediaPreviewUrl(item) ?? item.url}
-									/>
+									<>
+										{itemLooksLikeVideo && mediaPreviewUrl(item) ? (
+											<img
+												alt=""
+												aria-hidden="true"
+												className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-55 blur-2xl saturate-125"
+												src={mediaPreviewUrl(item)}
+											/>
+										) : null}
+										<img
+											alt={item.altText ?? `Tweet media ${String(index + 1)}`}
+											className={cx(
+												"tweet-media-image block size-full object-contain",
+												itemLooksLikeVideo && "relative z-10",
+											)}
+											loading="lazy"
+											src={mediaPreviewUrl(item) ?? item.url}
+										/>
+									</>
 								) : (
 									<span className="tweet-media-fallback grid min-h-40 place-items-center font-semibold text-[var(--ink-soft)]">
 										{item.type === "video"
@@ -238,7 +251,7 @@ export function TweetMediaGrid({
 									</span>
 								)}
 								{itemLooksLikeVideo ? (
-									<span className="absolute inset-0 grid place-items-center bg-black/10">
+									<span className="absolute inset-0 z-20 grid place-items-center bg-black/10">
 										<span className="grid size-12 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/25">
 											<Play
 												aria-hidden="true"
@@ -252,7 +265,7 @@ export function TweetMediaGrid({
 									</span>
 								) : null}
 								{itemLooksLikeVideo && !directVideoUrl && onHydrateVideo ? (
-									<span className="absolute inset-x-2 bottom-2 flex justify-center">
+									<span className="absolute inset-x-2 bottom-2 z-30 flex justify-center">
 										<span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[13px] font-bold text-white shadow-lg ring-1 ring-white/20">
 											{hydratingVideo ? "Fetching video" : "Fetch video"}
 										</span>
@@ -261,7 +274,7 @@ export function TweetMediaGrid({
 								{itemLooksLikeVideo && postUrl ? (
 									<a
 										aria-label="Open original post"
-										className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
+										className="absolute right-2 top-2 z-30 grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"
 										href={postUrl}
 										onClick={(event) => event.stopPropagation()}
 										rel="noreferrer"
@@ -580,7 +593,7 @@ function BirdclawVideoPlayer({
 			{!isPlaying ? (
 				<button
 					aria-label="Play video"
-					className="absolute inset-0 grid place-items-center bg-black/10 text-white"
+					className="absolute inset-0 z-20 grid place-items-center bg-black/10 text-white"
 					onClick={(event) => {
 						event.stopPropagation();
 						void togglePlayback();
@@ -592,7 +605,7 @@ function BirdclawVideoPlayer({
 					</span>
 				</button>
 			) : null}
-			<div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-8 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/video:opacity-100 sm:group-focus-within/video:opacity-100">
+			<div className="absolute inset-x-0 bottom-0 z-30 flex items-center gap-2 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-8 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/video:opacity-100 sm:group-focus-within/video:opacity-100">
 				<button
 					aria-label={isPlaying ? "Pause video" : "Play video"}
 					className="grid size-8 shrink-0 place-items-center rounded-full transition-colors hover:bg-white/15"
@@ -640,7 +653,7 @@ function BirdclawVideoPlayer({
 				</button>
 			</div>
 			{hasError ? (
-				<div className="absolute inset-x-3 bottom-12 rounded-full bg-black/75 px-3 py-1.5 text-center text-[12px] font-semibold text-white shadow-lg ring-1 ring-white/20">
+				<div className="absolute inset-x-3 bottom-12 z-40 rounded-full bg-black/75 px-3 py-1.5 text-center text-[12px] font-semibold text-white shadow-lg ring-1 ring-white/20">
 					Video did not load
 				</div>
 			) : null}
@@ -666,7 +679,7 @@ function MediaTileActions({
 	postUrl?: string;
 }) {
 	return (
-		<div className="absolute right-2 top-2 flex gap-1.5">
+		<div className="absolute right-2 top-2 z-30 flex gap-1.5">
 			<button
 				aria-label={`Open tweet media ${String(index + 1)}`}
 				className="grid size-8 place-items-center rounded-full bg-black/65 text-white shadow-lg ring-1 ring-white/20 transition-colors hover:bg-black/80"

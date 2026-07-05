@@ -303,6 +303,25 @@ function findArchiveAuthoredSinceSeed(db: Database, accountId: string) {
 	return row?.id ?? null;
 }
 
+function findNewestAuthoredEdgeId(db: Database, accountId: string) {
+	const row = db
+		.prepare(
+			`
+    select t.id
+    from tweet_account_edges e
+    join tweets t on t.id = e.tweet_id
+    where e.account_id = ?
+      and e.kind = 'authored'
+      and t.id glob '[0-9]*'
+      and t.id not glob '*[^0-9]*'
+    order by length(t.id) desc, t.id desc
+    limit 1
+    `,
+		)
+		.get(accountId) as { id: string } | undefined;
+	return row?.id ?? null;
+}
+
 function compareTweetIds(
 	left: string | null | undefined,
 	right: string | null | undefined,
@@ -348,6 +367,29 @@ function getOldestTweetId(tweets: XurlMentionData[]) {
 		}
 		return compareTweetIds(tweet.id, current) < 0 ? tweet.id : current;
 	}, null);
+}
+
+function filterPayloadAfterSince(
+	payload: XurlMentionsResponse,
+	sinceId: string | null,
+): XurlMentionsResponse {
+	if (!sinceId) return payload;
+	const data = payload.data.filter((tweet) => compareTweetIds(tweet.id, sinceId) > 0);
+	const newestId = getNewestTweetId(data);
+	const oldestId = getOldestTweetId(data);
+	const meta = { ...payload.meta };
+	delete (meta as Record<string, unknown>).newest_id;
+	delete (meta as Record<string, unknown>).oldest_id;
+	return {
+		...payload,
+		data,
+		meta: {
+			...meta,
+			result_count: data.length,
+			...(newestId ? { newest_id: newestId } : {}),
+			...(oldestId ? { oldest_id: oldestId } : {}),
+		},
+	};
 }
 
 function normalizeUsername(value: string) {
@@ -891,20 +933,41 @@ export function syncAuthoredTweetsEffect({
 				account,
 				db,
 			});
-			const payload = yield* liveTransportGateway.bird.listUserTweets({
+			const cursor = yield* trySync(() =>
+				readAuthoredCursor(db, identity.accountId),
+			);
+			const localSinceId =
+				sinceId ??
+				cursor.sinceId ??
+				(yield* trySync(() =>
+					findNewestAuthoredEdgeId(db, identity.accountId),
+				));
+			const rawPayload = yield* liveTransportGateway.bird.listUserTweets({
 				handle: identity.username,
 				maxResults: pageLimit,
 				...(parsedMaxPages !== null ? { maxPages: parsedMaxPages } : {}),
 				...(pageDelayMs !== undefined ? { delayMs: pageDelayMs } : {}),
 			});
-			yield* databaseWriteEffect((writeDb) =>
-				ingestTweetPayload(writeDb, {
-					accountId: identity.accountId,
-					payload,
-					source: "bird",
-					edgeKind: "authored",
-				}),
-			);
+			const payload = filterPayloadAfterSince(rawPayload, localSinceId);
+			if (payload.data.length > 0) {
+				yield* databaseWriteEffect((writeDb) => {
+					ingestTweetPayload(writeDb, {
+						accountId: identity.accountId,
+						payload,
+						source: "bird",
+						edgeKind: "authored",
+					});
+					const payloadNewestId =
+						typeof payload.meta?.newest_id === "string"
+							? payload.meta.newest_id
+							: null;
+					writeCommittedCursor(
+						writeDb,
+						identity.accountId,
+						maxTweetId(localSinceId, payloadNewestId),
+					);
+				});
+			}
 			return buildBirdResult({
 				accountId: identity.accountId,
 				userId: identity.userId,
