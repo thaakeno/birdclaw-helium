@@ -255,8 +255,8 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				isVisible: true,
 			});
 
-			const profiles = readPinnedProfiles();
-			if (profiles.length === 0) {
+			const initialProfiles = readPinnedProfiles();
+			if (initialProfiles.length === 0) {
 				setSyncState((prev) =>
 					prev
 						? {
@@ -274,9 +274,16 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				return;
 			}
 
-			const updatedProfiles = [...profiles];
-			for (let i = 0; i < profiles.length; i++) {
-				const profile = profiles[i];
+			const handlesToSync = initialProfiles.map((p) => p.handle);
+
+			for (const handle of handlesToSync) {
+				// Re-read latest list to check if user unpinned it while we were waiting
+				const currentProfiles = readPinnedProfiles();
+				const profile = currentProfiles.find(
+					(p) => p.handle.toLowerCase() === handle.toLowerCase(),
+				);
+				if (!profile) continue; // Skipped since it was unpinned
+
 				const time = new Date().toLocaleTimeString([], {
 					hour: "2-digit",
 					minute: "2-digit",
@@ -286,52 +293,66 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 					prev
 						? {
 								...prev,
-								activeHandle: profile.handle,
-								logs: [...prev.logs, `[${time}] Checking @${profile.handle}...`],
+								activeHandle: handle,
+								logs: [...prev.logs, `[${time}] Checking @${handle}...`],
 							}
 						: null,
 				);
 
 				try {
 					const response = await fetch(
-						`/api/profile-context?handle=${encodeURIComponent(profile.handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
+						`/api/profile-context?handle=${encodeURIComponent(handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
 					);
 					if (response.ok) {
 						const payload = (await response.json()) as {
 							context?: { tweets?: Array<{ createdAt: string }> };
 						};
 						const tweets = payload.context?.tweets ?? [];
-						const lastSync = profile.lastSyncedAt
-							? new Date(profile.lastSyncedAt).getTime()
-							: 0;
 
-						const newTweets = tweets.filter(
-							(t) => new Date(t.createdAt).getTime() > lastSync,
+						// Re-read latest list right before writing to avoid overwriting newer pins
+						const latestProfiles = readPinnedProfiles();
+						const latestProfile = latestProfiles.find(
+							(p) => p.handle.toLowerCase() === handle.toLowerCase(),
 						);
-						const newCount = lastSync > 0 ? newTweets.length : 0;
+						if (latestProfile) {
+							const lastSync = latestProfile.lastSyncedAt
+								? new Date(latestProfile.lastSyncedAt).getTime()
+								: 0;
 
-						updatedProfiles[i] = {
-							...profile,
-							lastSyncedAt: new Date().toISOString(),
-							newCount: (profile.newCount ?? 0) + newCount,
-						};
+							const newTweets = tweets.filter(
+								(t) => new Date(t.createdAt).getTime() > lastSync,
+							);
+							const newCount = lastSync > 0 ? newTweets.length : 0;
 
-						const statusTime = new Date().toLocaleTimeString([], {
-							hour: "2-digit",
-							minute: "2-digit",
-							second: "2-digit",
-						});
-						setSyncState((prev) =>
-							prev
-								? {
-										...prev,
-										logs: [
-											...prev.logs,
-											`[${statusTime}] Synced @${profile.handle}: ${newCount > 0 ? `+${newCount} new` : "up to date"}`,
-										],
-									}
-								: null,
-						);
+							writePinnedProfiles(
+								latestProfiles.map((p) =>
+									p.handle.toLowerCase() === handle.toLowerCase()
+										? {
+												...p,
+												lastSyncedAt: new Date().toISOString(),
+												newCount: (p.newCount ?? 0) + newCount,
+											}
+										: p,
+								),
+							);
+
+							const statusTime = new Date().toLocaleTimeString([], {
+								hour: "2-digit",
+								minute: "2-digit",
+								second: "2-digit",
+							});
+							setSyncState((prev) =>
+								prev
+									? {
+											...prev,
+											logs: [
+												...prev.logs,
+												`[${statusTime}] Synced @${handle}: ${newCount > 0 ? `+${newCount} new` : "up to date"}`,
+											],
+										}
+									: null,
+							);
+						}
 					} else {
 						throw new Error(`HTTP ${String(response.status)}`);
 					}
@@ -347,7 +368,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 									...prev,
 									logs: [
 										...prev.logs,
-										`[${errorTime}] Failed @${profile.handle}: ${err instanceof Error ? err.message : String(err)}`,
+										`[${errorTime}] Failed @${handle}: ${err instanceof Error ? err.message : String(err)}`,
 									],
 								}
 							: null,
@@ -356,8 +377,6 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 
 				await new Promise((resolve) => setTimeout(resolve, 800));
 			}
-
-			writePinnedProfiles(updatedProfiles);
 
 			const completionTime = new Date().toLocaleTimeString([], {
 				hour: "2-digit",

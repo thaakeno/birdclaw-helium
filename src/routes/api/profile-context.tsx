@@ -45,6 +45,23 @@ function parseOptions(url: URL): ProfileAnalysisOptions {
 	};
 }
 
+class SimpleMutex {
+	private promise: Promise<unknown> = Promise.resolve();
+
+	async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+		const next = this.promise.then(async () => {
+			return fn();
+		});
+		this.promise = next.then(
+			() => {},
+			() => {},
+		);
+		return next;
+	}
+}
+
+const profileSyncMutex = new SimpleMutex();
+
 export const Route = createFileRoute("/api/profile-context")({
 	server: {
 		handlers: {
@@ -55,9 +72,21 @@ export const Route = createFileRoute("/api/profile-context")({
 						if (denied) return denied;
 
 						const url = new URL(request.url);
-						const context = yield* collectProfileAnalysisContextEffect(
-							parseOptions(url),
-						);
+						const options = parseOptions(url);
+
+						const context = yield* Effect.promise(() => {
+							if (options.refresh) {
+								return profileSyncMutex.runExclusive(async () => {
+									return Effect.runPromise(
+										collectProfileAnalysisContextEffect(options),
+									);
+								});
+							}
+							return Effect.runPromise(
+								collectProfileAnalysisContextEffect(options),
+							);
+						});
+
 						return jsonResponse({ ok: true, context });
 					}),
 				),
