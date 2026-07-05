@@ -6,7 +6,11 @@ import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetBirdclawPathsForTests } from "./config";
 import { getNativeDb, resetDatabaseForTests } from "./db";
-import { streamProfileAnalysis } from "./profile-analysis";
+import {
+	collectProfileAnalysisContextEffect,
+	streamProfileAnalysis,
+} from "./profile-analysis";
+import { runEffectPromise } from "./effect-runtime";
 import { listTimelineItems } from "./queries";
 
 const mocks = vi.hoisted(() => ({
@@ -375,6 +379,152 @@ describe("profile analysis", () => {
 		expect(result.context.tweets.map((tweet) => tweet.id)).toEqual(["local_1"]);
 		expect(result.context.counts.tweets).toBe(1);
 		expect(events).toContain("Bird profile fetch failed");
+	});
+
+	it("uses local Bird-mode profile archives without auto-shrinking them", async () => {
+		mocks.getTransportStatusEffect.mockReturnValue(
+			Effect.succeed({ availableTransport: "bird" }),
+		);
+		mocks.listUserTweetsViaBirdEffect.mockReturnValue(
+			Effect.succeed({
+				data: [
+					{
+						id: "local_2",
+						author_id: "42",
+						text: "Fresh live row.",
+						created_at: "2026-05-21T10:00:00.000Z",
+						conversation_id: "local_2",
+						public_metrics: {
+							like_count: 20,
+							reply_count: 4,
+							retweet_count: 2,
+							quote_count: 1,
+							bookmark_count: 3,
+						},
+					},
+				],
+				includes: { users: [profileUser], media: [] },
+				meta: { result_count: 1, page_count: 1 },
+			}),
+		);
+		const db = getNativeDb();
+		const accountId = String(
+			(
+				db
+					.prepare("select id from accounts order by is_default desc limit 1")
+					.get() as { id: string }
+			).id,
+		);
+		db.prepare(
+			"insert into profiles (id, handle, display_name, bio, followers_count, avatar_hue, created_at) values (?, ?, ?, ?, ?, ?, ?)",
+		).run(
+			"profile_user_42",
+			"alice",
+			"Alice",
+			"Builds quiet tools.",
+			1200,
+			210,
+			"2026-05-01T00:00:00.000Z",
+		);
+		for (const [id, text, createdAt, likes, raw] of [
+			[
+				"local_1",
+				"Older archived tweet.",
+				"2026-05-20T10:00:00.000Z",
+				5,
+				{
+					public_metrics: {
+						reply_count: 7,
+						retweet_count: 6,
+						quote_count: 5,
+						bookmark_count: 4,
+					},
+				},
+			],
+			[
+				"local_2",
+				"Fresh live row.",
+				"2026-05-21T10:00:00.000Z",
+				20,
+				{
+					public_metrics: {
+						reply_count: 4,
+						retweet_count: 2,
+						quote_count: 1,
+						bookmark_count: 3,
+					},
+				},
+			],
+		] as const) {
+			db.prepare(
+				"insert into tweets (id, author_profile_id, text, created_at, is_replied, reply_to_id, like_count, media_count, entities_json, media_json, quoted_tweet_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			).run(
+				id,
+				"profile_user_42",
+				text,
+				createdAt,
+				0,
+				null,
+				likes,
+				0,
+				"{}",
+				"[]",
+				null,
+			);
+			db.prepare(
+				"insert into tweet_account_edges (account_id, tweet_id, kind, first_seen_at, last_seen_at, seen_count, source, raw_json, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			).run(
+				accountId,
+				id,
+				"profile",
+				createdAt,
+				createdAt,
+				1,
+				"bird",
+				JSON.stringify(raw),
+				createdAt,
+			);
+		}
+
+		const localContext = await runEffectPromise(
+			collectProfileAnalysisContextEffect({
+				handle: "alice",
+				maxTweets: 10,
+				maxPages: 1,
+				maxConversations: 0,
+				maxConversationPages: 1,
+			}),
+		);
+
+		expect(localContext.tweets.map((tweet) => tweet.id)).toEqual([
+			"local_2",
+			"local_1",
+		]);
+		expect(localContext.tweets[1]).toMatchObject({
+			replyCount: 7,
+			retweetCount: 6,
+			quoteCount: 5,
+			bookmarkedCount: 4,
+		});
+		expect(mocks.listUserTweetsViaBirdEffect).not.toHaveBeenCalled();
+
+		const refreshedContext = await runEffectPromise(
+			collectProfileAnalysisContextEffect({
+				handle: "alice",
+				maxTweets: 10,
+				maxPages: 1,
+				maxConversations: 0,
+				maxConversationPages: 1,
+				refresh: true,
+			}),
+		);
+
+		expect(mocks.listUserTweetsViaBirdEffect).toHaveBeenCalledTimes(1);
+		expect(refreshedContext.tweets.map((tweet) => tweet.id)).toEqual([
+			"local_2",
+			"local_1",
+		]);
+		expect(refreshedContext.counts.tweets).toBe(2);
 	});
 
 	it("retries conversation search once after a rate limit before using context", async () => {

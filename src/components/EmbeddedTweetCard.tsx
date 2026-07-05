@@ -1,4 +1,11 @@
-import { ExternalLink } from "lucide-react";
+import {
+	ExternalLink,
+	Heart,
+	MessageCircle,
+	Quote,
+	Repeat2,
+} from "lucide-react";
+import { formatCompactNumber } from "#/lib/present";
 import type { EmbeddedTweet } from "#/lib/types";
 import {
 	embeddedCardBodyClass,
@@ -7,6 +14,10 @@ import {
 	embeddedCardHeaderClass,
 	embeddedCardLabelClass,
 	embeddedCardNameClass,
+	feedActionButtonClass,
+	feedActionIconClass,
+	feedActionIconWrapClass,
+	feedRowActionsClass,
 	feedRowTimestampClass,
 } from "#/lib/ui";
 import { ProfilePreview } from "./ProfilePreview";
@@ -62,7 +73,43 @@ export function EmbeddedTweetCard({
 			{item.entities.article ? (
 				<TweetArticleCard article={item.entities.article} />
 			) : null}
+			<EmbeddedTweetMetrics item={item} />
 		</section>
+	);
+}
+
+export function EmbeddedTweetMetrics({ item }: { item: EmbeddedTweet }) {
+	const metrics = [
+		{
+			label: "replies",
+			value: item.localReplyCount ?? item.replyCount ?? 0,
+			icon: MessageCircle,
+		},
+		{ label: "quotes", value: item.quoteCount ?? 0, icon: Quote },
+		{ label: "reposts", value: item.retweetCount ?? 0, icon: Repeat2 },
+		{ label: "likes", value: item.likeCount ?? 0, icon: Heart },
+	];
+	return (
+		<div className={feedRowActionsClass}>
+			<div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[13px] text-[var(--ink-soft)]">
+				{metrics.map((metric) => {
+					const Icon = metric.icon;
+					return (
+						<span
+							aria-label={`${formatCompactNumber(metric.value)} ${metric.label}`}
+							className={`${feedActionButtonClass} pointer-events-none`}
+							key={metric.label}
+							title={`${formatCompactNumber(metric.value)} ${metric.label}`}
+						>
+							<span className={feedActionIconWrapClass}>
+								<Icon className={feedActionIconClass} strokeWidth={1.9} />
+							</span>
+							<span>{formatCompactNumber(metric.value)}</span>
+						</span>
+					);
+				})}
+			</div>
+		</div>
 	);
 }
 

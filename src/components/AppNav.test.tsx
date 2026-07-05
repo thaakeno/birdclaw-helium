@@ -35,6 +35,25 @@ vi.mock("./AccountSwitcher", () => ({
 	),
 }));
 
+vi.mock("#/lib/api-client", () => ({
+	fetchQueryEnvelope: () =>
+		Promise.resolve({
+			accounts: [
+				{
+					id: "acct_primary",
+					name: "thaakeno",
+					handle: "@thaakeno",
+					avatarHue: 210,
+					transport: "archive",
+					isDefault: 1,
+					createdAt: "2026-01-01T00:00:00.000Z",
+				},
+			],
+			stats: {},
+			transport: { statusText: "local" },
+		}),
+}));
+
 import { AppNav } from "./AppNav";
 
 afterEach(() => {

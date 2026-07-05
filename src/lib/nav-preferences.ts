@@ -3,6 +3,7 @@ export const NAV_ORDER_KEY = "birdclaw.nav.order";
 export const NAV_HIDDEN_KEY = "birdclaw.nav.hidden";
 export const SIDEBAR_COLLAPSED_KEY = "birdclaw.sidebar.collapsed";
 export const PINNED_PROFILES_KEY = "birdclaw.nav.pinnedProfiles";
+export const SIDEBAR_BRAND_AVATAR_KEY = "birdclaw.sidebar.brandAvatar";
 
 export interface NavPreferenceItem {
 	to: string;

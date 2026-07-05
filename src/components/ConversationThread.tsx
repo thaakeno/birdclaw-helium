@@ -11,6 +11,7 @@ import { AvatarChip } from "./AvatarChip";
 import { BirdclawEmpty, BirdclawLoading } from "./BrandMark";
 import { ProfilePreview } from "./ProfilePreview";
 import { SmartTimestamp } from "./SmartTimestamp";
+import { EmbeddedTweetMetrics } from "./EmbeddedTweetCard";
 import { TweetArticleCard } from "./TweetArticleCard";
 import { TweetMediaGrid } from "./TweetMediaGrid";
 import { TweetRichText } from "./TweetRichText";
@@ -136,6 +137,7 @@ export function ConversationThread({
 								{tweet.entities.article ? (
 									<TweetArticleCard article={tweet.entities.article} />
 								) : null}
+								<EmbeddedTweetMetrics item={tweet} />
 							</div>
 						</div>
 					);

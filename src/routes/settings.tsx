@@ -24,7 +24,10 @@ import {
 	NAV_HIDDEN_KEY,
 	NAV_ORDER_KEY,
 	orderNavItems,
+	readBoolean,
 	readStringArray,
+	SIDEBAR_BRAND_AVATAR_KEY,
+	writeBoolean,
 	writeStringArray,
 } from "#/lib/nav-preferences";
 import {
@@ -73,6 +76,7 @@ export const Route = createFileRoute("/settings")({
 function SettingsRoute() {
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
+	const [useAvatarBrand, setUseAvatarBrand] = useState(false);
 	const [draggingPath, setDraggingPath] = useState<NavPath | null>(null);
 	const [ai, setAi] = useState<AiSettings | null>(null);
 	const [aiLoading, setAiLoading] = useState(true);
@@ -87,6 +91,7 @@ function SettingsRoute() {
 	useEffect(() => {
 		setHidden(readStringArray(NAV_HIDDEN_KEY));
 		setOrder(readStringArray(NAV_ORDER_KEY));
+		setUseAvatarBrand(readBoolean(SIDEBAR_BRAND_AVATAR_KEY));
 		void loadAiSettings();
 	}, []);
 
@@ -128,6 +133,8 @@ function SettingsRoute() {
 	function resetSidebar() {
 		persistHidden([]);
 		persistOrder([]);
+		setUseAvatarBrand(false);
+		writeBoolean(SIDEBAR_BRAND_AVATAR_KEY, false);
 	}
 
 	function moveDraggedItem(targetPath: NavPath) {
@@ -221,6 +228,33 @@ function SettingsRoute() {
 				/>
 
 				<div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--panel)]">
+					<div className="flex min-w-0 items-center gap-3 border-b border-[var(--line)] px-3 py-3">
+						<div className="min-w-0 flex-1">
+							<div className="truncate text-[14px] font-bold text-[var(--ink)]">
+								Use account avatar as sidebar mark
+							</div>
+							<div className="truncate text-[12px] text-[var(--ink-soft)]">
+								Replace the birdclaw mark with your active account avatar.
+							</div>
+						</div>
+						<button
+							aria-pressed={useAvatarBrand}
+							className={cx(
+								"inline-flex h-9 min-w-[92px] items-center justify-center rounded-full border px-3 text-[13px] font-semibold transition-colors",
+								useAvatarBrand
+									? "border-[color:color-mix(in_srgb,var(--accent)_45%,var(--line))] bg-[var(--accent-soft)] text-[var(--accent)]"
+									: "border-[var(--line)] bg-[var(--bg)] text-[var(--ink-soft)] hover:bg-[var(--bg-hover)]",
+							)}
+							onClick={() => {
+								const next = !useAvatarBrand;
+								setUseAvatarBrand(next);
+								writeBoolean(SIDEBAR_BRAND_AVATAR_KEY, next);
+							}}
+							type="button"
+						>
+							{useAvatarBrand ? "On" : "Off"}
+						</button>
+					</div>
 					{orderedItems.map((item, index) => {
 						const isHidden = hidden.includes(item.to);
 						const isDragging = draggingPath === item.to;
@@ -429,13 +463,17 @@ function SettingsRoute() {
 
 				<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-4 flex flex-col gap-4">
 					<p className="text-[13px] leading-[1.45] text-[var(--ink-soft)] m-0">
-						Download all of your locally archived posts, bookmarks, or likes formatted as Markdown citations (with replies) or structured JSON and BibTeX files.
+						Download all of your locally archived posts, bookmarks, or likes
+						formatted as Markdown citations (with replies) or structured JSON
+						and BibTeX files.
 					</p>
 
 					<div className="grid gap-4 md:grid-cols-3">
 						{/* Bookmarks Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)]">Bookmarks</span>
+							<span className="text-[14px] font-bold text-[var(--ink)]">
+								Bookmarks
+							</span>
 							<div className="flex flex-col gap-2 mt-1">
 								<a
 									href="/api/bulk-export?resource=bookmarks&format=markdown"
@@ -460,7 +498,9 @@ function SettingsRoute() {
 
 						{/* Likes Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)]">Likes</span>
+							<span className="text-[14px] font-bold text-[var(--ink)]">
+								Likes
+							</span>
 							<div className="flex flex-col gap-2 mt-1">
 								<a
 									href="/api/bulk-export?resource=likes&format=markdown"
@@ -485,7 +525,9 @@ function SettingsRoute() {
 
 						{/* My Posts Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)]">My Posts</span>
+							<span className="text-[14px] font-bold text-[var(--ink)]">
+								My Posts
+							</span>
 							<div className="flex flex-col gap-2 mt-1">
 								<a
 									href="/api/bulk-export?resource=authored&format=markdown"

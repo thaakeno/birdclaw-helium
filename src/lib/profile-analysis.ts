@@ -506,6 +506,16 @@ function compactProfileTweet(
 	};
 }
 
+function metricFromRawJson(rawJson: unknown, key: string) {
+	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
+	const metrics = raw.public_metrics || raw.legacy;
+	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
+		return undefined;
+	}
+	const count = Number((metrics as Record<string, unknown>)[key]);
+	return Number.isFinite(count) ? count : undefined;
+}
+
 function compactConversationTweet(
 	tweet: XurlTweetData,
 	usersById: Map<string, XurlMentionUser>,
@@ -530,6 +540,9 @@ function compactLocalProfileTweet(
 	profileHandle: string,
 ): CompactProfileTweet {
 	const tweetId = String(row.id);
+	const replyCount =
+		metricFromRawJson(row.edge_raw_json, "reply_count") ??
+		Number(row.local_reply_count ?? 0);
 	return {
 		id: tweetId,
 		url: tweetUrl(profileHandle, tweetId),
@@ -543,10 +556,11 @@ function compactLocalProfileTweet(
 			? { replyToId: row.reply_to_id }
 			: {}),
 		likeCount: Number(row.like_count ?? 0),
-		replyCount: 0,
-		retweetCount: 0,
-		quoteCount: 0,
-		bookmarkedCount: 0,
+		replyCount,
+		retweetCount: metricFromRawJson(row.edge_raw_json, "retweet_count") ?? 0,
+		quoteCount: metricFromRawJson(row.edge_raw_json, "quote_count") ?? 0,
+		bookmarkedCount:
+			metricFromRawJson(row.edge_raw_json, "bookmark_count") ?? 0,
 	};
 }
 
@@ -590,13 +604,27 @@ function buildLocalProfileContext({
 		.prepare(
 			`
       select id, text, created_at, reply_to_id, like_count, media_count, entities_json, media_json
+        , (
+          select raw_json
+          from tweet_account_edges edge
+          where edge.tweet_id = tweets.id
+            and edge.account_id = ?
+            and edge.kind = 'profile'
+          order by edge.updated_at desc
+          limit 1
+        ) as edge_raw_json
+        , (
+          select count(*)
+          from tweets child
+          where child.reply_to_id = tweets.id
+        ) as local_reply_count
       from tweets
       where author_profile_id = ?
       order by created_at desc, id desc
       limit ?
       `,
 		)
-		.all(profile.id, maxTweets) as Array<Record<string, unknown>>;
+		.all(account.id, profile.id, maxTweets) as Array<Record<string, unknown>>;
 	const profileHandle = profile.handle || handle;
 	const tweets = rows.map((row) =>
 		compactLocalProfileTweet(row, profileHandle),
@@ -683,6 +711,71 @@ function contextHash(context: Omit<ProfileAnalysisContext, "hash">) {
 			}),
 		)
 		.digest("hex");
+}
+
+function rehashProfileContext(
+	context: Omit<ProfileAnalysisContext, "hash">,
+): ProfileAnalysisContext {
+	return {
+		...context,
+		hash: contextHash(context),
+	};
+}
+
+function mergeProfiles(
+	left: ProfileRecord[] | undefined,
+	right: ProfileRecord[] | undefined,
+) {
+	const profiles = new Map<string, ProfileRecord>();
+	for (const profile of [...(left ?? []), ...(right ?? [])]) {
+		profiles.set(profile.id, profile);
+	}
+	return [...profiles.values()];
+}
+
+function mergeLocalAndLiveProfileContext({
+	live,
+	local,
+}: {
+	live: ProfileAnalysisContext;
+	local: ProfileAnalysisContext;
+}) {
+	if (local.tweets.length === 0 || live.tweets.length >= local.tweets.length) {
+		return live;
+	}
+
+	const tweetsById = new Map(local.tweets.map((tweet) => [tweet.id, tweet]));
+	for (const tweet of live.tweets) {
+		tweetsById.set(tweet.id, tweet);
+	}
+	const tweets = [...tweetsById.values()].sort((left, right) =>
+		right.createdAt.localeCompare(left.createdAt),
+	);
+	return rehashProfileContext({
+		...local,
+		profile: live.profile,
+		profiles: mergeProfiles(local.profiles, live.profiles),
+		externalUserId: live.externalUserId || local.externalUserId,
+		tweets,
+		counts: {
+			...local.counts,
+			tweets: tweets.length,
+			tweetPages: Math.max(local.counts.tweetPages, live.counts.tweetPages),
+			conversationsScanned: Math.max(
+				local.counts.conversationsScanned,
+				live.counts.conversationsScanned,
+			),
+			conversationTweets: Math.max(
+				local.counts.conversationTweets,
+				live.counts.conversationTweets,
+			),
+			conversationPages: Math.max(
+				local.counts.conversationPages,
+				live.counts.conversationPages,
+			),
+		},
+		fetchCached: false,
+	});
 }
 
 function resultCacheKey(
@@ -901,17 +994,50 @@ export function collectProfileAnalysisContextEffect(
 		const ageMs = cached
 			? Date.now() - new Date(cached.updatedAt).getTime()
 			: Number.POSITIVE_INFINITY;
-		if (!options.refresh && cached && ageMs <= cacheTtlMs) {
+		const transport = yield* getTransportStatusEffect().pipe(
+			Effect.mapError(toError),
+		);
+		if (
+			transport.availableTransport === "xurl" &&
+			!options.refresh &&
+			cached &&
+			ageMs <= cacheTtlMs
+		) {
 			emitStatus(handlers, "Using cached profile backfill", `@${handle}`);
 			return { ...cached.value, fetchCached: true };
 		}
 
-		const transport = yield* getTransportStatusEffect().pipe(
-			Effect.mapError(toError),
-		);
 		if (transport.availableTransport !== "xurl") {
 			emitStatus(handlers, "Resolving profile", `@${handle}`);
 			const profile = yield* resolveProfileLocallyOrViaBirdEffect(handle);
+			const localContext = yield* tryProfileSync(() =>
+				buildLocalProfileContext({
+					account,
+					handle: profile.handle || handle,
+					profile,
+					maxTweets,
+					fetchCached: !options.refresh,
+				}),
+			);
+			if (!options.refresh && localContext.tweets.length > 0) {
+				if (
+					cached &&
+					ageMs <= cacheTtlMs &&
+					cached.value.tweets.length >= localContext.tweets.length
+				) {
+					emitStatus(handlers, "Using cached profile backfill", `@${handle}`);
+					return { ...cached.value, fetchCached: true };
+				}
+				emitStatus(
+					handlers,
+					"Using local profile archive",
+					`@${profile.handle} · ${String(localContext.tweets.length)} tweets`,
+				);
+				yield* tryProfileSync(() =>
+					writeSyncCache(contextKey, localContext, db),
+				);
+				return localContext;
+			}
 			emitStatus(
 				handlers,
 				"Fetching profile tweets with Bird",
@@ -926,25 +1052,22 @@ export function collectProfileAnalysisContextEffect(
 			}).pipe(
 				Effect.map((birdPayload) =>
 					birdPayload.data.length > 0
-						? buildContextFromPayloads({
-								account,
-								handle: profile.handle || handle,
-								profile,
-								externalUserId,
-								tweetResponses: [birdPayload],
-								conversationResponses: [],
-								conversationRoots: [],
-								tweetPages: Number(birdPayload.meta?.page_count ?? 1),
-								conversationPages: 0,
-								fetchCached: false,
+						? mergeLocalAndLiveProfileContext({
+								local: localContext,
+								live: buildContextFromPayloads({
+									account,
+									handle: profile.handle || handle,
+									profile,
+									externalUserId,
+									tweetResponses: [birdPayload],
+									conversationResponses: [],
+									conversationRoots: [],
+									tweetPages: Number(birdPayload.meta?.page_count ?? 1),
+									conversationPages: 0,
+									fetchCached: false,
+								}),
 							})
-						: buildLocalProfileContext({
-								account,
-								handle: profile.handle || handle,
-								profile,
-								maxTweets,
-								fetchCached: false,
-							}),
+						: localContext,
 				),
 				Effect.catchAll((error) => {
 					emitStatus(
@@ -952,15 +1075,7 @@ export function collectProfileAnalysisContextEffect(
 						"Bird profile fetch failed",
 						toError(error).message || "using local profile cache",
 					);
-					return tryProfileSync(() =>
-						buildLocalProfileContext({
-							account,
-							handle: profile.handle || handle,
-							profile,
-							maxTweets,
-							fetchCached: false,
-						}),
-					);
+					return Effect.succeed(localContext);
 				}),
 			);
 			yield* tryProfileSync(() => writeSyncCache(contextKey, context, db));

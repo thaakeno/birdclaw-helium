@@ -19,6 +19,7 @@ import {
 	UserRound,
 	UserSearch,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { AvatarChip } from "./AvatarChip";
 import {
@@ -48,10 +49,14 @@ import {
 	readPinnedProfiles,
 	readBoolean,
 	readStringArray,
+	SIDEBAR_BRAND_AVATAR_KEY,
 	SIDEBAR_COLLAPSED_KEY,
 	writeBoolean,
 } from "#/lib/nav-preferences";
+import { fetchQueryEnvelope } from "#/lib/api-client";
+import { queryKeys } from "#/lib/query-client";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { useSelectedAccountId } from "./account-selection";
 import { BirdclawMark } from "./BrandMark";
 import { ThemeSlider } from "./ThemeSlider";
 
@@ -78,7 +83,18 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
+	const statusQuery = useQuery({
+		queryKey: queryKeys.status,
+		queryFn: ({ signal }) => fetchQueryEnvelope({ signal }),
+	});
+	const accounts = statusQuery.data?.accounts ?? [];
+	const selectedAccountId = useSelectedAccountId(accounts);
+	const selectedAccount = useMemo(
+		() => accounts.find((account) => account.id === selectedAccountId),
+		[accounts, selectedAccountId],
+	);
 	const [collapsedPreference, setCollapsedPreference] = useState(false);
+	const [useAvatarBrand, setUseAvatarBrand] = useState(false);
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
 	const [pinnedProfiles, setPinnedProfiles] = useState<
@@ -88,6 +104,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 	useEffect(() => {
 		function load() {
 			setCollapsedPreference(readBoolean(SIDEBAR_COLLAPSED_KEY));
+			setUseAvatarBrand(readBoolean(SIDEBAR_BRAND_AVATAR_KEY));
 			setHidden(readStringArray(NAV_HIDDEN_KEY));
 			setOrder(readStringArray(NAV_ORDER_KEY));
 			setPinnedProfiles(readPinnedProfiles());
@@ -115,7 +132,20 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 			<div className="flex min-h-0 flex-1 flex-col">
 				<Link to="/" className={sidebarBrandClass}>
 					<span className={sidebarBrandMarkClass}>
-						<BirdclawMark className="size-10" />
+						{useAvatarBrand && selectedAccount ? (
+							<AvatarChip
+								avatarUrl={selectedAccount.avatarUrl}
+								hue={selectedAccount.avatarHue ?? 210}
+								name={
+									selectedAccount.name ||
+									selectedAccount.handle ||
+									selectedAccount.id
+								}
+								profileId={selectedAccount.profileId}
+							/>
+						) : (
+							<BirdclawMark className="size-10" />
+						)}
 					</span>
 					<span
 						className={
