@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/conversation")({
 
 						const conversation = getTweetConversation(tweetId);
 						if (!conversation) {
-							return json({ ok: false, error: "Tweet not found" }, 404);
+							return json({ ok: false, error: "Local thread not cached" }, 404);
 						}
 
 						return json(

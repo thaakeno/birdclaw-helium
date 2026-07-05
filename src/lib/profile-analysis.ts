@@ -1149,31 +1149,24 @@ export function collectProfileAnalysisContextEffect(
 					lastLocalTweetTime > 0 &&
 					birdPayload.data.length > 0
 				) {
-					const safetyCap = 5;
-					while (currentMaxPages < safetyCap) {
-						const oldestFetchedTweetTime = new Date(
-							birdPayload.data[birdPayload.data.length - 1].created_at
-						).getTime();
+					const oldestFetchedTweetTime = new Date(
+						birdPayload.data[birdPayload.data.length - 1].created_at
+					).getTime();
 
-						if (oldestFetchedTweetTime > lastLocalTweetTime) {
-							currentMaxPages += 1;
-							emitStatus(
-								handlers,
-								"Backfilling profile tweets",
-								`@${profile.handle} · Page ${currentMaxPages} to close gap...`
-							);
-							const nextPagePayload = yield* listUserTweetsViaBirdEffect({
-								handle: profile.handle || handle,
-								maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
-								all: false,
-								maxPages: currentMaxPages,
-							});
-							if (nextPagePayload.data.length <= birdPayload.data.length) {
-								break;
-							}
-							birdPayload = nextPagePayload;
-						} else {
-							break;
+					if (oldestFetchedTweetTime > lastLocalTweetTime) {
+						emitStatus(
+							handlers,
+							"Backfilling profile tweets",
+							`@${profile.handle} · Fetching up to 5 pages to close gap...`
+						);
+						const backfillPayload = yield* listUserTweetsViaBirdEffect({
+							handle: profile.handle || handle,
+							maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
+							all: false,
+							maxPages: 5,
+						});
+						if (backfillPayload.data.length > birdPayload.data.length) {
+							birdPayload = backfillPayload;
 						}
 					}
 				}

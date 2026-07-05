@@ -527,8 +527,6 @@ export function TimelineCard({
 				event.preventDefault();
 				setContextMenu({ x: event.clientX, y: event.clientY });
 			}}
-			onFocus={canFetchConversation ? conversation.prefetch : undefined}
-			onMouseEnter={canFetchConversation ? conversation.prefetch : undefined}
 			onClick={(event) => {
 				if (isInteractiveTarget(event.target)) return;
 				if (!canFetchConversation) return;
