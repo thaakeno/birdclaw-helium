@@ -16,10 +16,18 @@ function parseBoolean(value: string | null) {
 }
 
 function parseOptions(url: URL): ProfileAnalysisOptions {
+	const requestedMode = url.searchParams.get("mode");
+	const refreshMode =
+		requestedMode === "local" ||
+		requestedMode === "newest" ||
+		requestedMode === "deep"
+			? requestedMode
+			: undefined;
 	return {
 		handle: url.searchParams.get("handle") ?? "",
 		account: url.searchParams.get("account") ?? undefined,
 		refresh: parseBoolean(url.searchParams.get("refresh")),
+		refreshMode,
 		maxTweets: parseBoundedInteger(url.searchParams.get("maxTweets"), {
 			max: 20_000,
 		}),

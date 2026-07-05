@@ -3,7 +3,7 @@ export const NAV_ORDER_KEY = "birdclaw.nav.order";
 export const NAV_HIDDEN_KEY = "birdclaw.nav.hidden";
 export const SIDEBAR_COLLAPSED_KEY = "birdclaw.sidebar.collapsed";
 export const PINNED_PROFILES_KEY = "birdclaw.nav.pinnedProfiles";
-export const SIDEBAR_BRAND_AVATAR_KEY = "birdclaw.sidebar.brandAvatar";
+export const SIDEBAR_MY_POSTS_AVATAR_KEY = "birdclaw.sidebar.myPostsAvatar";
 
 export interface NavPreferenceItem {
 	to: string;
@@ -16,6 +16,8 @@ export interface PinnedProfileNavItem {
 	avatarUrl?: string;
 	avatarHue?: number;
 	profileId?: string;
+	lastSyncedAt?: string;
+	newCount?: number;
 }
 
 export function readStringArray(key: string) {
@@ -64,6 +66,12 @@ export function readPinnedProfiles() {
 						: {}),
 					...(typeof record.profileId === "string"
 						? { profileId: record.profileId }
+						: {}),
+					...(typeof record.lastSyncedAt === "string"
+						? { lastSyncedAt: record.lastSyncedAt }
+						: {}),
+					...(typeof record.newCount === "number"
+						? { newCount: record.newCount }
 						: {}),
 				},
 			];

@@ -13,6 +13,7 @@ import type { ProfileRecord } from "#/lib/types";
 
 export interface ProfileAnalysisRequestOptions {
 	refresh: boolean;
+	mode?: "local" | "newest" | "deep";
 	maxTweets: number;
 	maxPages: number;
 	maxConversations: number;
@@ -24,6 +25,13 @@ export const DEFAULT_PROFILE_ANALYSIS_LIMITS = {
 	maxPages: 3,
 	maxConversations: 0,
 	maxConversationPages: 3,
+} as const;
+
+export const PROFILE_CONTEXT_VIEW_LIMITS = {
+	maxTweets: 2000,
+	maxPages: 1,
+	maxConversations: 0,
+	maxConversationPages: 1,
 } as const;
 
 const PROFILE_MENTION_RE = /(^|[^\w@./])@([A-Za-z0-9_]{1,15})\b/g;
@@ -134,6 +142,9 @@ export function profileAnalysisUrl(
 	params.set("maxPages", String(options.maxPages));
 	params.set("maxConversations", String(options.maxConversations));
 	params.set("maxConversationPages", String(options.maxConversationPages));
+	if (options.mode) {
+		params.set("mode", options.mode);
+	}
 	if (options.refresh) {
 		params.set("refresh", "true");
 	}
@@ -168,6 +179,7 @@ export function formatProfileAnalysisCounts(
 	context: ProfileAnalysisContext | null,
 ) {
 	if (!context) return "Fetch profile posts locally, then optionally analyze.";
+	if (context.health?.message) return context.health.message;
 	return [
 		context.fetchCached ? "cached backfill" : "fresh backfill",
 		`${String(context.counts.tweets)} tweets`,

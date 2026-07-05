@@ -24,13 +24,13 @@ import {
 } from "#/lib/ui";
 import {
 	cleanProfileHandle,
-	DEFAULT_PROFILE_ANALYSIS_LIMITS,
 	formatProfileAnalysisCounts,
 	ProfileAnalysisOutput,
 	ProfileAnalysisStatusLine,
 	useProfileAnalysisStream,
 } from "#/components/ProfileAnalysisStream";
 import {
+	PROFILE_CONTEXT_VIEW_LIMITS,
 	profileContextRequestError,
 	profileContextUrl,
 } from "#/components/ProfileAnalysisClient";
@@ -144,6 +144,7 @@ function ProfileBioText({
 
 export function ProfileRouteView({ handle }: { handle: string }) {
 	const cleanHandle = cleanProfileHandle(handle);
+	const sessionKey = `birdclaw.session.profile.${cleanHandle.toLowerCase()}`;
 	const analysis = useProfileAnalysisStream(cleanHandle);
 	const [context, setContext] = useState<ProfileAnalysisContext | null>(null);
 	const [contextLoading, setContextLoading] = useState(false);
@@ -168,7 +169,7 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	}, [cleanHandle, activeContext?.accountHandle]);
 
 	const [profileTab, setProfileTab] = useState<"timeline" | "insights">(
-		"timeline",
+		() => readProfileSession(sessionKey).tab ?? "timeline",
 	);
 	const [pinnedProfiles, setPinnedProfiles] = useState<PinnedProfileNavItem[]>(
 		[],
@@ -227,15 +228,23 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	});
 	const stats = statsQuery.data ?? null;
 
-	async function fetchProfileContext(refresh: boolean) {
+	async function fetchProfileContext(mode: "local" | "newest" | "deep") {
 		if (!cleanHandle) return;
 		setContextLoading(true);
 		setContextError(null);
 		try {
+			const limits =
+				mode === "deep"
+					? {
+							...PROFILE_CONTEXT_VIEW_LIMITS,
+							maxPages: 10,
+						}
+					: PROFILE_CONTEXT_VIEW_LIMITS;
 			const response = await fetch(
 				profileContextUrl(cleanHandle, {
-					refresh,
-					...DEFAULT_PROFILE_ANALYSIS_LIMITS,
+					refresh: mode !== "local",
+					mode,
+					...limits,
 				}),
 			);
 			if (!response.ok) throw await profileContextRequestError(response);
@@ -257,9 +266,29 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	useEffect(() => {
 		if (cleanHandle && autoRunHandleRef.current !== cleanHandle) {
 			autoRunHandleRef.current = cleanHandle;
-			void fetchProfileContext(false);
+			void fetchProfileContext("local");
 		}
 	}, [cleanHandle]);
+
+	useEffect(() => {
+		const saved = readProfileSession(sessionKey);
+		if (!saved.scrollY) return;
+		const frame = window.requestAnimationFrame(() =>
+			window.scrollTo({ top: saved.scrollY }),
+		);
+		return () => window.cancelAnimationFrame(frame);
+	}, [sessionKey]);
+
+	useEffect(() => {
+		writeProfileSession(sessionKey, { tab: profileTab });
+		const saveScroll = () =>
+			writeProfileSession(sessionKey, { scrollY: window.scrollY });
+		window.addEventListener("scroll", saveScroll, { passive: true });
+		return () => {
+			saveScroll();
+			window.removeEventListener("scroll", saveScroll);
+		};
+	}, [profileTab, sessionKey]);
 
 	useEffect(() => {
 		function loadPinnedProfiles() {
@@ -357,7 +386,15 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 								<button
 									className={profileHeaderButtonClass}
 									disabled={!cleanHandle || contextLoading}
-									onClick={() => void fetchProfileContext(true)}
+									onClick={() => void fetchProfileContext("local")}
+									type="button"
+								>
+									Use local archive
+								</button>
+								<button
+									className={profileHeaderButtonClass}
+									disabled={!cleanHandle || contextLoading}
+									onClick={() => void fetchProfileContext("newest")}
 									type="button"
 								>
 									{contextLoading ? (
@@ -368,13 +405,22 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 									) : (
 										<RefreshCw className="size-4" strokeWidth={1.8} />
 									)}
-									Refresh
+									Fetch newest
+								</button>
+								<button
+									className={profileHeaderButtonClass}
+									disabled={!cleanHandle || contextLoading}
+									onClick={() => void fetchProfileContext("deep")}
+									type="button"
+								>
+									<RefreshCw className="size-4" strokeWidth={1.8} />
+									Deep refresh
 								</button>
 								{isCurrentUser && (
 									<SyncNowButton
 										kind="authored"
 										label="Sync profile"
-										onSynced={() => void fetchProfileContext(true)}
+										onSynced={() => void fetchProfileContext("newest")}
 									/>
 								)}
 								<button
@@ -421,6 +467,13 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 								</>
 							) : null}
 							<span>{formatProfileAnalysisCounts(activeContext)}</span>
+							{activeContext?.health ? (
+								<span className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 py-0.5">
+									{activeContext.health.source === "merged"
+										? "local archive protected"
+										: activeContext.health.source}
+								</span>
+							) : null}
 						</div>
 					</div>
 				</div>
@@ -469,7 +522,11 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 				) : null}
 
 				{profileTab === "timeline" ? (
-					<ProfilePostPreview context={activeContext} handle={cleanHandle} />
+					<ProfilePostPreview
+						context={activeContext}
+						handle={cleanHandle}
+						sessionKey={sessionKey}
+					/>
 				) : (
 					<div className="flex flex-col gap-5">
 						{stats && stats.totalPosts > 0 ? (
@@ -698,13 +755,19 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 function ProfilePostPreview({
 	context,
 	handle,
+	sessionKey,
 }: {
 	context: ProfileAnalysisContext | null;
 	handle: string;
+	sessionKey: string;
 }) {
 	const [sortBy, setSortBy] = useState<
 		"newest" | "oldest" | "likes" | "replies"
-	>("newest");
+	>(() => readProfileSession(sessionKey).sortBy ?? "newest");
+
+	useEffect(() => {
+		writeProfileSession(sessionKey, { sortBy });
+	}, [sessionKey, sortBy]);
 
 	const sortedTweets = useMemo(() => {
 		if (!context) return [];
@@ -905,4 +968,41 @@ function profileForConversationTweet(
 		avatarUrl: tweet.avatarUrl,
 		createdAt: tweet.createdAt,
 	};
+}
+
+type ProfileSessionState = {
+	tab?: "timeline" | "insights";
+	sortBy?: "newest" | "oldest" | "likes" | "replies";
+	scrollY?: number;
+};
+
+function readProfileSession(key: string): ProfileSessionState {
+	if (typeof window === "undefined") return {};
+	try {
+		const parsed = JSON.parse(window.sessionStorage.getItem(key) ?? "{}");
+		if (!parsed || typeof parsed !== "object") return {};
+		const record = parsed as Record<string, unknown>;
+		const sortBy = String(record.sortBy);
+		return {
+			...(record.tab === "timeline" || record.tab === "insights"
+				? { tab: record.tab }
+				: {}),
+			...(["newest", "oldest", "likes", "replies"].includes(sortBy)
+				? {
+						sortBy: sortBy as "newest" | "oldest" | "likes" | "replies",
+					}
+				: {}),
+			...(typeof record.scrollY === "number"
+				? { scrollY: Math.max(0, record.scrollY) }
+				: {}),
+		};
+	} catch {
+		return {};
+	}
+}
+
+function writeProfileSession(key: string, patch: ProfileSessionState) {
+	if (typeof window === "undefined") return;
+	const current = readProfileSession(key);
+	window.sessionStorage.setItem(key, JSON.stringify({ ...current, ...patch }));
 }

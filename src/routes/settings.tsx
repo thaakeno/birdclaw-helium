@@ -23,11 +23,14 @@ import {
 import {
 	NAV_HIDDEN_KEY,
 	NAV_ORDER_KEY,
+	PINNED_PROFILES_KEY,
 	orderNavItems,
+	readPinnedProfiles,
 	readBoolean,
 	readStringArray,
-	SIDEBAR_BRAND_AVATAR_KEY,
+	SIDEBAR_MY_POSTS_AVATAR_KEY,
 	writeBoolean,
+	writePinnedProfiles,
 	writeStringArray,
 } from "#/lib/nav-preferences";
 import {
@@ -76,7 +79,8 @@ export const Route = createFileRoute("/settings")({
 function SettingsRoute() {
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
-	const [useAvatarBrand, setUseAvatarBrand] = useState(false);
+	const [useMyPostsAvatar, setUseMyPostsAvatar] = useState(false);
+	const [pinnedProfiles, setPinnedProfiles] = useState(readPinnedProfiles);
 	const [draggingPath, setDraggingPath] = useState<NavPath | null>(null);
 	const [ai, setAi] = useState<AiSettings | null>(null);
 	const [aiLoading, setAiLoading] = useState(true);
@@ -91,7 +95,8 @@ function SettingsRoute() {
 	useEffect(() => {
 		setHidden(readStringArray(NAV_HIDDEN_KEY));
 		setOrder(readStringArray(NAV_ORDER_KEY));
-		setUseAvatarBrand(readBoolean(SIDEBAR_BRAND_AVATAR_KEY));
+		setUseMyPostsAvatar(readBoolean(SIDEBAR_MY_POSTS_AVATAR_KEY));
+		setPinnedProfiles(readPinnedProfiles());
 		void loadAiSettings();
 	}, []);
 
@@ -133,8 +138,16 @@ function SettingsRoute() {
 	function resetSidebar() {
 		persistHidden([]);
 		persistOrder([]);
-		setUseAvatarBrand(false);
-		writeBoolean(SIDEBAR_BRAND_AVATAR_KEY, false);
+		setUseMyPostsAvatar(false);
+		writeBoolean(SIDEBAR_MY_POSTS_AVATAR_KEY, false);
+		setPinnedProfiles([]);
+		window.localStorage.removeItem(PINNED_PROFILES_KEY);
+		window.dispatchEvent(new Event("birdclaw:nav-preferences"));
+	}
+
+	function persistPinnedProfiles(next: typeof pinnedProfiles) {
+		setPinnedProfiles(next);
+		writePinnedProfiles(next);
 	}
 
 	function moveDraggedItem(targetPath: NavPath) {
@@ -231,28 +244,29 @@ function SettingsRoute() {
 					<div className="flex min-w-0 items-center gap-3 border-b border-[var(--line)] px-3 py-3">
 						<div className="min-w-0 flex-1">
 							<div className="truncate text-[14px] font-bold text-[var(--ink)]">
-								Use account avatar as sidebar mark
+								Use avatar for My Posts
 							</div>
 							<div className="truncate text-[12px] text-[var(--ink-soft)]">
-								Replace the birdclaw mark with your active account avatar.
+								Replace only the My Posts nav icon with your active account
+								avatar.
 							</div>
 						</div>
 						<button
-							aria-pressed={useAvatarBrand}
+							aria-pressed={useMyPostsAvatar}
 							className={cx(
 								"inline-flex h-9 min-w-[92px] items-center justify-center rounded-full border px-3 text-[13px] font-semibold transition-colors",
-								useAvatarBrand
+								useMyPostsAvatar
 									? "border-[color:color-mix(in_srgb,var(--accent)_45%,var(--line))] bg-[var(--accent-soft)] text-[var(--accent)]"
 									: "border-[var(--line)] bg-[var(--bg)] text-[var(--ink-soft)] hover:bg-[var(--bg-hover)]",
 							)}
 							onClick={() => {
-								const next = !useAvatarBrand;
-								setUseAvatarBrand(next);
-								writeBoolean(SIDEBAR_BRAND_AVATAR_KEY, next);
+								const next = !useMyPostsAvatar;
+								setUseMyPostsAvatar(next);
+								writeBoolean(SIDEBAR_MY_POSTS_AVATAR_KEY, next);
 							}}
 							type="button"
 						>
-							{useAvatarBrand ? "On" : "Off"}
+							{useMyPostsAvatar ? "On" : "Off"}
 						</button>
 					</div>
 					{orderedItems.map((item, index) => {
@@ -316,6 +330,86 @@ function SettingsRoute() {
 							</div>
 						);
 					})}
+				</div>
+				<div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--panel)]">
+					<div className="border-b border-[var(--line)] px-3 py-3">
+						<div className="text-[14px] font-bold text-[var(--ink)]">
+							Pinned profiles
+						</div>
+						<div className="text-[12px] text-[var(--ink-soft)]">
+							Reorder or remove profiles pinned under the main nav.
+						</div>
+					</div>
+					{pinnedProfiles.length > 0 ? (
+						pinnedProfiles.map((profile, index) => (
+							<div
+								className="flex min-w-0 items-center gap-3 border-t border-[var(--line)] px-3 py-3 first:border-t-0"
+								key={profile.handle.toLowerCase()}
+							>
+								<div className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--bg)] text-[12px] font-bold text-[var(--ink-soft)]">
+									{String(index + 1)}
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="truncate text-[14px] font-bold text-[var(--ink)]">
+										{profile.displayName || `@${profile.handle}`}
+									</div>
+									<div className="truncate text-[12px] text-[var(--ink-soft)]">
+										@{profile.handle}
+										{profile.lastSyncedAt
+											? ` · synced ${new Date(profile.lastSyncedAt).toLocaleString()}`
+											: ""}
+									</div>
+								</div>
+								<button
+									className="h-8 rounded-full border border-[var(--line)] px-3 text-[12px] font-bold text-[var(--ink-soft)] hover:bg-[var(--bg-hover)]"
+									disabled={index === 0}
+									onClick={() => {
+										const next = [...pinnedProfiles];
+										const [item] = next.splice(index, 1);
+										if (!item) return;
+										next.splice(index - 1, 0, item);
+										persistPinnedProfiles(next);
+									}}
+									type="button"
+								>
+									Up
+								</button>
+								<button
+									className="h-8 rounded-full border border-[var(--line)] px-3 text-[12px] font-bold text-[var(--ink-soft)] hover:bg-[var(--bg-hover)]"
+									disabled={index >= pinnedProfiles.length - 1}
+									onClick={() => {
+										const next = [...pinnedProfiles];
+										const [item] = next.splice(index, 1);
+										if (!item) return;
+										next.splice(index + 1, 0, item);
+										persistPinnedProfiles(next);
+									}}
+									type="button"
+								>
+									Down
+								</button>
+								<button
+									className="h-8 rounded-full border border-[var(--line)] px-3 text-[12px] font-bold text-[var(--alert)] hover:bg-[var(--bg-hover)]"
+									onClick={() =>
+										persistPinnedProfiles(
+											pinnedProfiles.filter(
+												(item) =>
+													item.handle.toLowerCase() !==
+													profile.handle.toLowerCase(),
+											),
+										)
+									}
+									type="button"
+								>
+									Remove
+								</button>
+							</div>
+						))
+					) : (
+						<div className="px-3 py-4 text-[13px] text-[var(--ink-soft)]">
+							No pinned profiles yet.
+						</div>
+					)}
 				</div>
 			</section>
 

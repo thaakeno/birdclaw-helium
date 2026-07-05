@@ -61,6 +61,8 @@ export function ConversationThread({
 		<section
 			aria-label="Conversation"
 			className="mt-3 min-w-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_8px_28px_var(--shadow)]"
+			onClick={(event) => event.stopPropagation()}
+			onContextMenu={(event) => event.stopPropagation()}
 		>
 			<div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink)]">
 				<MessageCircle className={feedActionIconClass} strokeWidth={1.8} />

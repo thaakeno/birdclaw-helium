@@ -2,6 +2,7 @@ import {
 	ExternalLink,
 	Heart,
 	MessageCircle,
+	Copy,
 	Quote,
 	Repeat2,
 } from "lucide-react";
@@ -95,19 +96,48 @@ export function EmbeddedTweetMetrics({ item }: { item: EmbeddedTweet }) {
 				{metrics.map((metric) => {
 					const Icon = metric.icon;
 					return (
-						<span
+						<button
 							aria-label={`${formatCompactNumber(metric.value)} ${metric.label}`}
-							className={`${feedActionButtonClass} pointer-events-none`}
+							className={feedActionButtonClass}
 							key={metric.label}
+							onClick={(event) => event.stopPropagation()}
 							title={`${formatCompactNumber(metric.value)} ${metric.label}`}
+							type="button"
 						>
 							<span className={feedActionIconWrapClass}>
 								<Icon className={feedActionIconClass} strokeWidth={1.9} />
 							</span>
 							<span>{formatCompactNumber(metric.value)}</span>
-						</span>
+						</button>
 					);
 				})}
+				<a
+					aria-label="Open reply on X"
+					className={feedActionButtonClass}
+					href={tweetUrl(item)}
+					onClick={(event) => event.stopPropagation()}
+					rel="noreferrer"
+					target="_blank"
+					title="Open on X"
+				>
+					<span className={feedActionIconWrapClass}>
+						<ExternalLink className={feedActionIconClass} strokeWidth={1.9} />
+					</span>
+				</a>
+				<button
+					aria-label="Copy reply link"
+					className={feedActionButtonClass}
+					onClick={(event) => {
+						event.stopPropagation();
+						void navigator.clipboard?.writeText(tweetUrl(item));
+					}}
+					title="Copy X URL"
+					type="button"
+				>
+					<span className={feedActionIconWrapClass}>
+						<Copy className={feedActionIconClass} strokeWidth={1.9} />
+					</span>
+				</button>
 			</div>
 		</div>
 	);

@@ -51,6 +51,7 @@ export interface ProfileAnalysisOptions {
 	handle: string;
 	account?: string;
 	refresh?: boolean;
+	refreshMode?: "local" | "newest" | "deep";
 	maxTweets?: number;
 	maxPages?: number;
 	maxConversations?: number;
@@ -114,6 +115,14 @@ export interface ProfileAnalysisContext {
 		conversationPages: number;
 	};
 	fetchCached: boolean;
+	health?: {
+		mode: "local" | "newest" | "deep";
+		source: "local" | "cache" | "live" | "merged";
+		localTweets: number;
+		visibleTweets: number;
+		liveTweets?: number;
+		message: string;
+	};
 	hash: string;
 }
 
@@ -600,6 +609,10 @@ function buildLocalProfileContext({
 	fetchCached: boolean;
 }): ProfileAnalysisContext {
 	const db = getNativeDb();
+	const totalRow = db
+		.prepare("select count(*) as count from tweets where author_profile_id = ?")
+		.get(profile.id) as { count?: number } | undefined;
+	const localTweets = Number(totalRow?.count ?? 0);
 	const rows = db
 		.prepare(
 			`
@@ -646,6 +659,16 @@ function buildLocalProfileContext({
 			conversationPages: 0,
 		},
 		fetchCached,
+		health: {
+			mode: "local",
+			source: "local",
+			localTweets,
+			visibleTweets: tweets.length,
+			message:
+				localTweets > tweets.length
+					? `${String(localTweets)} local posts - showing latest ${String(tweets.length)}`
+					: `${String(localTweets)} local posts - using local archive`,
+		},
 	} satisfies Omit<ProfileAnalysisContext, "hash">;
 	return {
 		...withoutHash,
@@ -741,7 +764,17 @@ function mergeLocalAndLiveProfileContext({
 	local: ProfileAnalysisContext;
 }) {
 	if (local.tweets.length === 0 || live.tweets.length >= local.tweets.length) {
-		return live;
+		return rehashProfileContext({
+			...live,
+			health: {
+				mode: live.health?.mode ?? "newest",
+				source: "live",
+				localTweets: local.health?.localTweets ?? local.tweets.length,
+				visibleTweets: live.tweets.length,
+				liveTweets: live.tweets.length,
+				message: `${String(local.health?.localTweets ?? local.tweets.length)} local posts - latest live fetch ${String(live.tweets.length)} posts - using live fetch`,
+			},
+		});
 	}
 
 	const tweetsById = new Map(local.tweets.map((tweet) => [tweet.id, tweet]));
@@ -775,6 +808,14 @@ function mergeLocalAndLiveProfileContext({
 			),
 		},
 		fetchCached: false,
+		health: {
+			mode: live.health?.mode ?? "newest",
+			source: "merged",
+			localTweets: local.health?.localTweets ?? local.tweets.length,
+			visibleTweets: tweets.length,
+			liveTweets: live.tweets.length,
+			message: `${String(local.health?.localTweets ?? local.tweets.length)} local posts - latest live fetch ${String(live.tweets.length)} posts - using local archive`,
+		},
 	});
 }
 
@@ -980,6 +1021,7 @@ export function collectProfileAnalysisContextEffect(
 		const rateLimitRetryMs = rateLimitRetryMsFromOptions(options);
 		const rateLimitMaxRetries = rateLimitMaxRetriesFromOptions(options);
 		const cacheTtlMs = normalizeCacheTtlMs(options.cacheTtlMs);
+		const refreshMode = options.refreshMode ?? "newest";
 		const contextKey = contextCacheKey({
 			accountId: account.id,
 			handle,
@@ -999,6 +1041,7 @@ export function collectProfileAnalysisContextEffect(
 		);
 		if (
 			transport.availableTransport === "xurl" &&
+			refreshMode !== "local" &&
 			!options.refresh &&
 			cached &&
 			ageMs <= cacheTtlMs
@@ -1019,6 +1062,27 @@ export function collectProfileAnalysisContextEffect(
 					fetchCached: !options.refresh,
 				}),
 			);
+			if (refreshMode === "local") {
+				emitStatus(
+					handlers,
+					"Using local profile archive",
+					`@${profile.handle} - ${String(localContext.health?.localTweets ?? localContext.tweets.length)} local posts`,
+				);
+				return {
+					...localContext,
+					fetchCached: true,
+					health: {
+						...(localContext.health ?? {
+							mode: "local" as const,
+							source: "local" as const,
+							localTweets: localContext.tweets.length,
+							visibleTweets: localContext.tweets.length,
+							message: `${String(localContext.tweets.length)} local posts - using local archive`,
+						}),
+						mode: "local",
+					},
+				};
+			}
 			if (!options.refresh && localContext.tweets.length > 0) {
 				if (
 					cached &&
@@ -1026,7 +1090,22 @@ export function collectProfileAnalysisContextEffect(
 					cached.value.tweets.length >= localContext.tweets.length
 				) {
 					emitStatus(handlers, "Using cached profile backfill", `@${handle}`);
-					return { ...cached.value, fetchCached: true };
+					return {
+						...cached.value,
+						fetchCached: true,
+						health: {
+							...(cached.value.health ?? {
+								mode: "local" as const,
+								source: "cache" as const,
+								localTweets:
+									localContext.health?.localTweets ??
+									localContext.tweets.length,
+								visibleTweets: cached.value.tweets.length,
+								message: `${String(localContext.health?.localTweets ?? localContext.tweets.length)} local posts - using cached archive`,
+							}),
+							source: "cache",
+						},
+					};
 				}
 				emitStatus(
 					handlers,
@@ -1047,25 +1126,37 @@ export function collectProfileAnalysisContextEffect(
 			const context = yield* listUserTweetsViaBirdEffect({
 				handle: profile.handle || handle,
 				maxResults: Math.max(5, Math.min(XURL_PAGE_SIZE, maxTweets)),
-				all: maxPages > 1,
-				maxPages,
+				all: refreshMode === "deep" && maxPages > 1,
+				maxPages: refreshMode === "newest" ? 1 : maxPages,
 			}).pipe(
 				Effect.map((birdPayload) =>
 					birdPayload.data.length > 0
 						? mergeLocalAndLiveProfileContext({
 								local: localContext,
-								live: buildContextFromPayloads({
-									account,
-									handle: profile.handle || handle,
-									profile,
-									externalUserId,
-									tweetResponses: [birdPayload],
-									conversationResponses: [],
-									conversationRoots: [],
-									tweetPages: Number(birdPayload.meta?.page_count ?? 1),
-									conversationPages: 0,
-									fetchCached: false,
-								}),
+								live: {
+									...buildContextFromPayloads({
+										account,
+										handle: profile.handle || handle,
+										profile,
+										externalUserId,
+										tweetResponses: [birdPayload],
+										conversationResponses: [],
+										conversationRoots: [],
+										tweetPages: Number(birdPayload.meta?.page_count ?? 1),
+										conversationPages: 0,
+										fetchCached: false,
+									}),
+									health: {
+										mode: refreshMode,
+										source: "live",
+										localTweets:
+											localContext.health?.localTweets ??
+											localContext.tweets.length,
+										visibleTweets: birdPayload.data.length,
+										liveTweets: birdPayload.data.length,
+										message: `${String(localContext.health?.localTweets ?? localContext.tweets.length)} local posts - latest live fetch ${String(birdPayload.data.length)} posts`,
+									},
+								},
 							})
 						: localContext,
 				),

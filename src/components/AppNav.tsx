@@ -49,9 +49,10 @@ import {
 	readPinnedProfiles,
 	readBoolean,
 	readStringArray,
-	SIDEBAR_BRAND_AVATAR_KEY,
 	SIDEBAR_COLLAPSED_KEY,
+	SIDEBAR_MY_POSTS_AVATAR_KEY,
 	writeBoolean,
+	writePinnedProfiles,
 } from "#/lib/nav-preferences";
 import { fetchQueryEnvelope } from "#/lib/api-client";
 import { queryKeys } from "#/lib/query-client";
@@ -94,17 +95,22 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 		[accounts, selectedAccountId],
 	);
 	const [collapsedPreference, setCollapsedPreference] = useState(false);
-	const [useAvatarBrand, setUseAvatarBrand] = useState(false);
+	const [useMyPostsAvatar, setUseMyPostsAvatar] = useState(false);
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
 	const [pinnedProfiles, setPinnedProfiles] = useState<
 		ReturnType<typeof readPinnedProfiles>
 	>([]);
+	const [pinnedMenu, setPinnedMenu] = useState<{
+		handle: string;
+		x: number;
+		y: number;
+	} | null>(null);
 
 	useEffect(() => {
 		function load() {
 			setCollapsedPreference(readBoolean(SIDEBAR_COLLAPSED_KEY));
-			setUseAvatarBrand(readBoolean(SIDEBAR_BRAND_AVATAR_KEY));
+			setUseMyPostsAvatar(readBoolean(SIDEBAR_MY_POSTS_AVATAR_KEY));
 			setHidden(readStringArray(NAV_HIDDEN_KEY));
 			setOrder(readStringArray(NAV_ORDER_KEY));
 			setPinnedProfiles(readPinnedProfiles());
@@ -132,20 +138,7 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 			<div className="flex min-h-0 flex-1 flex-col">
 				<Link to="/" className={sidebarBrandClass}>
 					<span className={sidebarBrandMarkClass}>
-						{useAvatarBrand && selectedAccount ? (
-							<AvatarChip
-								avatarUrl={selectedAccount.avatarUrl}
-								hue={selectedAccount.avatarHue ?? 210}
-								name={
-									selectedAccount.name ||
-									selectedAccount.handle ||
-									selectedAccount.id
-								}
-								profileId={selectedAccount.profileId}
-							/>
-						) : (
-							<BirdclawMark className="size-10" />
-						)}
+						<BirdclawMark className="size-10" />
 					</span>
 					<span
 						className={
@@ -162,6 +155,8 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 					{visibleLinks.map((link) => {
 						const active = pathname === link.to;
 						const Icon = link.icon;
+						const showMyPostsAvatar =
+							link.to === "/my-posts" && useMyPostsAvatar && selectedAccount;
 						return (
 							<Link
 								key={link.to}
@@ -172,12 +167,28 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 									active && navLinkActiveClass,
 								)}
 							>
-								<Icon
-									className={navLinkIconClass}
-									size={22}
-									strokeWidth={active ? 2.4 : 1.8}
-									aria-hidden="true"
-								/>
+								{showMyPostsAvatar ? (
+									<span className="grid size-[22px] shrink-0 place-items-center overflow-hidden rounded-full">
+										<AvatarChip
+											avatarUrl={selectedAccount.avatarUrl}
+											hue={selectedAccount.avatarHue ?? 210}
+											name={
+												selectedAccount.name ||
+												selectedAccount.handle ||
+												selectedAccount.id
+											}
+											profileId={selectedAccount.profileId}
+											size="small"
+										/>
+									</span>
+								) : (
+									<Icon
+										className={navLinkIconClass}
+										size={22}
+										strokeWidth={active ? 2.4 : 1.8}
+										aria-hidden="true"
+									/>
+								)}
 								<span
 									className={
 										isCompact ? navLinkLabelCompactClass : navLinkLabelClass
@@ -207,6 +218,14 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 											active && navLinkActiveClass,
 										)}
 										key={profile.handle.toLowerCase()}
+										onContextMenu={(event) => {
+											event.preventDefault();
+											setPinnedMenu({
+												handle: profile.handle,
+												x: event.clientX,
+												y: event.clientY,
+											});
+										}}
 										to={to}
 									>
 										<span className="grid size-[22px] shrink-0 place-items-center overflow-hidden rounded-full">
@@ -224,6 +243,11 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 											}
 										>
 											{label}
+											{profile.newCount && profile.newCount > 0 ? (
+												<span className="ml-auto rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+													{profile.newCount}
+												</span>
+											) : null}
 										</span>
 									</Link>
 								);
@@ -267,6 +291,101 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 				</button>
 				<AccountSwitcher action={<ThemeSlider compact />} />
 			</div>
+			{pinnedMenu ? (
+				<PinnedProfileMenu
+					handle={pinnedMenu.handle}
+					onClose={() => setPinnedMenu(null)}
+					onRemove={() => {
+						writePinnedProfiles(
+							pinnedProfiles.filter(
+								(profile) =>
+									profile.handle.toLowerCase() !==
+									pinnedMenu.handle.toLowerCase(),
+							),
+						);
+						setPinnedMenu(null);
+					}}
+					onRefresh={async () => {
+						const handle = pinnedMenu.handle;
+						await fetch(
+							`/api/profile-context?handle=${encodeURIComponent(handle)}&refresh=true&maxTweets=2000&maxPages=1&maxConversations=0&maxConversationPages=1`,
+						).catch(() => undefined);
+						writePinnedProfiles(
+							pinnedProfiles.map((profile) =>
+								profile.handle.toLowerCase() === handle.toLowerCase()
+									? {
+											...profile,
+											lastSyncedAt: new Date().toISOString(),
+											newCount: 0,
+										}
+									: profile,
+							),
+						);
+						setPinnedMenu(null);
+					}}
+					position={{ x: pinnedMenu.x, y: pinnedMenu.y }}
+				/>
+			) : null}
 		</aside>
+	);
+}
+
+function PinnedProfileMenu({
+	handle,
+	onClose,
+	onRefresh,
+	onRemove,
+	position,
+}: {
+	handle: string;
+	onClose: () => void;
+	onRefresh: () => void | Promise<void>;
+	onRemove: () => void;
+	position: { x: number; y: number };
+}) {
+	useEffect(() => {
+		const close = () => onClose();
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") onClose();
+		};
+		window.addEventListener("click", close);
+		window.addEventListener("keydown", onKeyDown);
+		return () => {
+			window.removeEventListener("click", close);
+			window.removeEventListener("keydown", onKeyDown);
+		};
+	}, [onClose]);
+
+	const left = Math.min(Math.max(12, position.x), window.innerWidth - 224);
+	const top = Math.min(Math.max(12, position.y), window.innerHeight - 180);
+
+	return (
+		<div
+			className="fixed z-[9999] w-[212px] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] py-2 text-[14px] text-[var(--ink)] shadow-[0_18px_60px_var(--shadow-strong)]"
+			onClick={(event) => event.stopPropagation()}
+			style={{ left, top }}
+		>
+			<a
+				className="block px-4 py-2.5 font-semibold hover:bg-[var(--bg-hover)]"
+				href={`/profiles/${encodeURIComponent(handle)}`}
+				onClick={onClose}
+			>
+				Open @{handle}
+			</a>
+			<button
+				className="block w-full px-4 py-2.5 text-left font-semibold hover:bg-[var(--bg-hover)]"
+				onClick={() => void onRefresh()}
+				type="button"
+			>
+				Fetch newest
+			</button>
+			<button
+				className="block w-full px-4 py-2.5 text-left font-semibold text-[var(--alert)] hover:bg-[var(--bg-hover)]"
+				onClick={onRemove}
+				type="button"
+			>
+				Unpin profile
+			</button>
+		</div>
 	);
 }
