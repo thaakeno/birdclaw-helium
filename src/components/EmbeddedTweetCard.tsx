@@ -6,6 +6,8 @@ import {
 	Quote,
 	Repeat2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { readBoolean, HIDE_QUOTE_INFO_KEY } from "#/lib/nav-preferences";
 import { formatCompactNumber } from "#/lib/present";
 import type { EmbeddedTweet } from "#/lib/types";
 import {
@@ -34,6 +36,11 @@ export function EmbeddedTweetCard({
 	item: EmbeddedTweet;
 	label: string;
 }) {
+	const [hideMetrics, setHideMetrics] = useState(false);
+	useEffect(() => {
+		setHideMetrics(readBoolean(HIDE_QUOTE_INFO_KEY));
+	}, []);
+
 	return (
 		<section className={embeddedCardBodyClass}>
 			<p className={embeddedCardLabelClass}>{label}</p>
@@ -74,7 +81,7 @@ export function EmbeddedTweetCard({
 			{item.entities.article ? (
 				<TweetArticleCard article={item.entities.article} />
 			) : null}
-			<EmbeddedTweetMetrics item={item} />
+			{hideMetrics ? null : <EmbeddedTweetMetrics item={item} />}
 		</section>
 	);
 }

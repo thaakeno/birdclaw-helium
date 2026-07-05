@@ -903,6 +903,8 @@ export function listTimelineItems({
         rt.reply_to_id as reply_reply_to_id,
         rt.entities_json as reply_entities_json,
         rt.media_json as reply_media_json,
+        rt.like_count as reply_like_count,
+        rte.raw_json as reply_edge_raw_json,
         rp.id as reply_profile_id,
         rp.handle as reply_handle,
         rp.display_name as reply_display_name,
@@ -918,6 +920,8 @@ export function listTimelineItems({
         qt.reply_to_id as quoted_reply_to_id,
         qt.entities_json as quoted_entities_json,
         qt.media_json as quoted_media_json,
+        qt.like_count as quoted_like_count,
+        qte.raw_json as quoted_edge_raw_json,
         qp.id as quoted_profile_id,
         qp.handle as quoted_handle,
         qp.display_name as quoted_display_name,
@@ -934,8 +938,10 @@ export function listTimelineItems({
       join profiles p on p.id = t.author_profile_id
       left join tweets rt on rt.id = t.reply_to_id
       left join profiles rp on rp.id = rt.author_profile_id
+      left join tweet_account_edges rte on rte.tweet_id = rt.id and rte.account_id = e.account_id
       left join tweets qt on qt.id = t.quoted_tweet_id
       left join profiles qp on qp.id = qt.author_profile_id
+      left join tweet_account_edges qte on qte.tweet_id = qt.id and qte.account_id = e.account_id
       ${join}
       ${where}
       order by ${searchOrderSql ? `${searchOrderSql}, ` : ""}${timelineSort.orderSql}

@@ -4,6 +4,7 @@ export const NAV_HIDDEN_KEY = "birdclaw.nav.hidden";
 export const SIDEBAR_COLLAPSED_KEY = "birdclaw.sidebar.collapsed";
 export const PINNED_PROFILES_KEY = "birdclaw.nav.pinnedProfiles";
 export const SIDEBAR_MY_POSTS_AVATAR_KEY = "birdclaw.sidebar.myPostsAvatar";
+export const HIDE_QUOTE_INFO_KEY = "birdclaw.hideQuoteInfo";
 
 export interface NavPreferenceItem {
 	to: string;

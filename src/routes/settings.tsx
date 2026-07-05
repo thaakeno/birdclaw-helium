@@ -29,6 +29,7 @@ import {
 	readBoolean,
 	readStringArray,
 	SIDEBAR_MY_POSTS_AVATAR_KEY,
+	HIDE_QUOTE_INFO_KEY,
 	writeBoolean,
 	writePinnedProfiles,
 	writeStringArray,
@@ -80,6 +81,7 @@ function SettingsRoute() {
 	const [hidden, setHidden] = useState<string[]>([]);
 	const [order, setOrder] = useState<string[]>([]);
 	const [useMyPostsAvatar, setUseMyPostsAvatar] = useState(false);
+	const [hideQuoteInfo, setHideQuoteInfo] = useState(false);
 	const [pinnedProfiles, setPinnedProfiles] = useState(readPinnedProfiles);
 	const [draggingPath, setDraggingPath] = useState<NavPath | null>(null);
 	const [ai, setAi] = useState<AiSettings | null>(null);
@@ -96,6 +98,7 @@ function SettingsRoute() {
 		setHidden(readStringArray(NAV_HIDDEN_KEY));
 		setOrder(readStringArray(NAV_ORDER_KEY));
 		setUseMyPostsAvatar(readBoolean(SIDEBAR_MY_POSTS_AVATAR_KEY));
+		setHideQuoteInfo(readBoolean(HIDE_QUOTE_INFO_KEY));
 		setPinnedProfiles(readPinnedProfiles());
 		void loadAiSettings();
 	}, []);
@@ -267,6 +270,33 @@ function SettingsRoute() {
 							type="button"
 						>
 							{useMyPostsAvatar ? "On" : "Off"}
+						</button>
+					</div>
+					<div className="flex min-w-0 items-center gap-3 border-b border-[var(--line)] px-3 py-3">
+						<div className="min-w-0 flex-1">
+							<div className="truncate text-[14px] font-bold text-[var(--ink)]">
+								Hide quoted posts metrics
+							</div>
+							<div className="truncate text-[12px] text-[var(--ink-soft)]">
+								Hide the metric counters (likes, retweets, replies) on quoted posts.
+							</div>
+						</div>
+						<button
+							aria-pressed={hideQuoteInfo}
+							className={cx(
+								"inline-flex h-9 min-w-[92px] items-center justify-center rounded-full border px-3 text-[13px] font-semibold transition-colors",
+								hideQuoteInfo
+									? "border-[color:color-mix(in_srgb,var(--accent)_45%,var(--line))] bg-[var(--accent-soft)] text-[var(--accent)]"
+									: "border-[var(--line)] bg-[var(--bg)] text-[var(--ink-soft)] hover:bg-[var(--bg-hover)]",
+							)}
+							onClick={() => {
+								const next = !hideQuoteInfo;
+								setHideQuoteInfo(next);
+								writeBoolean(HIDE_QUOTE_INFO_KEY, next);
+							}}
+							type="button"
+						>
+							{hideQuoteInfo ? "On" : "Off"}
 						</button>
 					</div>
 					{orderedItems.map((item, index) => {

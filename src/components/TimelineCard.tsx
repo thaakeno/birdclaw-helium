@@ -746,18 +746,16 @@ export function TimelineCard({
 								</button>
 							</>
 						) : null}
-						{displayRetweetCount > 0 ? (
-							<span
-								aria-label={`${formatCompactNumber(displayRetweetCount)} reposts`}
-								className={cx(feedActionButtonClass, "pointer-events-none")}
-								title={`${formatCompactNumber(displayRetweetCount)} reposts`}
-							>
-								<span className={feedActionIconWrapClass}>
-									<Repeat2 className={feedActionIconClass} strokeWidth={1.9} />
-								</span>
-								<span>{formatCompactNumber(displayRetweetCount)}</span>
+						<span
+							aria-label={`${formatCompactNumber(displayRetweetCount)} reposts`}
+							className={cx(feedActionButtonClass, "pointer-events-none")}
+							title={`${formatCompactNumber(displayRetweetCount)} reposts`}
+						>
+							<span className={feedActionIconWrapClass}>
+								<Repeat2 className={feedActionIconClass} strokeWidth={1.9} />
 							</span>
-						) : null}
+							<span>{formatCompactNumber(displayRetweetCount)}</span>
+						</span>
 						<span
 							aria-label={`${formatCompactNumber(displayLikeCount)} likes`}
 							className={cx(
