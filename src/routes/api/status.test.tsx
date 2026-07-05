@@ -27,7 +27,7 @@ describe("status api route", () => {
 	it("returns the query envelope as json", async () => {
 		mocks.maybeAutoUpdateBackup.mockResolvedValue(undefined);
 		mocks.getQueryEnvelope.mockResolvedValue({
-			stats: { home: 4, mentions: 2, dms: 4, needsReply: 2, inbox: 4 },
+			stats: { home: 4, mentions: 2, dms: 4, needsReply: 2, inbox: 4, bookmarks: 0, likes: 0, authored: 0 },
 			accounts: [
 				{
 					id: "acct_primary",
@@ -60,7 +60,7 @@ describe("status api route", () => {
 		});
 
 		await expect(response.json()).resolves.toEqual({
-			stats: { home: 4, mentions: 2, dms: 4, needsReply: 2, inbox: 4 },
+			stats: { home: 4, mentions: 2, dms: 4, needsReply: 2, inbox: 4, bookmarks: 0, likes: 0, authored: 0 },
 			accounts: [
 				{
 					id: "acct_primary",

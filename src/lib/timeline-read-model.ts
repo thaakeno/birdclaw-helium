@@ -276,6 +276,8 @@ function buildEmbeddedTweet(
 	});
 
 	const text = String(row[`${prefix}text`] ?? "");
+	const edgeRawJson = row[`${prefix}edge_raw_json`];
+
 	return {
 		id: String(row[`${prefix}id`]),
 		text,
@@ -311,6 +313,13 @@ function buildEmbeddedTweet(
 			resolveProfileByHandle,
 		),
 		media: parseJsonField<TweetMediaItem[]>(row[`${prefix}media_json`], []),
+		replyCount: edgeRawJson ? getReplyCountFromRawJson(edgeRawJson) : undefined,
+		localReplyCount:
+			typeof row[`${prefix}local_reply_count`] === "number"
+				? Number(row[`${prefix}local_reply_count`])
+				: undefined,
+		quoteCount: edgeRawJson ? getQuoteCountFromRawJson(edgeRawJson) : undefined,
+		viewsCount: edgeRawJson ? getViewsCountFromRawJson(edgeRawJson) : undefined,
 	};
 }
 
@@ -424,7 +433,7 @@ function buildRetweetedTweet(
 	const author = resolveProfileByHandle(manualRetweet.handle);
 	const fallbackMedia = parseJsonField<TweetMediaItem[]>(row.media_json, []);
 	return {
-		id: `${String(row.id)}:retweeted`,
+		id: retweetedId ?? `${String(row.id)}:retweeted`,
 		text: manualRetweet.text,
 		createdAt: String(row.created_at ?? new Date(0).toISOString()),
 		replyToId: null,
@@ -1057,7 +1066,7 @@ function conversationTweetSelect(accountId?: string) {
     case
       when exists (
         select 1 from tweet_collections collection
-        where collection.account_id = ?
+        where collection.account_id = ?1
           and collection.tweet_id = t.id
           and collection.kind = 'bookmarks'
       ) then 1
@@ -1066,7 +1075,7 @@ function conversationTweetSelect(accountId?: string) {
     case
       when exists (
         select 1 from tweet_collections collection
-        where collection.account_id = ?
+        where collection.account_id = ?1
           and collection.tweet_id = t.id
           and collection.kind = 'likes'
       ) then 1
@@ -1091,6 +1100,17 @@ function conversationTweetSelect(accountId?: string) {
     t.like_count,
     t.media_count,
     ${collectionStateSelect}
+    (
+      select raw_json from tweet_account_edges
+      where tweet_id = t.id
+      ${accountId ? "and account_id = ?1" : ""}
+      limit 1
+    ) as edge_raw_json,
+    (
+      select count(*)
+      from tweets child
+      where child.reply_to_id = t.id
+    ) as local_reply_count,
     t.entities_json,
     t.media_json,
     p.id as profile_id,
@@ -1114,9 +1134,9 @@ function getTweetById(
 	resolveProfileByHandle?: (handle: string) => ProfileRecord,
 	accountId?: string,
 ): EmbeddedTweet | null {
-	const stateParams = accountId ? [accountId, accountId] : [];
+	const stateParams = accountId ? [accountId] : [];
 	const row = db
-		.prepare(`${conversationTweetSelect(accountId)} where t.id = ?`)
+		.prepare(`${conversationTweetSelect(accountId)} where t.id = ?${accountId ? "2" : "1"}`)
 		.get(...stateParams, tweetId) as Record<string, unknown> | undefined;
 	if (!row) return null;
 	return buildEmbeddedTweet(
