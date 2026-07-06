@@ -100,52 +100,56 @@ export function EmbeddedTweetMetrics({ item }: { item: EmbeddedTweet }) {
 	];
 	return (
 		<div className={feedRowActionsClass}>
-			<div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[13px] text-[var(--ink-soft)]">
-				{metrics.map((metric) => {
-					const Icon = metric.icon;
-					return (
-						<button
-							aria-label={`${formatCompactNumber(metric.value)} ${metric.label}`}
-							className={feedActionButtonClass}
-							key={metric.label}
-							onClick={(event) => event.stopPropagation()}
-							title={`${formatCompactNumber(metric.value)} ${metric.label}`}
-							type="button"
-						>
-							<span className={feedActionIconWrapClass}>
-								<Icon className={feedActionIconClass} strokeWidth={1.9} />
-							</span>
-							<span>{formatCompactNumber(metric.value)}</span>
-						</button>
-					);
-				})}
-				<a
-					aria-label="Open reply on X"
-					className={feedActionButtonClass}
-					href={tweetUrl(item)}
-					onClick={(event) => event.stopPropagation()}
-					rel="noreferrer"
-					target="_blank"
-					title="Open on X"
-				>
-					<span className={feedActionIconWrapClass}>
-						<ExternalLink className={feedActionIconClass} strokeWidth={1.9} />
-					</span>
-				</a>
-				<button
-					aria-label="Copy reply link"
-					className={feedActionButtonClass}
-					onClick={(event) => {
-						event.stopPropagation();
-						void navigator.clipboard?.writeText(tweetUrl(item));
-					}}
-					title="Copy X URL"
-					type="button"
-				>
-					<span className={feedActionIconWrapClass}>
-						<Copy className={feedActionIconClass} strokeWidth={1.9} />
-					</span>
-				</button>
+			<div className="flex w-full items-center justify-between gap-x-2 text-[13px] text-[var(--ink-soft)]">
+				<div className="flex items-center gap-1 sm:gap-2 min-w-0">
+					{metrics.map((metric) => {
+						const Icon = metric.icon;
+						return (
+							<button
+								aria-label={`${formatCompactNumber(metric.value)} ${metric.label}`}
+								className={feedActionButtonClass}
+								key={metric.label}
+								onClick={(event) => event.stopPropagation()}
+								title={`${formatCompactNumber(metric.value)} ${metric.label}`}
+								type="button"
+							>
+								<span className={feedActionIconWrapClass}>
+									<Icon className={feedActionIconClass} strokeWidth={1.9} />
+								</span>
+								<span className="tabular-nums">{formatCompactNumber(metric.value)}</span>
+							</button>
+						);
+					})}
+				</div>
+				<div className="flex items-center gap-0.5 shrink-0">
+					<a
+						aria-label="Open reply on X"
+						className={feedActionButtonClass}
+						href={tweetUrl(item)}
+						onClick={(event) => event.stopPropagation()}
+						rel="noreferrer"
+						target="_blank"
+						title="Open on X"
+					>
+						<span className={feedActionIconWrapClass}>
+							<ExternalLink className={feedActionIconClass} strokeWidth={1.9} />
+						</span>
+					</a>
+					<button
+						aria-label="Copy reply link"
+						className={feedActionButtonClass}
+						onClick={(event) => {
+							event.stopPropagation();
+							void navigator.clipboard?.writeText(tweetUrl(item));
+						}}
+						title="Copy X URL"
+						type="button"
+					>
+						<span className={feedActionIconWrapClass}>
+							<Copy className={feedActionIconClass} strokeWidth={1.9} />
+						</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	);

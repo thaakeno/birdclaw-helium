@@ -1,5 +1,6 @@
-import { Fragment } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
+import { ChevronDown, ChevronUp, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import {
 	collectTweetSegmentsForText,
@@ -79,83 +80,162 @@ export function TweetRichText({
 		entities.article && text.trim() === entities.article.title.trim();
 	const visibleSegments = hideArticleTitle ? [] : segments;
 
+	const uniqueMentions = useMemo(() => {
+		const raw = richEntities.mentions ?? [];
+		const seen = new Set<string>();
+		return raw.filter((m) => {
+			const uname = m.username.toLowerCase();
+			if (seen.has(uname)) return false;
+			seen.add(uname);
+			return true;
+		});
+	}, [richEntities.mentions]);
+
+	const shouldGroupMentions = uniqueMentions.length > 1;
+	const [mentionsExpanded, setMentionsExpanded] = useState(false);
+	let hasRenderedText = false;
+
 	return (
-		<Wrapper className={className === "body-copy" ? bodyCopyClass : className}>
-			{visibleSegments.map((segment, index) => {
-				if (
-					segment.start < cursor ||
-					segment.end <= segment.start ||
-					segment.end > text.length
-				) {
-					return null;
-				}
+		<div className="flex flex-col gap-1 w-full">
+			{shouldGroupMentions && (
+				<div className="flex flex-col items-start gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+					<button
+						type="button"
+						onClick={() => setMentionsExpanded(!mentionsExpanded)}
+						className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[var(--bg-hover)] hover:bg-[var(--bg-active)] px-2.5 text-[11px] font-semibold text-[var(--ink)] transition-colors border border-[var(--line)]"
+					>
+						<Users className="size-3.5 text-[var(--ink-soft)]" />
+						<span>
+							Tagged {uniqueMentions.length} users
+						</span>
+						{mentionsExpanded ? (
+							<ChevronUp className="size-3 text-[var(--ink-soft)] ml-0.5" />
+						) : (
+							<ChevronDown className="size-3 text-[var(--ink-soft)] ml-0.5" />
+						)}
+					</button>
+					{mentionsExpanded && (
+						<div className="flex flex-wrap gap-1 p-1.5 rounded-xl border border-[var(--line)] bg-[var(--panel)] w-full max-h-[140px] overflow-y-auto custom-scrollbar">
+							{uniqueMentions.map((m, i) => {
+								if (m.profile) {
+									return (
+										<ProfilePreview key={i} profile={m.profile}>
+											<span className="inline-flex items-center rounded-full bg-[var(--bg)] border border-[var(--line)] px-2 py-0.5 text-[11px] font-medium text-[var(--ink)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
+												@{m.username}
+											</span>
+										</ProfilePreview>
+									);
+								}
+								return (
+									<Link
+										key={i}
+										to="/profiles/$handle"
+										params={{ handle: m.username }}
+										className="inline-flex items-center rounded-full bg-[var(--bg)] border border-[var(--line)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--bg-hover)] transition-colors"
+									>
+										@{m.username}
+									</Link>
+								);
+							})}
+						</div>
+					)}
+				</div>
+			)}
+			<Wrapper className={className === "body-copy" ? bodyCopyClass : className}>
+				{visibleSegments.map((segment, index) => {
+					if (
+						segment.start < cursor ||
+						segment.end <= segment.start ||
+						segment.end > text.length
+					) {
+						return null;
+					}
 
-				const prefix = text.slice(cursor, segment.start);
-				cursor = segment.end;
+					let prefix = text.slice(cursor, segment.start);
+					cursor = segment.end;
 
-				let node: ReactNode = (
-					<Fragment key={`segment-${String(index)}`}>
-						{text.slice(segment.start, segment.end)}
-					</Fragment>
-				);
-				if (segment.kind === "url" && hiddenRangeKeys.has(rangeKey(segment))) {
-					node = null;
-				} else if (segment.kind === "mention" && segment.profile) {
-					node = (
-						<ProfilePreview
-							key={`segment-${String(index)}`}
-							profile={segment.profile}
-						>
-							<span className={tweetMentionClass}>@{segment.username}</span>
-						</ProfilePreview>
+					if (shouldGroupMentions && !hasRenderedText) {
+						prefix = prefix.replace(/^\s+/, "");
+					}
+
+					let node: ReactNode = (
+						<Fragment key={`segment-${String(index)}`}>
+							{text.slice(segment.start, segment.end)}
+						</Fragment>
 					);
-				} else if (segment.kind === "mention") {
-					node = (
-						<Link
-							key={`segment-${String(index)}`}
-							className={tweetMentionClass}
-							to="/profiles/$handle"
-							params={{ handle: segment.username }}
-						>
-							@{segment.username}
-						</Link>
-					);
-				} else if (segment.kind === "url") {
-					const href = safeHttpUrl(segment.expandedUrl);
-					if (href) {
+					if (segment.kind === "url" && hiddenRangeKeys.has(rangeKey(segment))) {
+						node = null;
+					} else if (segment.kind === "mention" && shouldGroupMentions) {
+						node = null;
+					} else if (segment.kind === "mention" && segment.profile) {
 						node = (
-							<a
+							<ProfilePreview
 								key={`segment-${String(index)}`}
-								className={tweetLinkClass}
-								href={href}
-								rel="noreferrer"
-								target="_blank"
+								profile={segment.profile}
 							>
-								{urlLabel === "expanded"
-									? segment.expandedUrl
-									: segment.displayUrl}
-							</a>
+								<span className={tweetMentionClass}>@{segment.username}</span>
+							</ProfilePreview>
+						);
+					} else if (segment.kind === "mention") {
+						node = (
+							<Link
+								key={`segment-${String(index)}`}
+								className={tweetMentionClass}
+								to="/profiles/$handle"
+								params={{ handle: segment.username }}
+							>
+								@{segment.username}
+							</Link>
+						);
+					} else if (segment.kind === "url") {
+						const href = safeHttpUrl(segment.expandedUrl);
+						if (href) {
+							node = (
+								<a
+									key={`segment-${String(index)}`}
+									className={tweetLinkClass}
+									href={href}
+									rel="noreferrer"
+									target="_blank"
+								>
+									{urlLabel === "expanded"
+										? segment.expandedUrl
+										: segment.displayUrl}
+								</a>
+							);
+						}
+					} else if (segment.kind === "hashtag") {
+						node = (
+							<span
+								className={tweetHashtagClass}
+								key={`segment-${String(index)}`}
+							>
+								#{segment.tag}
+							</span>
 						);
 					}
-				} else if (segment.kind === "hashtag") {
-					node = (
-						<span
-							className={tweetHashtagClass}
-							key={`segment-${String(index)}`}
-						>
-							#{segment.tag}
-						</span>
-					);
-				}
 
-				return (
-					<Fragment key={`piece-${String(index)}`}>
-						{prefix}
-						{node}
-					</Fragment>
-				);
-			})}
-			{hideArticleTitle ? null : text.slice(cursor)}
-		</Wrapper>
+					const isNodeEmpty = node === null;
+					const isPrefixEmpty = prefix === "";
+					if (!isNodeEmpty || !isPrefixEmpty) {
+						hasRenderedText = true;
+					}
+
+					return (
+						<Fragment key={`piece-${String(index)}`}>
+							{prefix}
+							{node}
+						</Fragment>
+					);
+				})}
+				{hideArticleTitle ? null : (() => {
+					let trailing = text.slice(cursor);
+					if (shouldGroupMentions && !hasRenderedText) {
+						trailing = trailing.replace(/^\s+/, "");
+					}
+					return trailing;
+				})()}
+			</Wrapper>
+		</div>
 	);
 }

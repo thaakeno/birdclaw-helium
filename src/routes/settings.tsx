@@ -17,6 +17,12 @@ import {
 	Search,
 	ChevronDown,
 	Check,
+	Bookmark,
+	Heart,
+	UserRound,
+	FileText,
+	Braces,
+	BookOpen,
 } from "lucide-react";
 import {
 	type DragEvent,
@@ -908,8 +914,8 @@ function SettingsRoute() {
 					<div className="grid gap-4 md:grid-cols-3">
 						{/* Bookmarks Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-1.5">
-								<span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-bold">B</span>
+							<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-2">
+								<Bookmark className="size-4.5 text-[var(--accent)]" strokeWidth={2} />
 								Bookmarks
 							</span>
 							
@@ -995,21 +1001,24 @@ function SettingsRoute() {
 							<div className="flex flex-col gap-2 mt-2">
 								<a
 									href={`/api/bulk-export?resource=bookmarks&format=markdown${selectedExportUsers.length > 0 ? `&users=${selectedExportUsers.join(",")}` : ""}`}
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download Markdown
+									<FileText className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>Markdown</span>
 								</a>
 								<a
 									href={`/api/bulk-export?resource=bookmarks&format=json${selectedExportUsers.length > 0 ? `&users=${selectedExportUsers.join(",")}` : ""}`}
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download JSON
+									<Braces className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>JSON</span>
 								</a>
 								<a
 									href={`/api/bulk-export?resource=bookmarks&format=bibtex${selectedExportUsers.length > 0 ? `&users=${selectedExportUsers.join(",")}` : ""}`}
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download BibTeX
+									<BookOpen className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>BibTeX</span>
 								</a>
 							</div>
 						</div>
@@ -1017,8 +1026,8 @@ function SettingsRoute() {
 						{/* Likes Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3 justify-between">
 							<div>
-								<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-1.5">
-									<span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-bold">L</span>
+								<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-2">
+									<Heart className="size-4.5 text-[var(--accent)]" strokeWidth={2} />
 									Likes
 								</span>
 								<p className="text-[11px] text-[var(--ink-soft)] mt-1.5 mb-0">
@@ -1028,29 +1037,32 @@ function SettingsRoute() {
 							<div className="flex flex-col gap-2 mt-4">
 								<a
 									href="/api/bulk-export?resource=likes&format=markdown"
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download Markdown
+									<FileText className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>Markdown</span>
 								</a>
 								<a
 									href="/api/bulk-export?resource=likes&format=json"
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download JSON
+									<Braces className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>JSON</span>
 								</a>
 								<a
 									href="/api/bulk-export?resource=likes&format=bibtex"
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download BibTeX
+									<BookOpen className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>BibTeX</span>
 								</a>
 							</div>
 						</div>
 
 						{/* My Posts Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-1.5">
-								<span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-bold">P</span>
+							<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-2">
+								<UserRound className="size-4.5 text-[var(--accent)]" strokeWidth={2} />
 								My Posts
 							</span>
 
@@ -1076,21 +1088,24 @@ function SettingsRoute() {
 							<div className="flex flex-col gap-2 mt-2">
 								<a
 									href={`/api/bulk-export?resource=authored&format=markdown&type=${myPostsType}`}
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download Markdown
+									<FileText className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>Markdown</span>
 								</a>
 								<a
 									href={`/api/bulk-export?resource=authored&format=json&type=${myPostsType}`}
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download JSON
+									<Braces className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>JSON</span>
 								</a>
 								<a
 									href={`/api/bulk-export?resource=authored&format=bibtex&type=${myPostsType}`}
-									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[var(--line)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] hover:text-[var(--accent)] hover:border-[var(--accent-soft)] transition-colors no-underline"
 								>
-									Download BibTeX
+									<BookOpen className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+									<span>BibTeX</span>
 								</a>
 							</div>
 						</div>

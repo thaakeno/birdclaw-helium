@@ -482,7 +482,7 @@ function MediaViewerModal({
 					) : null}
 				</div>
 				{viewerAside ? (
-					<aside className="min-h-0 flex flex-col border-l border-white/10 bg-[var(--bg)] text-[var(--ink)]">
+					<aside className="min-h-0 flex flex-col border-l border-white/10 bg-[var(--bg)] text-[var(--ink)] overflow-hidden">
 						{viewerAside}
 					</aside>
 				) : null}

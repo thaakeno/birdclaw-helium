@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { ExternalLink, MessageCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { ExternalLink, MessageCircle, Copy, UserSearch } from "lucide-react";
 import type { EmbeddedTweet } from "#/lib/types";
 import {
 	cx,
@@ -62,6 +63,8 @@ export function ConversationThread({
 		);
 	}
 
+	const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tweet: EmbeddedTweet } | null>(null);
+
 	const filteredItems = useMemo(() => {
 		if (hideAnchor) {
 			return items.filter((tweet) => tweet.id !== anchorId);
@@ -70,104 +73,211 @@ export function ConversationThread({
 	}, [items, anchorId, hideAnchor]);
 
 	return (
-		<section
-			aria-label="Conversation"
-			className={cx(
-				"min-w-0 overflow-hidden flex flex-col",
-				seamless
-					? "bg-transparent h-full flex-1"
-					: "mt-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_8px_28px_var(--shadow)]"
-			)}
-			onClick={(event) => event.stopPropagation()}
-			onContextMenu={(event) => event.stopPropagation()}
-		>
-			<div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink)]">
-				<MessageCircle className={feedActionIconClass} strokeWidth={1.8} />
-				<span className="min-w-0 flex-1 truncate">
-					{items.length} tweets in local thread
-				</span>
-			</div>
-			<div className={cx(
-				"custom-scrollbar flex flex-col overflow-y-auto overscroll-contain pb-20",
-				seamless ? "flex-1 min-h-0" : "max-h-[min(68vh,760px)]"
-			)}>
-				{filteredItems.map((tweet, index) => {
-					const isAnchor = tweet.id === anchorId;
-					return (
-						<div
-							className={cx(
-								"flex gap-3 px-4 py-3",
-								index > 0 && "border-t border-[var(--line)]",
-								isAnchor && "bg-[var(--accent-soft)]",
-							)}
-							key={tweet.id}
-						>
-							<div className="flex flex-col items-center">
-								<AvatarChip
-									avatarUrl={tweet.author.avatarUrl}
-									hue={tweet.author.avatarHue}
-									name={tweet.author.displayName}
-									profileId={tweet.author.id}
-									size="small"
-								/>
-								{index < filteredItems.length - 1 ? (
-									<span className="mt-2 w-px flex-1 bg-[var(--line)]" />
-								) : null}
-							</div>
-							<div className="min-w-0 flex-1 overflow-hidden">
-								<div className="flex items-start justify-between gap-2 min-w-0">
-									<header className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px]">
-										<ProfilePreview profile={tweet.author}>
-											<span className="flex min-w-0 max-w-full items-center gap-1.5">
-												<span className={feedRowNameClass}>
-													{tweet.author.displayName}
-												</span>
-												<span className={feedRowHandleClass}>
-													@{tweet.author.handle}
-												</span>
-											</span>
-										</ProfilePreview>
-										<span className="text-[var(--ink-soft)]">·</span>
-										<SmartTimestamp
-											className={feedRowTimestampClass}
-											value={tweet.createdAt}
-										/>
-									</header>
-									<div className="flex items-center gap-1.5 shrink-0">
-										{isAnchor ? (
-											<span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-bold text-white leading-none">
-												selected
-											</span>
-										) : null}
-										<a
-											aria-label="Open original post"
-											className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
-											href={tweetUrl(tweet)}
-											onClick={(event) => event.stopPropagation()}
-											rel="noreferrer"
-											target="_blank"
-										>
-											<ExternalLink className="size-3.5" strokeWidth={1.8} />
-											Open
-										</a>
-									</div>
+		<>
+			<section
+				aria-label="Conversation"
+				className={cx(
+					"min-w-0 overflow-hidden flex flex-col",
+					seamless
+						? "bg-transparent h-full flex-1"
+						: "mt-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_8px_28px_var(--shadow)]"
+				)}
+				onClick={(event) => event.stopPropagation()}
+				onContextMenu={(event) => event.stopPropagation()}
+			>
+				<div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink)]">
+					<MessageCircle className={feedActionIconClass} strokeWidth={1.8} />
+					<span className="min-w-0 flex-1 truncate">
+						{items.length} tweets in local thread
+					</span>
+				</div>
+				<div className={cx(
+					"custom-scrollbar flex flex-col overflow-y-auto overscroll-contain pb-20",
+					seamless ? "flex-1 min-h-0" : "max-h-[min(68vh,760px)]"
+				)}>
+					{filteredItems.map((tweet, index) => {
+						const isAnchor = tweet.id === anchorId;
+						return (
+							<div
+								className={cx(
+									"flex gap-3 px-4 py-3 cursor-pointer",
+									index > 0 && "border-t border-[var(--line)]",
+									isAnchor && "bg-[var(--accent-soft)]",
+								)}
+								key={tweet.id}
+								onContextMenu={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									setContextMenu({ x: e.clientX, y: e.clientY, tweet });
+								}}
+							>
+								<div className="flex flex-col items-center">
+									<AvatarChip
+										avatarUrl={tweet.author.avatarUrl}
+										hue={tweet.author.avatarHue}
+										name={tweet.author.displayName}
+										profileId={tweet.author.id}
+										size="small"
+									/>
+									{index < filteredItems.length - 1 ? (
+										<span className="mt-2 w-px flex-1 bg-[var(--line)]" />
+									) : null}
 								</div>
-								<TweetRichText
-									className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
-									entities={tweet.entities}
-									text={tweet.text}
-								/>
-								<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
-								{tweet.entities.article ? (
-									<TweetArticleCard article={tweet.entities.article} />
-								) : null}
-								<EmbeddedTweetMetrics item={tweet} />
+								<div className="min-w-0 flex-1 overflow-hidden">
+									<div className="flex items-start justify-between gap-2 min-w-0">
+										<header className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px]">
+											<ProfilePreview profile={tweet.author}>
+												<span className="flex min-w-0 max-w-full items-center gap-1.5">
+													<span className={feedRowNameClass}>
+														{tweet.author.displayName}
+													</span>
+													<span className={feedRowHandleClass}>
+														@{tweet.author.handle}
+													</span>
+												</span>
+											</ProfilePreview>
+											<span className="text-[var(--ink-soft)]">·</span>
+											<SmartTimestamp
+												className={feedRowTimestampClass}
+												value={tweet.createdAt}
+											/>
+										</header>
+										<div className="flex items-center gap-1.5 shrink-0">
+											{isAnchor ? (
+												<span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-bold text-white leading-none">
+													selected
+												</span>
+											) : null}
+											<a
+												aria-label="Open original post"
+												className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+												href={tweetUrl(tweet)}
+												onClick={(event) => event.stopPropagation()}
+												rel="noreferrer"
+												target="_blank"
+											>
+												<ExternalLink className="size-3.5" strokeWidth={1.8} />
+												Open
+											</a>
+										</div>
+									</div>
+									<TweetRichText
+										className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
+										entities={tweet.entities}
+										text={tweet.text}
+									/>
+									<TweetMediaGrid items={tweet.media} postUrl={tweetUrl(tweet)} />
+									{tweet.entities.article ? (
+										<TweetArticleCard article={tweet.entities.article} />
+									) : null}
+									<EmbeddedTweetMetrics item={tweet} />
+								</div>
 							</div>
-						</div>
-					);
-				})}
-			</div>
-		</section>
+						);
+					})}
+				</div>
+			</section>
+
+			{contextMenu && (
+				<div
+					className="fixed inset-0 z-50 bg-transparent"
+					onClick={() => setContextMenu(null)}
+					onContextMenu={(e) => {
+						e.preventDefault();
+						setContextMenu(null);
+					}}
+				>
+					<TweetContextMenu
+						onClose={() => setContextMenu(null)}
+						position={contextMenu}
+						tweet={contextMenu.tweet}
+					/>
+				</div>
+			)}
+		</>
+	);
+}
+
+function TweetContextMenu({
+	onClose,
+	position,
+	tweet,
+}: {
+	onClose: () => void;
+	position: { x: number; y: number };
+	tweet: EmbeddedTweet;
+}) {
+	const left = Math.min(
+		Math.max(12, position.x),
+		Math.max(12, window.innerWidth - 260),
+	);
+	const top = Math.min(
+		Math.max(12, position.y),
+		Math.max(12, window.innerHeight - 240),
+	);
+	const copyText = async (value: string) => {
+		await navigator.clipboard.writeText(value);
+		onClose();
+	};
+
+	const authorHandle = tweet.author.handle?.trim().replace(/^@/, "") || "";
+	const tweetUrlStr = authorHandle
+		? `https://x.com/${authorHandle}/status/${tweet.id}`
+		: `https://x.com/i/status/${tweet.id}`;
+
+	return (
+		<div
+			className="fixed z-[9999] w-[248px] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] py-2 text-[15px] text-[var(--ink)] shadow-[0_18px_60px_var(--shadow-strong)]"
+			onClick={(event) => event.stopPropagation()}
+			style={{ left, top }}
+		>
+			<a
+				className="flex items-center gap-3 px-4 py-3 font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				href={tweetUrlStr}
+				rel="noreferrer"
+				target="_blank"
+			>
+				<ExternalLink className="size-5" strokeWidth={2} />
+				Open on X
+			</a>
+			<Link
+				className="flex items-center gap-3 px-4 py-3 font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				to="/profiles/$handle"
+				params={{ handle: authorHandle }}
+				onClick={onClose}
+			>
+				<UserSearch className="size-5" strokeWidth={2} />
+				Analyse @{authorHandle}
+			</Link>
+			<button
+				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				onClick={() => void copyText(tweet.id)}
+				type="button"
+			>
+				<Copy className="size-5" strokeWidth={2} />
+				Copy Birdclaw post ID
+			</button>
+			<button
+				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				onClick={() => void copyText(tweetUrlStr)}
+				type="button"
+			>
+				<Copy className="size-5" strokeWidth={2} />
+				Copy X URL
+			</button>
+			<div className="border-t border-[var(--line)] my-1" />
+			<button
+				className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold transition-colors hover:bg-[var(--bg-hover)]"
+				onClick={() => {
+					const md = `[${tweet.author.displayName} (@${authorHandle})](${tweetUrlStr}):\n\n${tweet.text}`;
+					void copyText(md);
+				}}
+				type="button"
+			>
+				<Copy className="size-5" strokeWidth={2} />
+				Copy as Markdown
+			</button>
+		</div>
 	);
 }
 
