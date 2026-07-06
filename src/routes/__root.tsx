@@ -54,10 +54,8 @@ function RootDocument({ children }: { children: ReactNode }) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
-	const wideMode =
-		pathname.startsWith("/dms") ||
-		pathname.startsWith("/network-map") ||
-		pathname.startsWith("/profiles/");
+	const isDmOrMap = pathname.startsWith("/dms") || pathname.startsWith("/network-map");
+	const wideMode = isDmOrMap || pathname.startsWith("/profiles/");
 
 	return (
 		<html lang="en" suppressHydrationWarning>
@@ -69,7 +67,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 				<BirdclawQueryProvider>
 					<ThemeProvider>
 						<div className={siteShellClass}>
-							<AppNav compact={wideMode} />
+							<AppNav compact={isDmOrMap} />
 							<main className={wideMode ? mainColumnDmClass : mainColumnClass}>
 								{children}
 							</main>

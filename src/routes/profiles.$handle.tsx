@@ -356,10 +356,9 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	}
 
 	return (
-		<div className="flex w-full min-h-screen justify-center bg-[var(--bg)]">
-			<div className="flex w-full max-w-[1280px] min-h-screen">
-				<section className="w-full max-w-[680px] shrink-0 flex flex-col border-r border-[var(--line)] bg-[var(--bg)]">
-					<header className="border-b border-[var(--line)] bg-[var(--bg)]">
+		<div className="flex w-full min-h-screen bg-[var(--bg)]">
+			<section className="w-full max-w-[680px] shrink-0 flex flex-col border-r border-[var(--line)] bg-[var(--bg)]">
+				<header className="border-b border-[var(--line)] bg-[var(--bg)]">
 				<div
 					className="h-32 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-active)_68%,var(--accent)_32%),color-mix(in_srgb,var(--bg)_70%,var(--accent)_30%))] bg-cover bg-center"
 					style={profile?.id ? { backgroundImage: `url('/api/banner?profileId=${encodeURIComponent(profile.id)}')` } : undefined}
@@ -784,7 +783,6 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 				</aside>
 			)}
 		</div>
-	</div>
 	);
 }
 
