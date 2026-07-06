@@ -99,20 +99,20 @@ export function TimelineSearchAndSortField({
 	sortOptions: Array<{ value: string; label: string }>;
 }) {
 	return (
-		<div className="flex w-full items-center">
-			<div className="relative flex-1 min-w-0">
+		<div className="flex w-full max-w-[460px] items-center rounded-full border border-[var(--line-strong)] bg-[var(--bg)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_1px_var(--accent)] overflow-hidden transition-all duration-150">
+			<div className="relative flex-1 min-w-0 flex items-center">
 				<Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-soft)]" />
 				<input
 					type="search"
 					placeholder={placeholder}
 					value={value}
 					onChange={(event) => onChange(event.target.value)}
-					className="h-10 w-full rounded-l-full border border-r-0 border-[var(--line-strong)] bg-[var(--bg)] pl-10 pr-8 text-[14px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+					className="h-10 w-full bg-transparent pl-10 pr-8 text-[14px] text-[var(--ink)] outline-none border-0 focus:outline-none focus:ring-0 placeholder:text-[var(--ink-soft)]"
 				/>
 				{value ? (
 					<button
 						aria-label="Clear search"
-						className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
+						className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
 						onClick={() => onChange("")}
 						type="button"
 					>
@@ -121,12 +121,15 @@ export function TimelineSearchAndSortField({
 				) : null}
 			</div>
 
+			{/* Vertical Divider line */}
+			<div className="h-5 w-px bg-[var(--line-strong)] shrink-0" />
+
 			<select
 				value={sortValue}
 				onChange={(event) => onSortChange(event.target.value)}
 				className={cx(
 					selectFieldClass,
-					"h-10 px-4 rounded-r-full border border-[var(--line-strong)] text-[13px] bg-[var(--bg)] cursor-pointer outline-none focus:border-[var(--accent)] -ml-px w-[160px] shrink-0"
+					"h-10 px-4 pr-8 border-0 bg-transparent cursor-pointer outline-none focus:outline-none w-[150px]! shrink-0 text-[13px] font-semibold text-[var(--ink)]"
 				)}
 			>
 				{sortOptions.map((opt) => (

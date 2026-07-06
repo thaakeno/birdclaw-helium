@@ -852,7 +852,7 @@ function ProfilePostPreview({
 						{formatProfileAnalysisCounts(context)}
 					</p>
 				</div>
-				<div className="flex flex-wrap items-center gap-2 max-w-sm flex-1 justify-end">
+				<div className="flex flex-wrap items-center gap-2 max-w-[540px] flex-1 justify-end">
 					<TimelineSearchAndSortField
 						value={searchQuery}
 						onChange={setSearchQuery}
