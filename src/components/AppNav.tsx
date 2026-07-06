@@ -19,6 +19,7 @@ import {
 	ShieldOff,
 	UserRound,
 	UserSearch,
+	Users,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -70,6 +71,7 @@ const links = [
 	{ to: "/network-map", label: "Map", icon: Globe2 },
 	{ to: "/data-sources", label: "Sources", icon: Database },
 	{ to: "/", label: "Home", icon: Home },
+	{ to: "/circle", label: "Circle", icon: Users },
 	{ to: "/my-posts", label: "My Posts", icon: UserRound },
 	{ to: "/mentions", label: "Mentions", icon: Bell },
 	{ to: "/likes", label: "Likes", icon: Heart },

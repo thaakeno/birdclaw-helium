@@ -65,6 +65,7 @@ const navItems = [
 	{ to: "/network-map", label: "Map" },
 	{ to: "/data-sources", label: "Sources" },
 	{ to: "/", label: "Home" },
+	{ to: "/circle", label: "Circle" },
 	{ to: "/my-posts", label: "My Posts" },
 	{ to: "/mentions", label: "Mentions" },
 	{ to: "/likes", label: "Likes" },

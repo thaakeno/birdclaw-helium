@@ -8,6 +8,8 @@ import {
 	RefreshCw,
 	Sparkles,
 	TrendingUp,
+	Search,
+	X,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -538,12 +540,6 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 			)}
 
 			<div className="flex flex-col gap-5 px-4 py-5">
-				{contextLoading ? (
-					<div className="flex items-center gap-2 text-[13px] font-medium text-[var(--ink-soft)]">
-						<Loader2 className="size-4 animate-spin" strokeWidth={1.8} />
-						<span>Fetching @{cleanHandle} posts</span>
-					</div>
-				) : null}
 				{contextError ? (
 					<div className="rounded-[8px] border border-[var(--alert)] bg-[var(--alert-soft)] px-3 py-2 text-[14px] text-[var(--alert)]">
 						{contextError}
@@ -793,6 +789,7 @@ function ProfilePostPreview({
 	const [sortBy, setSortBy] = useState<
 		"newest" | "oldest" | "likes" | "replies"
 	>(() => readProfileSession(sessionKey).sortBy ?? "newest");
+	const [searchQuery, setSearchQuery] = useState("");
 
 	useEffect(() => {
 		writeProfileSession(sessionKey, { sortBy });
@@ -800,7 +797,11 @@ function ProfilePostPreview({
 
 	const sortedTweets = useMemo(() => {
 		if (!context) return [];
-		const list = [...context.tweets];
+		let list = [...context.tweets];
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase();
+			list = list.filter((t) => t.text.toLowerCase().includes(query));
+		}
 		if (sortBy === "newest") {
 			return list.sort(
 				(a, b) =>
@@ -820,7 +821,7 @@ function ProfilePostPreview({
 			return list.sort((a, b) => (b.replyCount ?? 0) - (a.replyCount ?? 0));
 		}
 		return list;
-	}, [context, sortBy]);
+	}, [context, sortBy, searchQuery]);
 
 	const timelineItems = useMemo(() => {
 		if (!context) return [];
@@ -830,11 +831,7 @@ function ProfilePostPreview({
 	}, [context, sortedTweets]);
 
 	if (!context) {
-		return (
-			<div className="rounded-[8px] border border-[var(--line)] bg-[var(--panel)] p-6 text-[14px] text-[var(--ink-soft)]">
-				Preparing @{handle}.
-			</div>
-		);
+		return <ProfileTimelineSkeleton handle={handle} />;
 	}
 
 	return (
@@ -848,12 +845,31 @@ function ProfilePostPreview({
 						{formatProfileAnalysisCounts(context)}
 					</p>
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2 max-w-sm flex-1 justify-end">
+					<div className="relative min-w-[140px] max-w-[200px] flex-1">
+						<Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--ink-soft)]" />
+						<input
+							type="search"
+							placeholder="Search posts..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							className="h-9 w-full rounded-full border border-[var(--line-strong)] bg-[var(--bg)] pl-9 pr-8 text-[12px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+						/>
+						{searchQuery && (
+							<button
+								type="button"
+								onClick={() => setSearchQuery("")}
+								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
+							>
+								<X className="size-3.5" />
+							</button>
+						)}
+					</div>
 					<select
 						aria-label="Sort posts"
 						className={cx(
 							selectFieldClass,
-							"h-9 w-[130px] rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-3 text-[13px] font-medium text-[var(--ink)]",
+							"h-9 w-[110px] rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-2 text-[12px] font-medium text-[var(--ink)]",
 						)}
 						onChange={(e) => setSortBy(e.target.value as any)}
 						value={sortBy}
@@ -864,18 +880,18 @@ function ProfilePostPreview({
 						<option value="replies">Most Replied</option>
 					</select>
 					<a
-						className={secondaryButtonClass}
+						className={cx(secondaryButtonClass, "h-9 px-3 text-[12px] rounded-full")}
 						href={`https://x.com/${encodeURIComponent(context.profile.handle)}`}
 						rel="noreferrer"
 						target="_blank"
 					>
-						<ExternalLink className="size-4" strokeWidth={1.8} />
-						Open profile
+						<ExternalLink className="size-3.5" strokeWidth={1.8} />
+						Open
 					</a>
 				</div>
 			</div>
 			<ConversationSurfaceScope>
-				<div className={feedClass}>
+				<div className={cx(feedClass, "animate-slide-in")}>
 					{timelineItems.length > 0 ? (
 						timelineItems.map((item) => (
 							<TimelineCard
@@ -1034,4 +1050,24 @@ function writeProfileSession(key: string, patch: ProfileSessionState) {
 	if (typeof window === "undefined") return;
 	const current = readProfileSession(key);
 	window.sessionStorage.setItem(key, JSON.stringify({ ...current, ...patch }));
+}
+
+function ProfileTimelineSkeleton({ handle }: { handle: string }) {
+	return (
+		<div className="flex flex-col gap-4 w-full animate-pulse px-4 py-3">
+			<div className="text-[13px] text-[var(--ink-soft)] font-medium mb-1">
+				Loading @{handle} timeline...
+			</div>
+			{[1, 2, 3].map((i) => (
+				<div key={i} className="flex gap-3 px-4 py-4 border border-[var(--line)] bg-[var(--panel)] rounded-2xl">
+					<div className="size-10 rounded-full bg-[var(--bg-active)] shrink-0" />
+					<div className="flex-1 flex flex-col gap-2.5">
+						<div className="h-4 bg-[var(--bg-active)] rounded w-1/3" />
+						<div className="h-3 bg-[var(--bg-active)] rounded w-full" />
+						<div className="h-3 bg-[var(--bg-active)] rounded w-5/6" />
+					</div>
+				</div>
+			))}
+		</div>
+	);
 }
