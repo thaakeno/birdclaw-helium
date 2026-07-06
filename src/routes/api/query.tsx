@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { queryResponseSchema } from "#/lib/api-contracts";
 import { maybeAutoUpdateBackupEffect } from "#/lib/backup";
-import { getNativeDb } from "#/lib/db";
+import { getReadDb } from "#/lib/db";
 import {
 	jsonResponse,
 	parseBoundedInteger,
@@ -142,7 +142,7 @@ export const Route = createFileRoute("/api/query")({
 								);
 							}
 
-							const db = getNativeDb();
+							const db = getReadDb();
 							const search = url.searchParams.get("search") || "";
 							const limit = parseBoundedInteger(url.searchParams.get("limit"), { max: 200 }) || 20;
 
@@ -153,6 +153,9 @@ export const Route = createFileRoute("/api/query")({
 							const quotedOnly = url.searchParams.get("quotedOnly") === "true";
 							const originalsOnly = url.searchParams.get("originalsOnly") === "true";
 							const repliesOnly = url.searchParams.get("repliesOnly") === "true";
+
+							const until = url.searchParams.get("until") ?? undefined;
+							const untilId = url.searchParams.get("untilId") ?? undefined;
 
 							let sql = `
 								SELECT 
@@ -220,6 +223,36 @@ export const Route = createFileRoute("/api/query")({
 
 							if (repliesOnly) {
 								sql += " AND t.reply_to_id IS NOT NULL ";
+							}
+
+							// Keyset Pagination
+							let sortKeySql = "t.created_at";
+							let sortAscending = false;
+							if (sort === "created-asc") {
+								sortKeySql = "t.created_at";
+								sortAscending = true;
+							} else if (sort === "likes-desc") {
+								sortKeySql = "t.like_count";
+								sortAscending = false;
+							} else if (sort === "replies-desc") {
+								sortKeySql = `(
+									SELECT COUNT(*)
+									FROM tweets child
+									WHERE child.reply_to_id = t.id
+								)`;
+								sortAscending = false;
+							}
+
+							const operator = sortAscending ? ">" : "<";
+
+							if (until?.trim()) {
+								if (untilId?.trim()) {
+									sql += ` AND (${sortKeySql} ${operator} ? OR (${sortKeySql} = ? AND t.id ${operator} ?)) `;
+									params.push(until.trim(), until.trim(), untilId.trim());
+								} else {
+									sql += ` AND ${sortKeySql} ${operator} ? `;
+									params.push(until.trim());
+								}
 							}
 
 							// Apply sorting

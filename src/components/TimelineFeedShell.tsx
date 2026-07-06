@@ -16,6 +16,8 @@ import {
 	searchFieldIconClass,
 	searchFieldInputClass,
 	searchFieldShellClass,
+	cx,
+	selectFieldClass,
 } from "#/lib/ui";
 
 export function TimelineFeedHeader({
@@ -77,6 +79,62 @@ export function TimelineSearchField({
 					</button>
 				) : null}
 			</label>
+		</div>
+	);
+}
+
+export function TimelineSearchAndSortField({
+	value,
+	onChange,
+	placeholder,
+	sortValue,
+	onSortChange,
+	sortOptions,
+}: {
+	value: string;
+	onChange: (value: string) => void;
+	placeholder: string;
+	sortValue: string;
+	onSortChange: (value: any) => void;
+	sortOptions: Array<{ value: string; label: string }>;
+}) {
+	return (
+		<div className="flex w-full items-center">
+			<div className="relative flex-1 min-w-0">
+				<Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-soft)]" />
+				<input
+					type="search"
+					placeholder={placeholder}
+					value={value}
+					onChange={(event) => onChange(event.target.value)}
+					className="h-10 w-full rounded-l-full border border-r-0 border-[var(--line-strong)] bg-[var(--bg)] pl-10 pr-8 text-[14px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+				/>
+				{value ? (
+					<button
+						aria-label="Clear search"
+						className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
+						onClick={() => onChange("")}
+						type="button"
+					>
+						<X className="size-4" />
+					</button>
+				) : null}
+			</div>
+
+			<select
+				value={sortValue}
+				onChange={(event) => onSortChange(event.target.value)}
+				className={cx(
+					selectFieldClass,
+					"h-10 px-4 rounded-r-full border border-[var(--line-strong)] text-[13px] bg-[var(--bg)] cursor-pointer outline-none focus:border-[var(--accent)] -ml-px w-[160px] shrink-0"
+				)}
+			>
+				{sortOptions.map((opt) => (
+					<option key={opt.value} value={opt.value}>
+						{opt.label}
+					</option>
+				))}
+			</select>
 		</div>
 	);
 }

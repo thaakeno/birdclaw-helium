@@ -15,7 +15,7 @@ import {
 	TimelineFeedHeader,
 	TimelineFeedShell,
 	TimelineHeaderSubtitle,
-	TimelineSearchField,
+	TimelineSearchAndSortField,
 } from "#/components/TimelineFeedShell";
 import { useTimelineRouteData } from "#/components/useTimelineRouteData";
 import { setStoredAccountId } from "./account-selection";
@@ -463,34 +463,14 @@ export function SavedTimelineView({
 					controls={
 						<div className="flex flex-col gap-2 px-4 pb-3">
 							<div className="flex items-center gap-2">
-								<TimelineSearchField
-									onChange={setSearch}
-									placeholder={searchPlaceholder}
-									value={search}
-								/>
-								<div className="relative shrink-0">
-									<select
-										aria-label="Sort saved posts"
-										className={cx(
-											selectFieldClass,
-											"h-10 w-[154px] rounded-full py-0",
-										)}
-										onChange={(event) =>
-											setSort(
-												event.target.value as NonNullable<
-													TimelineQuery["sort"]
-												>,
-											)
-										}
-										value={sort}
-									>
-										{SORT_OPTIONS.map((option) => (
-											<option key={option.value} value={option.value}>
-												{option.label}
-											</option>
-										))}
-									</select>
-								</div>
+							<TimelineSearchAndSortField
+								value={search}
+								onChange={setSearch}
+								placeholder={searchPlaceholder}
+								sortValue={sort}
+								onSortChange={setSort}
+								sortOptions={SORT_OPTIONS}
+							/>
 							</div>
 							<div className="flex flex-wrap items-center gap-2">
 								{accounts.length > 1 ? (

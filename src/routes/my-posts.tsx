@@ -9,7 +9,7 @@ import {
 	TimelineFeedHeader,
 	TimelineFeedShell,
 	TimelineHeaderSubtitle,
-	TimelineSearchField,
+	TimelineSearchAndSortField,
 } from "#/components/TimelineFeedShell";
 import { useTimelineRouteData } from "#/components/useTimelineRouteData";
 import type { AccountRecord } from "#/lib/types";
@@ -264,17 +264,6 @@ function MyPostsRoute() {
 					action={
 						<div className="flex flex-wrap items-center justify-end gap-2">
 							<select
-								aria-label="Sort posts"
-								className={cx(selectFieldClass, "h-9 w-[130px]!")}
-								onChange={(e) => setSortBy(e.target.value as any)}
-								value={sortBy}
-							>
-								<option value="newest">Newest First</option>
-								<option value="oldest">Oldest First</option>
-								<option value="likes">Most Liked</option>
-								<option value="replies">Most Replied</option>
-							</select>
-							<select
 								aria-label="Authored fetch depth"
 								className={cx(selectFieldClass, "h-9 w-[120px]!")}
 								onChange={(event) =>
@@ -294,10 +283,18 @@ function MyPostsRoute() {
 					controls={
 						<>
 							<div className="px-4 pb-3">
-								<TimelineSearchField
+								<TimelineSearchAndSortField
+									value={search}
 									onChange={setSearch}
 									placeholder="Search your posts"
-									value={search}
+									sortValue={sortBy || "newest"}
+									onSortChange={setSortBy}
+									sortOptions={[
+										{ value: "newest", label: "Newest First" },
+										{ value: "oldest", label: "Oldest First" },
+										{ value: "likes", label: "Most Liked" },
+										{ value: "replies", label: "Most Replied" },
+									]}
 								/>
 							</div>
 							<div className={tabStripClass}>

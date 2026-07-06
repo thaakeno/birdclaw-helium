@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
-import { Search, X, Image, MessageSquareQuote, Rows3, UserRound, RefreshCw } from "lucide-react";
+import { X, Image, MessageSquareQuote, Rows3, UserRound, RefreshCw, ChevronDown } from "lucide-react";
 import { AvatarChip } from "#/components/AvatarChip";
 import { TimelineCard } from "#/components/TimelineCard";
 import { readPinnedProfiles, writePinnedProfiles, type PinnedProfileNavItem } from "#/lib/nav-preferences";
-import { TimelineFeedHeader, TimelineFeedShell, TimelineHeaderSubtitle } from "#/components/TimelineFeedShell";
+import { TimelineFeedHeader, TimelineFeedShell, TimelineHeaderSubtitle, TimelineSearchAndSortField } from "#/components/TimelineFeedShell";
 import { useTimelineRouteData } from "#/components/useTimelineRouteData";
-import { cx, selectFieldClass } from "#/lib/ui";
+import { cx } from "#/lib/ui";
 import type { TimelineQuery } from "#/lib/types";
 
 export const Route = createFileRoute("/circle")({
@@ -37,6 +37,7 @@ function CircleRoute() {
 
 	// Sync state
 	const [syncing, setSyncing] = useState(false);
+	const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
 
 	// Sync local state if storage updates elsewhere
 	useEffect(() => {
@@ -51,6 +52,14 @@ function CircleRoute() {
 		};
 	}, []);
 
+	// Click outside sync dropdown to close it
+	useEffect(() => {
+		if (!syncDropdownOpen) return;
+		const close = () => setSyncDropdownOpen(false);
+		window.addEventListener("click", close);
+		return () => window.removeEventListener("click", close);
+	}, [syncDropdownOpen]);
+
 	// Unpin handler
 	function handleUnpin(handle: string, e: React.MouseEvent) {
 		e.stopPropagation();
@@ -64,10 +73,36 @@ function CircleRoute() {
 		window.dispatchEvent(new Event("birdclaw:nav-preferences"));
 	}
 
+	// Trigger manual/auto profile feeds sync
+	async function runSync(mode: "newest" | "deep" | "local") {
+		if (pinnedProfiles.length === 0) return;
+		setSyncing(true);
+		try {
+			const refreshParam = mode !== "local" ? "true" : "false";
+			for (const profile of pinnedProfiles) {
+				try {
+					await fetch(
+						`/api/profile-context?handle=${encodeURIComponent(
+							profile.handle
+						)}&refresh=${refreshParam}&mode=${mode}`
+					);
+				} catch (err) {
+					console.error(`Failed to sync feed for @${profile.handle}:`, err);
+				}
+			}
+			if (mode !== "local") {
+				localStorage.setItem("birdclaw:circle-last-sync", Date.now().toString());
+			}
+			await refreshLocalView();
+		} catch (err) {
+			console.error("Circle sync failed:", err);
+		} finally {
+			setSyncing(false);
+		}
+	}
+
 	// Auto-Sync Circle Profiles on mount/startup (cooldown: 5 minutes)
 	useEffect(() => {
-		if (pinnedProfiles.length === 0) return;
-
 		const lastSyncStr = localStorage.getItem("birdclaw:circle-last-sync");
 		const lastSync = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
 		const cooldown = 5 * 60 * 1000; // 5 minutes
@@ -75,28 +110,9 @@ function CircleRoute() {
 		if (Date.now() - lastSync < cooldown) {
 			return;
 		}
-
-		async function runAutoSync() {
-			setSyncing(true);
-			try {
-				// Sync profiles sequentially in the background
-				for (const profile of pinnedProfiles) {
-					try {
-						await fetch(`/api/profile-context?handle=${encodeURIComponent(profile.handle)}&refresh=true`);
-					} catch (err) {
-						console.error(`Failed to auto-sync profile @${profile.handle}:`, err);
-					}
-				}
-				localStorage.setItem("birdclaw:circle-last-sync", Date.now().toString());
-			} catch (err) {
-				console.error("Auto sync failed:", err);
-			} finally {
-				setSyncing(false);
-			}
-		}
-
-		void runAutoSync();
-	}, [pinnedProfiles]);
+		// Default to "newest" feed sync on startup
+		void runSync("newest");
+	}, []);
 
 	// Fetch unified timeline feed!
 	const handlesQueryParam = useMemo(() => {
@@ -142,7 +158,7 @@ function CircleRoute() {
 	}, [timelineItems, searchQuery]);
 
 	const subtitleText = syncing
-		? "Syncing circle feeds..."
+		? "Syncing feeds..."
 		: pinnedProfiles.length === 1
 			? "1 profile in your circle"
 			: `${pinnedProfiles.length} profiles in your circle`;
@@ -178,44 +194,66 @@ function CircleRoute() {
 					}
 					controls={
 						<div className="flex flex-col gap-3 px-4 pb-3">
-							{/* Global Search & Sort */}
-							<div className="flex gap-2">
-								<div className="relative flex-1">
-									<Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-soft)]" />
-									<input
-										type="search"
-										placeholder="Search keywords across your circle..."
+							{/* Unified Connected Search, Sort & Sync Row */}
+							<div className="flex items-center gap-2">
+								<div className="flex-1">
+									<TimelineSearchAndSortField
 										value={searchQuery}
-										onChange={(e) => setSearchQuery(e.target.value)}
-										className="h-10 w-full rounded-full border border-[var(--line-strong)] bg-[var(--bg)] pl-10 pr-10 text-[14px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+										onChange={setSearchQuery}
+										placeholder="Search keywords across your circle..."
+										sortValue={sortBy || "created-desc"}
+										onSortChange={setSortBy}
+										sortOptions={SORT_OPTIONS}
 									/>
-									{searchQuery && (
-										<button
-											type="button"
-											onClick={() => setSearchQuery("")}
-											className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
-											aria-label="Clear search"
-										>
-											<X className="size-4" />
-										</button>
-									)}
 								</div>
 
-								{/* Sort Select */}
-								<select
-									value={sortBy || "created-desc"}
-									onChange={(e) => setSortBy(e.target.value as TimelineQuery["sort"])}
-									className={cx(selectFieldClass, "h-10 px-3 pr-8 rounded-full border-[var(--line-strong)] text-[13px] bg-[var(--bg)] cursor-pointer")}
-								>
-									{SORT_OPTIONS.map((opt) => (
-										<option key={opt.value} value={opt.value}>
-											{opt.label}
-										</option>
-									))}
-								</select>
+								{/* Sync Dropdown Button */}
+								<div className="relative shrink-0">
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											setSyncDropdownOpen(!syncDropdownOpen);
+										}}
+										disabled={syncing}
+										className={cx(
+											"inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--line-strong)] bg-[var(--bg)] hover:bg-[var(--bg-hover)] px-4 text-[13px] font-bold text-[var(--ink)] cursor-pointer disabled:opacity-60 transition-all select-none"
+										)}
+										type="button"
+									>
+										<RefreshCw className={cx("size-3.5", syncing && "animate-spin")} />
+										<span>Sync Feeds</span>
+										<ChevronDown className="size-3.5" />
+									</button>
+
+									{syncDropdownOpen && (
+										<div className="absolute right-0 top-full mt-1.5 z-55 min-w-[170px] rounded-2xl border border-[var(--line)] bg-[var(--panel)] py-1.5 shadow-xl animate-slide-in">
+											<button
+												onClick={() => runSync("newest")}
+												className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] flex items-center gap-2 transition-colors cursor-pointer"
+											>
+												<RefreshCw className="size-3.5" />
+												Sync newest
+											</button>
+											<button
+												onClick={() => runSync("deep")}
+												className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] flex items-center gap-2 transition-colors cursor-pointer"
+											>
+												<RefreshCw className="size-3.5 text-blue-500" />
+												Deep Refresh
+											</button>
+											<button
+												onClick={() => runSync("local")}
+												className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] flex items-center gap-2 transition-colors cursor-pointer"
+											>
+												<Rows3 className="size-3.5 text-green-500" />
+												Use local only
+											</button>
+										</div>
+									)}
+								</div>
 							</div>
 
-							{/* Bookmarks style Filter Buttons */}
+							{/* Filter Pill Badges */}
 							<div className="flex flex-wrap gap-2">
 								<button
 									aria-pressed={mediaOnly}
@@ -277,18 +315,6 @@ function CircleRoute() {
 									type="button"
 								>
 									<UserRound className="size-3.5" /> Replies
-								</button>
-
-								{/* Manual Sync Trigger button */}
-								<button
-									disabled={syncing}
-									onClick={refreshLocalView}
-									className={cx(
-										"inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] font-bold transition-all cursor-pointer ml-auto border-[var(--line)] bg-[var(--bg)] text-[var(--ink-soft)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink)]"
-									)}
-									type="button"
-								>
-									<RefreshCw className={cx("size-3.5", syncing && "animate-spin")} /> Sync Feeds
 								</button>
 							</div>
 

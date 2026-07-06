@@ -8,8 +8,6 @@ import {
 	RefreshCw,
 	Sparkles,
 	TrendingUp,
-	Search,
-	X,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -19,11 +17,11 @@ import { AvatarChip } from "#/components/AvatarChip";
 import { TimelineCard } from "#/components/TimelineCard";
 import { TweetRichText } from "#/components/TweetRichText";
 import { ConversationSurfaceScope } from "#/lib/conversation-surface";
+import { TimelineSearchAndSortField } from "#/components/TimelineFeedShell";
 import {
 	cx,
 	feedClass,
 	secondaryButtonClass,
-	selectFieldClass,
 } from "#/lib/ui";
 import {
 	cleanProfileHandle,
@@ -855,39 +853,19 @@ function ProfilePostPreview({
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 max-w-sm flex-1 justify-end">
-					<div className="relative min-w-[140px] max-w-[200px] flex-1">
-						<Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--ink-soft)]" />
-						<input
-							type="search"
-							placeholder="Search posts..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="h-9 w-full rounded-full border border-[var(--line-strong)] bg-[var(--bg)] pl-9 pr-8 text-[12px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
-						/>
-						{searchQuery && (
-							<button
-								type="button"
-								onClick={() => setSearchQuery("")}
-								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
-							>
-								<X className="size-3.5" />
-							</button>
-						)}
-					</div>
-					<select
-						aria-label="Sort posts"
-						className={cx(
-							selectFieldClass,
-							"h-9 w-[110px] rounded-full border border-[var(--line-strong)] bg-[var(--bg)] px-2 text-[12px] font-medium text-[var(--ink)]",
-						)}
-						onChange={(e) => setSortBy(e.target.value as any)}
-						value={sortBy}
-					>
-						<option value="newest">Newest First</option>
-						<option value="oldest">Oldest First</option>
-						<option value="likes">Most Liked</option>
-						<option value="replies">Most Replied</option>
-					</select>
+					<TimelineSearchAndSortField
+						value={searchQuery}
+						onChange={setSearchQuery}
+						placeholder="Search posts..."
+						sortValue={sortBy || "newest"}
+						onSortChange={setSortBy}
+						sortOptions={[
+							{ value: "newest", label: "Newest First" },
+							{ value: "oldest", label: "Oldest First" },
+							{ value: "likes", label: "Most Liked" },
+							{ value: "replies", label: "Most Replied" },
+						]}
+					/>
 					<a
 						className={cx(secondaryButtonClass, "h-9 px-3 text-[12px] rounded-full")}
 						href={`https://x.com/${encodeURIComponent(context.profile.handle)}`}
