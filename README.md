@@ -256,87 +256,41 @@ MIT. See [LICENSE](LICENSE).
 
 ## Frequently Asked Questions
 
-<details>
-<summary><strong>Will my account get banned for using this?</strong></summary>
-<br>
+### Will my account get banned for using this?
 
-Unlikely, but not impossible. Birdclaw Helium uses the same session cookies your browser uses when you visit Twitter normally. From X's servers, it looks like a browser making standard page requests — no automation signatures, no headless browser fingerprints, no bulk scraping patterns.
+Unlikely, but not impossible. Birdclaw Helium uses the same session cookies your browser uses when you visit Twitter normally. From X's servers, it looks like a browser making standard page requests. It does not use automation signatures, headless browser fingerprints, or bulk scraping patterns. Thousands of people use cookie-based Twitter clients without issue.
 
-> **The realistic risk is rate-limiting (HTTP 429), not a ban.** If you sync repeatedly in a short window, X will throttle your session temporarily. Birdclaw surfaces this in the UI so you know when to wait.
+The realistic risk is rate-limiting (HTTP 429), not a ban. If you hammer the sync repeatedly in a short window, X will throttle your session temporarily. Birdclaw surfaces this in the UI and you wait it out.
 
 Banning is reserved for accounts that abuse the API, mass-follow/unfollow, spam, or trigger fraud detection. Reading your own timeline and profile pages at a human pace does not meet that bar.
 
-</details>
+### Does this only work with the Helium browser?
 
----
-
-<details>
-<summary><strong>Does this only work with the Helium browser?</strong></summary>
-<br>
-
-No. The `bird` transport reads cookies from **any Chromium-based browser** installed on your system.
+No. The `bird` transport reads cookies from any Chromium-based browser installed on your system: Chrome, Edge, Brave, Vivaldi, Arc, Helium, and others. Firefox is not supported because it uses a different cookie storage format.
 
 | ✅ Supported | ❌ Not Supported |
 | :--- | :--- |
 | Chrome, Edge, Brave, Vivaldi, Arc, Helium | Firefox (different cookie storage format) |
 
-</details>
+### Why do I have to close my browser to sync?
 
----
+Chromium locks its cookie database file while the browser is running. The `bird` CLI reads that file directly. When another process holds the lock, the read fails. Close the browser, sync, reopen — it takes five seconds. This is a Chromium limitation, not a Birdclaw limitation. It affects all tools that read Chromium cookies directly.
 
-<details>
-<summary><strong>Why do I have to close my browser to sync?</strong></summary>
-<br>
+### Is my data safe? Does anything leave my machine?
 
-Chromium holds an **exclusive lock** on its cookie database file while it is running. The `bird` CLI reads that file directly from disk. When another process holds the lock, the read fails with a database busy error.
+Nothing leaves your machine. All data is stored in a single SQLite file on your local disk. Birdclaw has no backend, no analytics, no telemetry, and no accounts. The only outbound connections are the sync requests to Twitter's servers made by the `bird` or `xurl` transport on your behalf.
 
-```
-Close browser → sync → reopen. Takes ~5 seconds.
-```
+### Do I need a Twitter Developer account or paid API access?
 
-This is a Chromium limitation, not a Birdclaw limitation. It affects all tools that read Chromium cookies directly.
+No. The `bird` transport uses your browser session, which is free. The optional `xurl` transport uses OAuth2, which requires a developer account, but it is not required for the core functionality including the Circle Timeline, bookmarks, likes, and profile syncs.
 
-</details>
-
----
-
-<details>
-<summary><strong>Is my data safe? Does anything leave my machine?</strong></summary>
-<br>
-
-Nothing leaves your machine except the sync requests to Twitter's own servers.
-
-- ✅ All data lives in a single SQLite file on your local disk
-- ✅ No backend, no analytics, no telemetry, no accounts
-- ✅ No third-party services involved
-- ✅ The app has no auth layer because it only binds to `127.0.0.1`
-
-</details>
-
----
-
-<details>
-<summary><strong>Do I need a Twitter Developer account or paid API access?</strong></summary>
-<br>
-
-**No.** The `bird` transport uses your existing browser session — completely free.
-
-The optional `xurl` transport supports OAuth2 for write operations (posting, blocking, etc.) and requires a developer account, but it is not required for the Circle Timeline, bookmarks, likes, or profile syncs.
-
-</details>
-
----
-
-<details>
-<summary><strong>Can AI agents like Claude Code or Antigravity use this?</strong></summary>
-<br>
+### Can AI agents like Claude Code or Antigravity use this?
 
 Yes. Birdclaw Helium exposes a local REST API at `http://127.0.0.1:3000` and ships a structured agent skill (`birdclaw-archive`) under `.agents/skills/birdclaw-archive/SKILL.md` that tells compatible agents how to query it safely — including what they are explicitly prohibited from accessing (cookies, raw DMs, bearer tokens).
 
 See the [Agent Integration](#agent-integration) section for query examples.
 
-</details>
-
 ---
 
 *Forked from [steipete/birdclaw](https://github.com/steipete/birdclaw). Desktop application, Circle Timeline, SQLite sync persistence, and agent integration are additions unique to this fork.*
+
