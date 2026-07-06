@@ -6,21 +6,29 @@
 [![Version](https://img.shields.io/badge/Version-0.8.5-informational.svg)](package.json)
 [![Fork of](https://img.shields.io/badge/Fork%20of-steipete%2Fbirdclaw-gray.svg)](https://github.com/steipete/birdclaw)
 
-Birdclaw Helium is a local-first Twitter archive, client, and analysis tool backed by SQLite. It runs as a local web server or as a native Windows desktop application.
+Birdclaw Helium is a personal Twitter workspace that runs entirely on your machine. Everything -- your tweets, bookmarks, likes, DMs, follow graph, and profile data -- lives in a single local SQLite database. Nothing is sent to a third-party server. No subscription. No paid API tier.
 
-This repository is a fork of [`steipete/birdclaw`](https://github.com/steipete/birdclaw). It preserves the original's offline-first architecture, full-text search, and Effect-based synchronization engine while introducing a native Windows desktop client, a customizable chronological Circle timeline, a two-column desktop workspace, and a structured agent integration layer. All data remains locally owned and requires no persistent API subscriptions.
+This is a fork of [`steipete/birdclaw`](https://github.com/steipete/birdclaw) with three additions the original does not have: a **native Windows desktop app**, a **Circle Timeline** (a curated, algorithm-free chronological feed of pinned accounts), and **direct SQLite persistence** for every profile sync so data is never lost between sessions.
+
+### How syncing works -- and what it costs
+
+Birdclaw Helium syncs using the `bird` CLI, which reads your Twitter session cookies directly from any Chromium-based browser installed on your system (Chrome, Edge, Brave, Vivaldi, Arc, Helium, and others). It makes the same requests your browser would make when you visit Twitter -- no API key, no developer account, no invoice.
+
+One caveat: Chromium locks its cookie database while the browser is open. To sync, you close the browser first, trigger the sync, then reopen. It takes five seconds.
+
+The `xurl` transport is also supported for OAuth2-authenticated reads and writes when available, but is not required.
 
 ---
 
 ## Birdclaw Helium vs. Original Birdclaw
 
-The fork extends the upstream project primarily in deployment targets, timeline UI, and agentic accessibility. The underlying SQLite schema and `bird`/`xurl` transport mechanisms remain structurally identical to upstream.
+The fork extends the upstream project in deployment targets, timeline UI, sync persistence, and agentic accessibility. The underlying SQLite schema and transport mechanisms are structurally identical to upstream.
 
 | Subsystem | Original Birdclaw | Birdclaw Helium |
 | :--- | :--- | :--- |
 | **Deployment Target** | Web server only (`pnpm serve`) | Web server + native Windows Electron desktop app |
 | **Feed Architecture** | Standard chronological queues | "Circle" Timeline: merged strictly chronological feeds for pinned accounts |
-| **Desktop Workspace** | Single-column page routing | Two-column layout — inline profile inspection without layout shift |
+| **Desktop Workspace** | Single-column page routing | Two-column layout -- inline profile inspection without layout shift |
 | **Local Filtering** | Standard query parameters | Millisecond SQLite-backed filter badges (Media, Quotes, Originals, Replies) |
 | **Rate Limit State** | Backend terminal logging only | Real-time UI overlays for HTTP 429 throttling events |
 | **Profile Sync Persistence** | In-memory cache per session | Bird transport writes directly to the canonical SQLite database |
@@ -30,11 +38,9 @@ The fork extends the upstream project primarily in deployment targets, timeline 
 
 ## Who This Is For
 
-- **Power users** who want a self-hosted, persistent view of specific Twitter accounts outside the algorithm.
+- **Power users** who want a persistent, algorithm-free view of specific Twitter accounts without paying for API access.
 - **Researchers and analysts** who need reliable archive access, full-text search, and structured exports across bookmarks, likes, and profile timelines.
-- **AI Coding Agents** (Antigravity, Claude Code, Codex, etc.) that need programmatic, safe access to a user's Twitter archive via a structured local API — see [Agent Integration](#agent-integration) below.
-
-Birdclaw Helium does not require a paid Twitter Developer API tier. It uses local browser session cookies via the `bird` CLI transport for live sync.
+- **AI coding agents** (Antigravity, Claude Code, Codex, and others) that need programmatic, safe access to a user's Twitter archive via a structured local REST API -- see [Agent Integration](#agent-integration) below.
 
 ---
 

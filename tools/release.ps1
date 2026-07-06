@@ -91,29 +91,25 @@ $ZipSizeMB = [math]::Round((Get-Item $ZipPath).Length / 1MB, 1)
 Write-Host "    Archive: $ZipName ($ZipSizeMB MB)" -ForegroundColor Green
 
 # ── 5. Publish GitHub release via gh CLI ──────────────────────────────────────
-if (-not $Notes) {
-    $Notes = @"
-## Birdclaw Helium $Tag
+# Write release notes to a UTF-8 file to avoid PowerShell heredoc encoding issues
+$NotesFile = Join-Path $env:TEMP "birdclaw-helium-release-notes.md"
 
-### Windows Desktop Application
-Download **$ZipName** below, extract it, and run **Birdclaw.exe**.
-
-No installer required — extract and run.
-
-### Changes
-See [CHANGELOG.md](https://github.com/thaakeno/birdclaw-helium/blob/main/CHANGELOG.md) or [commit history](https://github.com/thaakeno/birdclaw-helium/commits/main).
-
----
-*Built from [birdclaw-helium](https://github.com/thaakeno/birdclaw-helium), a fork of [steipete/birdclaw](https://github.com/steipete/birdclaw).*
-"@
+# Use the bundled release-notes.md template if no custom notes provided
+$BundledNotes = Join-Path $PSScriptRoot 'release-notes.md'
+if (-not $Notes -and (Test-Path $BundledNotes)) {
+    $Notes = (Get-Content $BundledNotes -Raw -Encoding UTF8) -replace '\$Tag', $Tag -replace '\$ZipName', $ZipName
+} elseif (-not $Notes) {
+    $Notes = "## Birdclaw Helium $Tag`n`nSee commit history for changes.`n"
 }
+
+[System.IO.File]::WriteAllText($NotesFile, $Notes, [System.Text.Encoding]::UTF8)
 
 $GhArgs = @(
     'release', 'create', $Tag,
     $ZipPath,
     '--repo', 'thaakeno/birdclaw-helium',
     '--title', "Birdclaw Helium $Tag",
-    '--notes', $Notes
+    '--notes-file', $NotesFile
 )
 if ($Draft)      { $GhArgs += '--draft' }
 if ($Prerelease) { $GhArgs += '--prerelease' }
@@ -126,6 +122,7 @@ if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
 # ── 6. Cleanup ────────────────────────────────────────────────────────────────
 Remove-Item $TempInstallDir -Recurse -Force
 Remove-Item $ZipPath -Force
+if (Test-Path $NotesFile) { Remove-Item $NotesFile -Force }
 
 Write-Host "`n✅  Release $Tag published successfully." -ForegroundColor Green
 Write-Host "    https://github.com/thaakeno/birdclaw-helium/releases/tag/$Tag"
