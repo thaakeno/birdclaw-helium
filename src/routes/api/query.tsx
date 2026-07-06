@@ -146,6 +146,14 @@ export const Route = createFileRoute("/api/query")({
 							const search = url.searchParams.get("search") || "";
 							const limit = parseBoundedInteger(url.searchParams.get("limit"), { max: 200 }) || 20;
 
+							const sort = parseTimelineSort(url.searchParams.get("sort")) || "created-desc";
+							const likedOnly = url.searchParams.get("liked") === "true";
+							const bookmarkedOnly = url.searchParams.get("bookmarked") === "true";
+							const mediaOnly = url.searchParams.get("mediaOnly") === "true";
+							const quotedOnly = url.searchParams.get("quotedOnly") === "true";
+							const originalsOnly = url.searchParams.get("originalsOnly") === "true";
+							const repliesOnly = url.searchParams.get("repliesOnly") === "true";
+
 							let sql = `
 								SELECT 
 									t.id, 
@@ -161,7 +169,7 @@ export const Route = createFileRoute("/api/query")({
 									t.media_json as mediaJson,
 									p.id as authorProfileId,
 									p.handle as authorHandle, 
-									p.display_name as authorName, 
+									p.display_name as authorDisplayName, 
 									p.avatar_url as authorAvatarUrl,
 									p.avatar_hue as authorAvatarHue,
 									EXISTS (
@@ -184,8 +192,48 @@ export const Route = createFileRoute("/api/query")({
 								params.push(`%${search}%`);
 							}
 
-							// Sort by created_at desc
-							sql += " ORDER BY t.created_at DESC LIMIT ? ";
+							if (likedOnly) {
+								sql += ` AND EXISTS (
+									SELECT 1 FROM tweet_collections collection
+									WHERE collection.tweet_id = t.id AND collection.kind = 'likes'
+								) `;
+							}
+
+							if (bookmarkedOnly) {
+								sql += ` AND EXISTS (
+									SELECT 1 FROM tweet_collections collection
+									WHERE collection.tweet_id = t.id AND collection.kind = 'bookmarks'
+								) `;
+							}
+
+							if (mediaOnly) {
+								sql += " AND t.media_count > 0 ";
+							}
+
+							if (quotedOnly) {
+								sql += " AND t.quoted_tweet_id IS NOT NULL ";
+							}
+
+							if (originalsOnly) {
+								sql += " AND t.reply_to_id IS NULL ";
+							}
+
+							if (repliesOnly) {
+								sql += " AND t.reply_to_id IS NOT NULL ";
+							}
+
+							// Apply sorting
+							if (sort === "created-asc") {
+								sql += " ORDER BY t.created_at ASC ";
+							} else if (sort === "likes-desc") {
+								sql += " ORDER BY t.like_count DESC ";
+							} else if (sort === "replies-desc") {
+								sql += " ORDER BY replyCount DESC ";
+							} else {
+								sql += " ORDER BY t.created_at DESC ";
+							}
+
+							sql += " LIMIT ? ";
 							params.push(limit);
 
 							const rows = db.prepare(sql).all(...params) as Array<{
@@ -198,7 +246,7 @@ export const Route = createFileRoute("/api/query")({
 								mediaJson: string;
 								authorProfileId: string;
 								authorHandle: string;
-								authorName: string;
+								authorDisplayName: string;
 								authorAvatarUrl: string | null;
 								authorAvatarHue: number | null;
 								bookmarked: number;
@@ -219,7 +267,7 @@ export const Route = createFileRoute("/api/query")({
 								author: {
 									id: r.authorProfileId,
 									handle: r.authorHandle,
-									name: r.authorName,
+									displayName: r.authorDisplayName,
 									avatarUrl: r.authorAvatarUrl,
 									avatarHue: r.authorAvatarHue || 0,
 								},

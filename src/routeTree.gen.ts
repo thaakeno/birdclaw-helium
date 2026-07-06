@@ -48,7 +48,6 @@ import { Route as ApiLinkInsightsRouteImport } from './routes/api/link-insights'
 import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiDataSourcesRouteImport } from './routes/api/data-sources'
 import { Route as ApiConversationRouteImport } from './routes/api/conversation'
-import { Route as ApiCircleSearchRouteImport } from './routes/api/circle-search'
 import { Route as ApiBulkExportRouteImport } from './routes/api/bulk-export'
 import { Route as ApiBookmarksExportRouteImport } from './routes/api/bookmarks-export'
 import { Route as ApiBlocksRouteImport } from './routes/api/blocks'
@@ -252,11 +251,6 @@ const ApiConversationRoute = ApiConversationRouteImport.update({
   path: '/api/conversation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCircleSearchRoute = ApiCircleSearchRouteImport.update({
-  id: '/api/circle-search',
-  path: '/api/circle-search',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiBulkExportRoute = ApiBulkExportRouteImport.update({
   id: '/api/bulk-export',
   path: '/api/bulk-export',
@@ -318,7 +312,6 @@ export interface FileRoutesByFullPath {
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/bulk-export': typeof ApiBulkExportRoute
-  '/api/circle-search': typeof ApiCircleSearchRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -367,7 +360,6 @@ export interface FileRoutesByTo {
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/bulk-export': typeof ApiBulkExportRoute
-  '/api/circle-search': typeof ApiCircleSearchRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -417,7 +409,6 @@ export interface FileRoutesById {
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/bulk-export': typeof ApiBulkExportRoute
-  '/api/circle-search': typeof ApiCircleSearchRoute
   '/api/conversation': typeof ApiConversationRoute
   '/api/data-sources': typeof ApiDataSourcesRoute
   '/api/inbox': typeof ApiInboxRoute
@@ -468,7 +459,6 @@ export interface FileRouteTypes {
     | '/api/blocks'
     | '/api/bookmarks-export'
     | '/api/bulk-export'
-    | '/api/circle-search'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -517,7 +507,6 @@ export interface FileRouteTypes {
     | '/api/blocks'
     | '/api/bookmarks-export'
     | '/api/bulk-export'
-    | '/api/circle-search'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -566,7 +555,6 @@ export interface FileRouteTypes {
     | '/api/blocks'
     | '/api/bookmarks-export'
     | '/api/bulk-export'
-    | '/api/circle-search'
     | '/api/conversation'
     | '/api/data-sources'
     | '/api/inbox'
@@ -616,7 +604,6 @@ export interface RootRouteChildren {
   ApiBlocksRoute: typeof ApiBlocksRoute
   ApiBookmarksExportRoute: typeof ApiBookmarksExportRoute
   ApiBulkExportRoute: typeof ApiBulkExportRoute
-  ApiCircleSearchRoute: typeof ApiCircleSearchRoute
   ApiConversationRoute: typeof ApiConversationRoute
   ApiDataSourcesRoute: typeof ApiDataSourcesRoute
   ApiInboxRoute: typeof ApiInboxRoute
@@ -916,13 +903,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConversationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/circle-search': {
-      id: '/api/circle-search'
-      path: '/api/circle-search'
-      fullPath: '/api/circle-search'
-      preLoaderRoute: typeof ApiCircleSearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/bulk-export': {
       id: '/api/bulk-export'
       path: '/api/bulk-export'
@@ -1000,7 +980,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBlocksRoute: ApiBlocksRoute,
   ApiBookmarksExportRoute: ApiBookmarksExportRoute,
   ApiBulkExportRoute: ApiBulkExportRoute,
-  ApiCircleSearchRoute: ApiCircleSearchRoute,
   ApiConversationRoute: ApiConversationRoute,
   ApiDataSourcesRoute: ApiDataSourcesRoute,
   ApiInboxRoute: ApiInboxRoute,
