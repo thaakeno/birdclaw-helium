@@ -125,6 +125,20 @@ function getModelDisplayName(modelId: string): string {
 		.join(" ");
 }
 
+function getModelIcon(modelId: string) {
+	const lowercase = modelId.toLowerCase();
+	if (lowercase.includes("lite") || lowercase.includes("nano")) {
+		return Gauge;
+	}
+	if (lowercase.includes("flash") || lowercase.includes("omni")) {
+		return Zap;
+	}
+	if (lowercase.includes("pro")) {
+		return Sparkles;
+	}
+	return Search;
+}
+
 const GEMINI_MODEL_METADATA = [
 	{
 		id: "gemini-2.5-flash",
@@ -671,7 +685,7 @@ function SettingsRoute() {
 												name: getModelDisplayName(model),
 												desc: "Dynamically resolved API model",
 												limit: getModelRateLimit(model),
-												icon: Sparkles,
+												icon: getModelIcon(model),
 											};
 											const IconComponent = selectedMeta.icon;
 											return (
@@ -739,7 +753,7 @@ function SettingsRoute() {
 															name: getModelDisplayName(m),
 															desc: "Dynamically resolved API model",
 															limit: getModelRateLimit(m),
-															icon: Sparkles,
+															icon: getModelIcon(m),
 														};
 														const IconComponent = metadata.icon;
 														const isSelected = m === model;
