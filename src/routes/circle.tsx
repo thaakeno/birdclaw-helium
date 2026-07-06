@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
-import { X, Image, MessageSquareQuote, Rows3, UserRound, RefreshCw, ChevronDown } from "lucide-react";
+import { X, Image, MessageSquareQuote, Rows3, UserRound, RefreshCw } from "lucide-react";
 import { AvatarChip } from "#/components/AvatarChip";
 import { TimelineCard } from "#/components/TimelineCard";
 import { readPinnedProfiles, writePinnedProfiles, type PinnedProfileNavItem } from "#/lib/nav-preferences";
@@ -37,7 +37,7 @@ function CircleRoute() {
 
 	// Sync state
 	const [syncing, setSyncing] = useState(false);
-	const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
+	const [syncError, setSyncError] = useState<string | null>(null);
 
 	// Sync local state if storage updates elsewhere
 	useEffect(() => {
@@ -52,13 +52,6 @@ function CircleRoute() {
 		};
 	}, []);
 
-	// Click outside sync dropdown to close it
-	useEffect(() => {
-		if (!syncDropdownOpen) return;
-		const close = () => setSyncDropdownOpen(false);
-		window.addEventListener("click", close);
-		return () => window.removeEventListener("click", close);
-	}, [syncDropdownOpen]);
 
 	// Unpin handler
 	function handleUnpin(handle: string, e: React.MouseEvent) {
@@ -73,50 +66,45 @@ function CircleRoute() {
 		window.dispatchEvent(new Event("birdclaw:nav-preferences"));
 	}
 
-	// Trigger manual/auto profile feeds sync
-	async function runSync(mode: "newest" | "deep" | "local") {
+	// Trigger profile feeds sync — writes tweets directly to the tweets table
+	async function runSync() {
 		if (pinnedProfiles.length === 0) return;
 		setSyncing(true);
+		setSyncError(null);
 		try {
-			const refreshParam = mode !== "local" ? "true" : "false";
-			for (const profile of pinnedProfiles) {
-				try {
-					await fetch(
-						`/api/profile-context?handle=${encodeURIComponent(
-							profile.handle
-						)}&refresh=${refreshParam}&mode=${mode}`
-					);
-				} catch (err) {
-					console.error(`Failed to sync feed for @${profile.handle}:`, err);
+			const handlesParam = pinnedProfiles.map((p) => p.handle).join(",");
+			const res = await fetch(
+				`/api/circle-sync?handles=${encodeURIComponent(handlesParam)}`,
+				{ method: "POST" },
+			);
+			if (res.ok) {
+				const data = (await res.json()) as {
+					ok: boolean;
+					totalCount?: number;
+					rateLimited?: boolean;
+					errors?: string[];
+				};
+				if (data.rateLimited) {
+					setSyncError("X rate limit reached — try again in 15 minutes");
+				} else if (data.errors && data.errors.length > 0 && (data.totalCount ?? 0) === 0) {
+					setSyncError(`Sync failed: ${data.errors[0]}`);
+				} else {
+					localStorage.setItem("birdclaw:circle-last-sync", Date.now().toString());
 				}
-			}
-			if (mode !== "local") {
-				localStorage.setItem("birdclaw:circle-last-sync", Date.now().toString());
+			} else {
+				setSyncError("Sync request failed — check that the server is running");
 			}
 			await refreshLocalView();
 		} catch (err) {
-			console.error("Circle sync failed:", err);
+			setSyncError(err instanceof Error ? err.message : "Sync failed");
 		} finally {
 			setSyncing(false);
 		}
 	}
 
-	// Auto-Sync Circle Profiles on mount/startup (cooldown: 5 minutes)
-	useEffect(() => {
-		const lastSyncStr = localStorage.getItem("birdclaw:circle-last-sync");
-		const lastSync = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
-		const cooldown = 5 * 60 * 1000; // 5 minutes
-
-		if (Date.now() - lastSync < cooldown) {
-			return;
-		}
-		// Default to "newest" feed sync on startup
-		void runSync("newest");
-	}, []);
-
 	// Fetch unified timeline feed!
 	const handlesQueryParam = useMemo(() => {
-		if (selectedAuthor) return undefined;
+		if (selectedAuthor) return selectedAuthor;
 		return pinnedProfiles.map((p) => p.handle).join(",");
 	}, [selectedAuthor, pinnedProfiles]);
 
@@ -159,9 +147,11 @@ function CircleRoute() {
 
 	const subtitleText = syncing
 		? "Syncing feeds..."
-		: pinnedProfiles.length === 1
-			? "1 profile in your circle"
-			: `${pinnedProfiles.length} profiles in your circle`;
+		: syncError
+			? syncError
+			: pinnedProfiles.length === 1
+				? "1 profile in your circle"
+				: `${pinnedProfiles.length} profiles in your circle`;
 
 	return (
 		<TimelineFeedShell
@@ -188,7 +178,7 @@ function CircleRoute() {
 						<TimelineHeaderSubtitle>
 							<span className="flex items-center gap-2">
 								{syncing && <RefreshCw className="size-3 animate-spin text-[var(--accent)]" />}
-								{subtitleText}
+								<span className={syncError && !syncing ? "text-[var(--alert)]" : ""}>{subtitleText}</span>
 							</span>
 						</TimelineHeaderSubtitle>
 					}
@@ -207,50 +197,22 @@ function CircleRoute() {
 									/>
 								</div>
 
-								{/* Sync Dropdown Button */}
-								<div className="relative shrink-0">
-									<button
-										onClick={(e) => {
-											e.stopPropagation();
-											setSyncDropdownOpen(!syncDropdownOpen);
-										}}
-										disabled={syncing}
-										className={cx(
-											"inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--line-strong)] bg-[var(--bg)] hover:bg-[var(--bg-hover)] px-4 text-[13px] font-bold text-[var(--ink)] cursor-pointer disabled:opacity-60 transition-all select-none"
-										)}
-										type="button"
-									>
-										<RefreshCw className={cx("size-3.5", syncing && "animate-spin")} />
-										<span>Sync Feeds</span>
-										<ChevronDown className="size-3.5" />
-									</button>
-
-									{syncDropdownOpen && (
-										<div className="absolute right-0 top-full mt-1.5 z-55 min-w-[170px] rounded-2xl border border-[var(--line)] bg-[var(--panel)] py-1.5 shadow-xl animate-slide-in">
-											<button
-												onClick={() => runSync("newest")}
-												className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] flex items-center gap-2 transition-colors cursor-pointer"
-											>
-												<RefreshCw className="size-3.5" />
-												Sync newest
-											</button>
-											<button
-												onClick={() => runSync("deep")}
-												className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] flex items-center gap-2 transition-colors cursor-pointer"
-											>
-												<RefreshCw className="size-3.5 text-blue-500" />
-												Deep Refresh
-											</button>
-											<button
-												onClick={() => runSync("local")}
-												className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] flex items-center gap-2 transition-colors cursor-pointer"
-											>
-												<Rows3 className="size-3.5 text-green-500" />
-												Use local only
-											</button>
-										</div>
+								{/* Sync Button */}
+								<button
+									onClick={() => void runSync()}
+									disabled={syncing || pinnedProfiles.length === 0}
+									className={cx(
+										"inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 text-[13px] font-bold cursor-pointer disabled:opacity-50 transition-all select-none",
+										syncError
+											? "border-[var(--alert)] bg-[color:color-mix(in_srgb,var(--alert)_8%,var(--bg))] text-[var(--alert)] hover:bg-[color:color-mix(in_srgb,var(--alert)_14%,var(--bg))]"
+											: "border-[var(--line-strong)] bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--ink)]"
 									)}
-								</div>
+									type="button"
+									title={syncError ?? "Fetch latest posts from circle profiles"}
+								>
+									<RefreshCw className={cx("size-3.5", syncing && "animate-spin")} />
+									<span>{syncing ? "Syncing…" : "Sync Feeds"}</span>
+								</button>
 							</div>
 
 							{/* Filter Pill Badges */}

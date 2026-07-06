@@ -63,9 +63,9 @@ function fallbackProfileForHandle(handle: string): ProfileRecord {
 	};
 }
 
-type ProfileByHandleCache = Map<string, ProfileRecord | null>;
+export type ProfileByHandleCache = Map<string, ProfileRecord | null>;
 
-function getProfileByHandle(
+export function getProfileByHandle(
 	db: Database,
 	cache: ProfileByHandleCache,
 	handle: string,
@@ -179,7 +179,7 @@ function enrichEntities(
 	};
 }
 
-type UrlExpansionCache = Map<
+export type UrlExpansionCache = Map<
 	string,
 	| (Pick<TweetUrlEntity, "expandedUrl" | "displayUrl"> &
 			Partial<
@@ -234,7 +234,7 @@ function getUrlExpansion(
 	return expansion;
 }
 
-function enrichTimelineEntities(
+export function enrichTimelineEntities(
 	db: Database,
 	urlExpansionCache: UrlExpansionCache,
 	text: string,
@@ -252,7 +252,7 @@ function enrichTimelineEntities(
 		: withUrls;
 }
 
-function buildEmbeddedTweet(
+export function buildEmbeddedTweet(
 	db: Database,
 	urlExpansionCache: UrlExpansionCache,
 	row: Record<string, unknown>,
@@ -366,7 +366,7 @@ function getRetweetedTweetIdFromRaw(rawJson: unknown) {
 	return null;
 }
 
-function getReplyCountFromRawJson(rawJson: unknown) {
+export function getReplyCountFromRawJson(rawJson: unknown) {
 	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
 	const metrics = raw.public_metrics;
 	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
@@ -376,7 +376,7 @@ function getReplyCountFromRawJson(rawJson: unknown) {
 	return Number.isFinite(count) ? count : undefined;
 }
 
-function getQuoteCountFromRawJson(rawJson: unknown) {
+export function getQuoteCountFromRawJson(rawJson: unknown) {
 	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
 	const metrics = raw.public_metrics || raw.legacy;
 	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
@@ -386,7 +386,7 @@ function getQuoteCountFromRawJson(rawJson: unknown) {
 	return Number.isFinite(count) ? count : undefined;
 }
 
-function getRetweetCountFromRawJson(rawJson: unknown) {
+export function getRetweetCountFromRawJson(rawJson: unknown) {
 	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
 	const metrics = raw.public_metrics || raw.legacy;
 	if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
@@ -396,7 +396,7 @@ function getRetweetCountFromRawJson(rawJson: unknown) {
 	return Number.isFinite(count) ? count : undefined;
 }
 
-function getViewsCountFromRawJson(rawJson: unknown) {
+export function getViewsCountFromRawJson(rawJson: unknown) {
 	const raw = parseJsonField<Record<string, unknown>>(rawJson, {});
 	const views = raw.views;
 	if (!views || typeof views !== "object" || Array.isArray(views)) {
@@ -417,7 +417,7 @@ function parseManualRetweet(text: string) {
 	};
 }
 
-function buildRetweetedTweet(
+export function buildRetweetedTweet(
 	db: Database,
 	urlExpansionCache: UrlExpansionCache,
 	row: Record<string, unknown>,

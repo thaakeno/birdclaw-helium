@@ -1170,6 +1170,13 @@ export function collectProfileAnalysisContextEffect(
 					}
 				}
 
+				if (birdPayload.data.length > 0) {
+					const tweetsPayload = birdPayload as unknown as XurlTweetsResponse;
+					yield* tryProfileSync(() =>
+						mergeXurlTweetsIntoLocalStore(db, account.id, tweetsPayload, "profile", "xurl"),
+					);
+				}
+
 				return birdPayload.data.length > 0
 					? mergeLocalAndLiveProfileContext({
 							local: localContext,
@@ -1645,3 +1652,55 @@ export const __test__ = {
 	extractResponseText,
 	parseAnalysisFromHybridText,
 };
+
+/**
+ * Sync tweets for a list of handles (circle profiles) into the local tweets table.
+ * Uses the bird CLI transport, which reads X cookies from the browser profile.
+ * Returns per-handle results including count of new/updated tweets or an error message.
+ */
+export function syncCircleProfileTweetsEffect(handles: string[]) {
+	return Effect.gen(function* () {
+		const db = getNativeDb();
+		const account = resolveAccount(db);
+		const results: Array<{
+			handle: string;
+			count: number;
+			error?: string;
+		}> = [];
+
+		for (const handle of handles) {
+			const result = yield* Effect.gen(function* () {
+				const payload = yield* listUserTweetsViaBirdEffect({
+					handle,
+					maxResults: 20,
+					maxPages: 1,
+				});
+				if (payload.data.length === 0) {
+					return { handle, count: 0 };
+				}
+				// Normalise: bird returns XurlMentionsResponse (data: XurlMentionData[])
+				// mergeXurlTweetsIntoLocalStore expects XurlTweetsResponse (data: XurlTweetData[])
+				// The shapes are compatible — XurlMentionData extends XurlTweetData
+				const tweetsPayload = payload as unknown as XurlTweetsResponse;
+				mergeXurlTweetsIntoLocalStore(db, account.id, tweetsPayload, "profile", "xurl");
+				return { handle, count: payload.data.length };
+			}).pipe(
+				Effect.catchAll((error) => {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					return Effect.succeed({ handle, count: 0, error: message });
+				}),
+			);
+			results.push(result);
+		}
+
+		return results;
+	});
+}
+
+export function syncCircleProfileTweets(
+	handles: string[],
+): Promise<Array<{ handle: string; count: number; error?: string }>> {
+	return runEffectPromise(syncCircleProfileTweetsEffect(handles));
+}
+

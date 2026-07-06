@@ -532,8 +532,10 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 						<div className="flex flex-col min-h-0 flex-1 border-t border-[var(--line)] my-1 pt-1">
 							<div
 								className={cx(
-									"custom-scrollbar overflow-y-auto max-h-[280px] w-full",
-									isCompact && "flex flex-col items-center",
+									"max-h-[280px] w-full",
+									isCompact
+										? "flex flex-col items-center overflow-y-auto overflow-x-hidden scrollbar-none"
+										: "custom-scrollbar overflow-y-auto",
 								)}
 							>
 								{pinnedProfiles.map((profile) => {

@@ -127,13 +127,14 @@ export function TimelineSearchAndSortField({
 			<select
 				value={sortValue}
 				onChange={(event) => onSortChange(event.target.value)}
+				style={{ colorScheme: "dark" }}
 				className={cx(
 					selectFieldClass,
 					"h-10 px-4 pr-8 border-0 bg-transparent cursor-pointer outline-none focus:outline-none w-[150px]! shrink-0 text-[13px] font-semibold text-[var(--ink)]"
 				)}
 			>
 				{sortOptions.map((opt) => (
-					<option key={opt.value} value={opt.value}>
+					<option key={opt.value} value={opt.value} className="bg-[var(--bg-elevated)] text-[var(--ink)] font-semibold">
 						{opt.label}
 					</option>
 				))}
