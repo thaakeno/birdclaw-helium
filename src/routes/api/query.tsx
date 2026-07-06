@@ -152,7 +152,11 @@ export const Route = createFileRoute("/api/query")({
 									t.text, 
 									t.created_at as createdAt, 
 									t.like_count as likeCount, 
-									t.reply_count as replyCount, 
+									(
+										SELECT COUNT(*)
+										FROM tweets child
+										WHERE child.reply_to_id = t.id
+									) as replyCount, 
 									t.entities_json as entitiesJson, 
 									t.media_json as mediaJson,
 									p.id as authorProfileId,
@@ -160,8 +164,14 @@ export const Route = createFileRoute("/api/query")({
 									p.display_name as authorName, 
 									p.avatar_url as authorAvatarUrl,
 									p.avatar_hue as authorAvatarHue,
-									t.bookmarked,
-									t.liked
+									EXISTS (
+										SELECT 1 FROM tweet_collections collection
+										WHERE collection.tweet_id = t.id AND collection.kind = 'bookmarks'
+									) as bookmarked,
+									EXISTS (
+										SELECT 1 FROM tweet_collections collection
+										WHERE collection.tweet_id = t.id AND collection.kind = 'likes'
+									) as liked
 								FROM tweets t
 								JOIN profiles p ON t.author_profile_id = p.id
 								WHERE LOWER(p.handle) IN (${handles.map(() => "?").join(",")})
