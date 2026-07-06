@@ -333,14 +333,17 @@ function MediaViewerModal({
 	viewerAside?: ReactNode;
 }) {
 	const bodyClass = viewerAside
-		? "grid h-full w-full grid-cols-1 overflow-hidden bg-black min-[980px]:grid-cols-[minmax(0,1fr)_420px]"
+		? "grid h-full w-full grid-cols-1 grid-rows-[100%] overflow-hidden bg-black min-[980px]:grid-cols-[minmax(0,1fr)_420px]"
 		: "flex h-full w-full items-center justify-center";
 
 	useEffect(() => {
-		const originalStyle = document.body.style.overflow;
+		const originalBodyOverflow = document.body.style.overflow;
+		const originalHtmlOverflow = document.documentElement.style.overflow;
 		document.body.style.overflow = "hidden";
+		document.documentElement.style.overflow = "hidden";
 		return () => {
-			document.body.style.overflow = originalStyle;
+			document.body.style.overflow = originalBodyOverflow;
+			document.documentElement.style.overflow = originalHtmlOverflow;
 		};
 	}, []);
 
@@ -490,7 +493,7 @@ function MediaViewerModal({
 					) : null}
 				</div>
 				{viewerAside ? (
-					<aside className="min-h-0 flex flex-col border-l border-white/10 bg-[var(--bg)] text-[var(--ink)] overflow-hidden">
+					<aside className="h-full min-h-0 flex flex-col border-l border-white/10 bg-[var(--bg)] text-[var(--ink)] overflow-hidden">
 						{viewerAside}
 					</aside>
 				) : null}
