@@ -55,7 +55,9 @@ function RootDocument({ children }: { children: ReactNode }) {
 		select: (state) => state.location.pathname,
 	});
 	const wideMode =
-		pathname.startsWith("/dms") || pathname.startsWith("/network-map");
+		pathname.startsWith("/dms") ||
+		pathname.startsWith("/network-map") ||
+		pathname.startsWith("/profiles/");
 
 	return (
 		<html lang="en" suppressHydrationWarning>

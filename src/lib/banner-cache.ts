@@ -166,24 +166,43 @@ function fetchRemoteBannerEffect(bannerUrl: string) {
 	});
 }
 
-function readArchiveBannerFallback() {
+function readArchiveBannerFallback(profileId: string) {
 	const { mediaOriginalsDir } = getBirdclawPaths();
-	const baseDir = path.join(mediaOriginalsDir, "archive", "profile", "unknown");
+	let handle = "";
+	try {
+		const row = getNativeDb()
+			.prepare("select handle from profiles where id = ?")
+			.get(profileId) as { handle: string } | undefined;
+		if (row?.handle) {
+			handle = row.handle.toLowerCase();
+		}
+	} catch {
+		// ignore
+	}
+
+	const searchDirs = [
+		path.join(mediaOriginalsDir, "archive", "profile", profileId),
+		...(handle ? [path.join(mediaOriginalsDir, "archive", "profile", handle)] : []),
+		path.join(mediaOriginalsDir, "archive", "profile", "unknown"),
+	];
+
 	const extensions = [".jpg", ".png", ".webp", ".gif", ".jpeg"];
-	for (const ext of extensions) {
-		const fullPath = path.join(baseDir, `profile-banner${ext}`);
-		if (existsSync(fullPath)) {
-			try {
-				const buffer = readFileSync(fullPath);
-				const contentType = getContentTypeFromExtension(ext);
-				return {
-					buffer,
-					contentType,
-					cachePath: fullPath,
-					bannerUrl: "archive:profile-banner",
-				};
-			} catch {
-				// ignore and try next
+	for (const baseDir of searchDirs) {
+		for (const ext of extensions) {
+			const fullPath = path.join(baseDir, `profile-banner${ext}`);
+			if (fullPath && existsSync(fullPath)) {
+				try {
+					const buffer = readFileSync(fullPath);
+					const contentType = getContentTypeFromExtension(ext);
+					return {
+						buffer,
+						contentType,
+						cachePath: fullPath,
+						bannerUrl: `archive:profile-banner:${profileId}`,
+					};
+				} catch {
+					// ignore and try next
+				}
 			}
 		}
 	}
@@ -194,7 +213,7 @@ export function readCachedBannerEffect(profileId: string) {
 	return Effect.gen(function* () {
 		const bannerUrl = yield* trySync(() => getBannerUrlForProfile(profileId));
 		if (!bannerUrl) {
-			const fallback = readArchiveBannerFallback();
+			const fallback = readArchiveBannerFallback(profileId);
 			if (fallback) return fallback;
 			return null;
 		}

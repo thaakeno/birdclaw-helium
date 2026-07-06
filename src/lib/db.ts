@@ -816,6 +816,16 @@ const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
 			);
 		},
 	},
+	{
+		version: 4,
+		name: "add profile banner url column",
+		up: (db) => {
+			const columnNames = getColumnNames(db, "profiles");
+			if (!columnNames.has("banner_url")) {
+				db.exec("alter table profiles add column banner_url text");
+			}
+		},
+	},
 ];
 
 function ensureDemoData(db: Database) {

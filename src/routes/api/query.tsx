@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { queryResponseSchema } from "#/lib/api-contracts";
 import { maybeAutoUpdateBackupEffect } from "#/lib/backup";
+import { getNativeDb } from "#/lib/db";
 import {
 	jsonResponse,
 	parseBoundedInteger,
@@ -122,6 +123,103 @@ export const Route = createFileRoute("/api/query")({
 											url.searchParams.get("conversationId") ?? undefined,
 									}),
 								),
+							);
+						}
+
+						if (resource === "circle") {
+							const handlesRaw = url.searchParams.get("handles") || "";
+							const handles = handlesRaw
+								.split(",")
+								.map((h) => h.trim().toLowerCase())
+								.filter(Boolean);
+
+							if (handles.length === 0) {
+								return jsonResponse(
+									queryResponseSchema.parse({
+										resource: "circle",
+										items: [],
+									}),
+								);
+							}
+
+							const db = getNativeDb();
+							const search = url.searchParams.get("search") || "";
+							const limit = parseBoundedInteger(url.searchParams.get("limit"), { max: 200 }) || 20;
+
+							let sql = `
+								SELECT 
+									t.id, 
+									t.text, 
+									t.created_at as createdAt, 
+									t.like_count as likeCount, 
+									t.reply_count as replyCount, 
+									t.entities_json as entitiesJson, 
+									t.media_json as mediaJson,
+									p.id as authorProfileId,
+									p.handle as authorHandle, 
+									p.display_name as authorName, 
+									p.avatar_url as authorAvatarUrl,
+									p.avatar_hue as authorAvatarHue,
+									t.bookmarked,
+									t.liked
+								FROM tweets t
+								JOIN profiles p ON t.author_profile_id = p.id
+								WHERE LOWER(p.handle) IN (${handles.map(() => "?").join(",")})
+							`;
+
+							const params: any[] = [...handles];
+
+							if (search.trim()) {
+								sql += " AND t.text LIKE ? ";
+								params.push(`%${search}%`);
+							}
+
+							// Sort by created_at desc
+							sql += " ORDER BY t.created_at DESC LIMIT ? ";
+							params.push(limit);
+
+							const rows = db.prepare(sql).all(...params) as Array<{
+								id: string;
+								text: string;
+								createdAt: string;
+								likeCount: number;
+								replyCount: number;
+								entitiesJson: string;
+								mediaJson: string;
+								authorProfileId: string;
+								authorHandle: string;
+								authorName: string;
+								authorAvatarUrl: string | null;
+								authorAvatarHue: number | null;
+								bookmarked: number;
+								liked: number;
+							}>;
+
+							const items = rows.map((r) => ({
+								id: r.id,
+								kind: "authored" as const,
+								text: r.text,
+								createdAt: r.createdAt,
+								likeCount: r.likeCount,
+								replyCount: r.replyCount,
+								bookmarked: Boolean(r.bookmarked),
+								liked: Boolean(r.liked),
+								entities: JSON.parse(r.entitiesJson || "{}"),
+								media: JSON.parse(r.mediaJson || "[]"),
+								author: {
+									id: r.authorProfileId,
+									handle: r.authorHandle,
+									name: r.authorName,
+									avatarUrl: r.authorAvatarUrl,
+									avatarHue: r.authorAvatarHue || 0,
+								},
+							}));
+
+							return jsonResponse(
+								queryResponseSchema.parse({
+									resource: "circle",
+									items,
+								}),
 							);
 						}
 

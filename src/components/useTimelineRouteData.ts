@@ -36,6 +36,7 @@ interface UseTimelineRouteDataOptions {
 	originalsOnly?: boolean;
 	repliesOnly?: boolean;
 	author?: string;
+	handles?: string;
 }
 
 interface TimelinePageParam {
@@ -55,6 +56,7 @@ function buildTimelineQueryUrl({
 	originalsOnly,
 	repliesOnly,
 	author,
+	handles,
 	selectedAccountId,
 	pageParam,
 }: {
@@ -69,6 +71,7 @@ function buildTimelineQueryUrl({
 	originalsOnly: boolean;
 	repliesOnly: boolean;
 	author?: string;
+	handles?: string;
 	selectedAccountId?: string;
 	pageParam?: TimelinePageParam;
 }) {
@@ -86,6 +89,7 @@ function buildTimelineQueryUrl({
 	if (originalsOnly) params.set("originalsOnly", "true");
 	if (repliesOnly) params.set("repliesOnly", "true");
 	if (author?.trim()) params.set("author", author.trim());
+	if (handles?.trim()) params.set("handles", handles.trim());
 	if (search.trim()) params.set("search", search.trim());
 	if (pageParam) {
 		params.set("until", pageParam.until);
@@ -112,6 +116,7 @@ export function useTimelineRouteData({
 	originalsOnly = false,
 	repliesOnly = false,
 	author,
+	handles,
 }: UseTimelineRouteDataOptions) {
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery({
@@ -135,6 +140,7 @@ export function useTimelineRouteData({
 			originalsOnly,
 			repliesOnly,
 			author: author?.trim() ?? "",
+			handles: handles?.trim() ?? "",
 			selectedAccountId: selectedAccountId ?? null,
 		},
 	] as const;
@@ -155,6 +161,7 @@ export function useTimelineRouteData({
 					originalsOnly,
 					repliesOnly,
 					author,
+					handles,
 					selectedAccountId,
 					pageParam,
 				}),

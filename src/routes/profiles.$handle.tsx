@@ -356,8 +356,9 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	}
 
 	return (
-		<section className="flex min-h-screen flex-col">
-			<header className="border-b border-[var(--line)] bg-[var(--bg)]">
+		<div className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_450px] min-h-screen w-full bg-[var(--bg)]">
+			<section className="flex flex-col min-w-0 border-r border-[var(--line)]">
+				<header className="border-b border-[var(--line)] bg-[var(--bg)]">
 				<div
 					className="h-32 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-active)_68%,var(--accent)_32%),color-mix(in_srgb,var(--bg)_70%,var(--accent)_30%))] bg-cover bg-center"
 					style={profile?.id ? { backgroundImage: `url('/api/banner?profileId=${encodeURIComponent(profile.id)}')` } : undefined}
@@ -763,17 +764,44 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 						)}
 					</div>
 				)}
-				{analysis.loading || analysis.markdown || analysis.error ? (
-					<>
-						<ProfileAnalysisStatusLine analysis={analysis} />
-						<ProfileAnalysisOutput
-							analysis={analysis}
-							emptyLabel={`Analyzing @${cleanHandle}.`}
-						/>
-					</>
-				) : null}
 			</div>
-		</section>
+			</section>
+
+			<aside className="sticky top-0 h-screen flex flex-col bg-[var(--bg-elevated)] border-l border-[var(--line)] overflow-hidden">
+				<div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--bg-hover)] px-4 py-3 shrink-0">
+					<Sparkles className="size-4.5 text-[var(--accent)]" />
+					<h2 className="text-[14px] font-bold text-[var(--ink)] m-0">AI Profile Analysis</h2>
+				</div>
+				<div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
+					{analysis.loading || analysis.markdown || analysis.error ? (
+						<div className="flex flex-col gap-4">
+							<ProfileAnalysisStatusLine analysis={analysis} />
+							<ProfileAnalysisOutput
+								analysis={analysis}
+								emptyLabel={`Analyzing @${cleanHandle}.`}
+							/>
+						</div>
+					) : (
+						<div className="flex flex-col items-center justify-center text-center py-10 px-4 gap-3 bg-[var(--bg)] rounded-2xl border border-[var(--line)] my-auto">
+							<div className="grid size-12 place-items-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+								<Sparkles className="size-6" />
+							</div>
+							<h3 className="text-[14px] font-bold text-[var(--ink)] m-0">No Analysis Done</h3>
+							<p className="text-[12px] text-[var(--ink-soft)] m-0 max-w-xs leading-normal">
+								Generate an automated AI breakdown of this profile's posting patterns, key topics, and curation habits.
+							</p>
+							<button
+								className="mt-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[var(--accent)] px-4 text-[13px] font-bold text-white hover:bg-[var(--accent-hover)] transition-colors shadow-sm cursor-pointer border-0"
+								onClick={() => analysis.run(true, cleanHandle)}
+								type="button"
+							>
+								Run AI Analysis
+							</button>
+						</div>
+					)}
+				</div>
+			</aside>
+		</div>
 	);
 }
 

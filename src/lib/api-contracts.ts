@@ -306,6 +306,7 @@ export const queryResponseSchema = z.discriminatedUnion("resource", [
 	timelineQueryResponseBaseSchema.extend({ resource: z.literal("mentions") }),
 	timelineQueryResponseBaseSchema.extend({ resource: z.literal("authored") }),
 	timelineQueryResponseBaseSchema.extend({ resource: z.literal("search") }),
+	timelineQueryResponseBaseSchema.extend({ resource: z.literal("circle") }),
 	dmQueryResponseSchema,
 ]);
 export type QueryResponse = z.infer<typeof queryResponseSchema>;

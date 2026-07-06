@@ -6,6 +6,7 @@ export const resourceKindSchema = z.enum([
 	"authored",
 	"search",
 	"dms",
+	"circle",
 ]);
 export type ResourceKind = z.infer<typeof resourceKindSchema>;
 
