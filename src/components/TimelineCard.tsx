@@ -43,7 +43,6 @@ import {
 	feedRowClass,
 	feedRowDotClass,
 	feedRowHandleClass,
-	feedRowHeaderClass,
 	feedRowNameClass,
 	feedRowStatePillActiveClass,
 	feedRowStatePillClass,
@@ -548,73 +547,73 @@ export function TimelineCard({
 						</ProfilePreview>
 					</div>
 				) : null}
-				<header className={feedRowHeaderClass}>
-					<ProfilePreview profile={displayAuthor}>
-						<span className="flex min-w-0 items-center gap-1.5">
-							<span className={feedRowNameClass}>
-								{displayAuthor.displayName}
-							</span>
-							<span className={feedRowHandleClass}>
-								@{displayAuthor.handle}
-							</span>
-						</span>
-					</ProfilePreview>
-					<span className={feedRowDotClass}>·</span>
-					<SmartTimestamp
-						className={feedRowTimestampClass}
-						value={displayTweet.createdAt}
-					/>
-					{canReply || hasConversation ? (
-						<span className="ml-auto inline-flex items-center gap-1">
-							{hasConversation ? (
-								<span
-									aria-label="Part of a conversation"
-									className={cx(
-										feedRowStatePillClass,
-										feedRowStatePillActiveClass,
-									)}
-									title="Part of a conversation"
-								>
-									<MessageCircle className="size-3.5" strokeWidth={2} />
-									thread
+				<div className="flex items-start justify-between gap-2 min-w-0">
+					<header className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px]">
+						<ProfilePreview profile={displayAuthor}>
+							<span className="flex min-w-0 items-center gap-1.5">
+								<span className={feedRowNameClass}>
+									{displayAuthor.displayName}
 								</span>
-							) : null}
-							{canReply ? (
-								<span
-									aria-label={displayIsReplied ? "We replied" : "Reply open"}
-									className={cx(
-										feedRowStatePillClass,
-										displayIsReplied
-											? feedRowStatePillActiveClass
-											: feedRowStatePillOpenClass,
-									)}
-									title={displayIsReplied ? "We replied" : "Reply open"}
-								>
-									{displayIsReplied ? (
-										<CheckCircle2 className="size-3.5" strokeWidth={2} />
-									) : (
-										<Circle className="size-3" strokeWidth={2.2} />
-									)}
-									{displayIsReplied ? "replied" : null}
+								<span className={feedRowHandleClass}>
+									@{displayAuthor.handle}
 								</span>
-							) : null}
-						</span>
-					) : null}
-					<button
-						aria-label="More actions"
-						className="ml-auto grid size-8 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
-						onClick={(event) => {
-							event.stopPropagation();
-							setContextMenu({
-								x: event.currentTarget.getBoundingClientRect().right - 248,
-								y: event.currentTarget.getBoundingClientRect().bottom + 8,
-							});
-						}}
-						type="button"
-					>
-						<MoreHorizontal className="size-5" strokeWidth={2} />
-					</button>
-				</header>
+							</span>
+						</ProfilePreview>
+						<span className={feedRowDotClass}>·</span>
+						<SmartTimestamp
+							className={feedRowTimestampClass}
+							value={displayTweet.createdAt}
+						/>
+					</header>
+					<div className="flex items-center gap-1 shrink-0">
+						{hasConversation ? (
+							<span
+								aria-label="Part of a conversation"
+								className={cx(
+									feedRowStatePillClass,
+									feedRowStatePillActiveClass,
+								)}
+								title="Part of a conversation"
+							>
+								<MessageCircle className="size-3.5" strokeWidth={2} />
+								thread
+							</span>
+						) : null}
+						{canReply ? (
+							<span
+								aria-label={displayIsReplied ? "We replied" : "Reply open"}
+								className={cx(
+									feedRowStatePillClass,
+									displayIsReplied
+										? feedRowStatePillActiveClass
+										: feedRowStatePillOpenClass,
+								)}
+								title={displayIsReplied ? "We replied" : "Reply open"}
+							>
+								{displayIsReplied ? (
+									<CheckCircle2 className="size-3.5" strokeWidth={2} />
+								) : (
+									<Circle className="size-3" strokeWidth={2.2} />
+								)}
+								{displayIsReplied ? "replied" : null}
+							</span>
+						) : null}
+						<button
+							aria-label="More actions"
+							className="grid size-8 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+							onClick={(event) => {
+								event.stopPropagation();
+								setContextMenu({
+									x: event.currentTarget.getBoundingClientRect().right - 248,
+									y: event.currentTarget.getBoundingClientRect().bottom + 8,
+								});
+							}}
+							type="button"
+						>
+							<MoreHorizontal className="size-5" strokeWidth={2} />
+						</button>
+					</div>
+				</div>
 				<TweetPresentation
 					hiddenUrlRanges={hiddenMediaUrlRanges}
 					onHydrateVideo={hydrateTweetMedia}

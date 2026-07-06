@@ -527,69 +527,71 @@ export function AppNav({ compact = false }: { compact?: boolean }) {
 						);
 					})}
 					{pinnedProfiles.length > 0 ? (
-						<div
-							className={cx(
-								"my-1 border-t border-[var(--line)] pt-1",
-								isCompact && "flex flex-col items-center",
-							)}
-						>
-							{pinnedProfiles.map((profile) => {
-								const to = `/profiles/${encodeURIComponent(profile.handle)}`;
-								const active = pathname === to;
-								const label = profile.displayName || `@${profile.handle}`;
-								return (
-									<Link
-										aria-label={label}
-										className={cx(
-											isCompact ? navLinkCompactClass : navLinkClass,
-											active && navLinkActiveClass,
-										)}
-										key={profile.handle.toLowerCase()}
-										onContextMenu={(event) => {
-											event.preventDefault();
-											setPinnedMenu({
-												handle: profile.handle,
-												x: event.clientX,
-												y: event.clientY,
-											});
-										}}
-										to={to}
-									>
-										<span className="relative grid size-[22px] shrink-0 place-items-center overflow-visible rounded-full">
-											<AvatarChip
-												avatarUrl={profile.avatarUrl}
-												hue={profile.avatarHue ?? 210}
-												name={label}
-												profileId={profile.profileId}
-												size="xsmall"
-											/>
-											{profile.newCount && profile.newCount > 0 ? (
-												<span
-													className={cx(
-														"absolute -top-1.5 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#1d9bf0] px-0.5 text-[8px] font-bold text-white shadow-[0_0_0_1.5px_var(--bg)]",
-														!isCompact && "min-[1100px]:hidden",
-													)}
-												>
-													+{profile.newCount}
-												</span>
-											) : null}
-										</span>
-										<span
+						<div className="flex flex-col min-h-0 flex-1 border-t border-[var(--line)] my-1 pt-1">
+							<div
+								className={cx(
+									"custom-scrollbar overflow-y-auto max-h-[280px] w-full",
+									isCompact && "flex flex-col items-center",
+								)}
+							>
+								{pinnedProfiles.map((profile) => {
+									const to = `/profiles/${encodeURIComponent(profile.handle)}`;
+									const active = pathname === to;
+									const label = profile.displayName || `@${profile.handle}`;
+									return (
+										<Link
+											aria-label={label}
 											className={cx(
-												isCompact ? navLinkLabelCompactClass : navLinkLabelClass,
-												"flex-1 min-w-0 flex items-center justify-between gap-2",
+												isCompact ? navLinkCompactClass : navLinkClass,
+												active && navLinkActiveClass,
 											)}
+											key={profile.handle.toLowerCase()}
+											onContextMenu={(event) => {
+												event.preventDefault();
+												setPinnedMenu({
+													handle: profile.handle,
+													x: event.clientX,
+													y: event.clientY,
+												});
+											}}
+											to={to}
 										>
-											<span className="truncate">{label}</span>
-											{profile.newCount && profile.newCount > 0 ? (
-												<span className="shrink-0 rounded-full bg-[#1d9bf0] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
-													+{profile.newCount}
-												</span>
-											) : null}
-										</span>
-									</Link>
-								);
-							})}
+											<span className="relative grid size-[22px] shrink-0 place-items-center overflow-visible rounded-full">
+												<AvatarChip
+													avatarUrl={profile.avatarUrl}
+													hue={profile.avatarHue ?? 210}
+													name={label}
+													profileId={profile.profileId}
+													size="xsmall"
+												/>
+												{profile.newCount && profile.newCount > 0 ? (
+													<span
+														className={cx(
+															"absolute -top-1.5 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#1d9bf0] px-0.5 text-[8px] font-bold text-white shadow-[0_0_0_1.5px_var(--bg)]",
+															!isCompact && "min-[1100px]:hidden",
+														)}
+													>
+														+{profile.newCount}
+													</span>
+												) : null}
+											</span>
+											<span
+												className={cx(
+													isCompact ? navLinkLabelCompactClass : navLinkLabelClass,
+													"flex-1 min-w-0 flex items-center justify-between gap-2",
+												)}
+											>
+												<span className="truncate">{label}</span>
+												{profile.newCount && profile.newCount > 0 ? (
+													<span className="shrink-0 rounded-full bg-[#1d9bf0] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+														+{profile.newCount}
+													</span>
+												) : null}
+											</span>
+										</Link>
+									);
+								})}
+							</div>
 						</div>
 					) : null}
 				</nav>

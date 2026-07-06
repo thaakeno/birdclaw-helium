@@ -12,6 +12,11 @@ import {
 	SlidersHorizontal,
 	Sparkles,
 	Download,
+	Zap,
+	Gauge,
+	Search,
+	ChevronDown,
+	Check,
 } from "lucide-react";
 import {
 	type DragEvent,
@@ -54,6 +59,7 @@ const navItems = [
 	{ to: "/network-map", label: "Map" },
 	{ to: "/data-sources", label: "Sources" },
 	{ to: "/", label: "Home" },
+	{ to: "/my-posts", label: "My Posts" },
 	{ to: "/mentions", label: "Mentions" },
 	{ to: "/likes", label: "Likes" },
 	{ to: "/bookmarks", label: "Bookmarks" },
@@ -72,6 +78,76 @@ interface AiSettings {
 	hasGeminiApiKey: boolean;
 	geminiModels: string[];
 }
+
+function getModelRateLimit(modelId: string): string {
+	const lowercase = modelId.toLowerCase();
+	if (lowercase.includes("2.5-pro")) {
+		return "Paid Tier (2 RPM)";
+	}
+	if (lowercase.includes("pro")) {
+		return "Paid / Free (2 RPM / 50 RPD)";
+	}
+	if (lowercase.includes("lite")) {
+		return "Free (30 RPM / 1.5k RPD)";
+	}
+	if (lowercase.includes("flash") || lowercase.includes("omni") || lowercase.includes("gemma")) {
+		return "Free (15 RPM / 1.5k RPD)";
+	}
+	if (lowercase.includes("nano")) {
+		return "Free (30 RPM / 1.5k RPD)";
+	}
+	if (
+		lowercase.includes("deep-research") ||
+		lowercase.includes("computer-use") ||
+		lowercase.includes("lyria") ||
+		lowercase.includes("robotics") ||
+		lowercase.includes("antigravity")
+	) {
+		return "Paid / Experimental Only";
+	}
+	return "API limits apply";
+}
+
+function getModelDisplayName(modelId: string): string {
+	return modelId
+		.split("-")
+		.map((part) => {
+			if (!part) return "";
+			const lower = part.toLowerCase();
+			if (lower === "tts") return "TTS";
+			if (lower === "api") return "API";
+			if (lower === "it") return "IT";
+			if (lower === "gemini") return "Gemini";
+			if (part.match(/^\d+(\.\d+)?$/)) return part; // Keep version numbers intact
+			return part.charAt(0).toUpperCase() + part.slice(1);
+		})
+		.filter(Boolean)
+		.join(" ");
+}
+
+const GEMINI_MODEL_METADATA = [
+	{
+		id: "gemini-2.5-flash",
+		name: "Gemini 2.5 Flash",
+		desc: "Standard model for speed and efficiency",
+		limit: "Free (15 RPM / 1.5k RPD)",
+		icon: Zap,
+	},
+	{
+		id: "gemini-2.5-pro",
+		name: "Gemini 2.5 Pro",
+		desc: "Advanced reasoning for complex tasks",
+		limit: "Paid Tier Only (2 RPM)",
+		icon: Sparkles,
+	},
+	{
+		id: "gemini-2.0-flash-lite",
+		name: "Gemini 2.0 Flash-Lite",
+		desc: "Low-latency lightweight model",
+		limit: "Free (30 RPM / 1.5k RPD)",
+		icon: Gauge,
+	},
+] as const;
 
 export const Route = createFileRoute("/settings")({
 	component: SettingsRoute,
@@ -94,6 +170,20 @@ function SettingsRoute() {
 	const [geminiApiKey, setGeminiApiKey] = useState("");
 	const [clearGeminiApiKey, setClearGeminiApiKey] = useState(false);
 
+	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+	const [modelSearch, setModelSearch] = useState("");
+	const [myPostsType, setMyPostsType] = useState<"all" | "originals" | "replies">("all");
+
+	useEffect(() => {
+		if (!modelDropdownOpen) {
+			setModelSearch("");
+		}
+	}, [modelDropdownOpen]);
+	const [bookmarkAuthors, setBookmarkAuthors] = useState<Array<{ handle: string; displayName: string }>>([]);
+	const [selectedExportUsers, setSelectedExportUsers] = useState<string[]>([]);
+	const [exportUserSearch, setExportUserSearch] = useState("");
+	const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
 	useEffect(() => {
 		setHidden(readStringArray(NAV_HIDDEN_KEY));
 		setOrder(readStringArray(NAV_ORDER_KEY));
@@ -101,13 +191,70 @@ function SettingsRoute() {
 		setHideQuoteInfo(readBoolean(HIDE_QUOTE_INFO_KEY));
 		setPinnedProfiles(readPinnedProfiles());
 		void loadAiSettings();
+
+		// Fetch bookmark creators for the filter menu
+		fetch("/api/saved-authors?collection=bookmarks")
+			.then((r) => r.json())
+			.then((data) => {
+				if (data && data.authors) {
+					setBookmarkAuthors(data.authors);
+				}
+			})
+			.catch(console.error);
 	}, []);
 
 	const orderedItems = useMemo(() => orderNavItems(navItems, order), [order]);
 	const visibleCount = orderedItems.length - hidden.length;
-	const geminiModelOptions = ai?.geminiModels?.length
-		? ai.geminiModels
-		: ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
+
+
+	const geminiModelOptions = useMemo(() => {
+		return ai?.geminiModels?.length
+			? ai.geminiModels
+			: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-lite"];
+	}, [ai?.geminiModels]);
+
+	const filteredAndSortedModels = useMemo(() => {
+		let list = geminiModelOptions;
+		if (modelSearch.trim()) {
+			const query = modelSearch.toLowerCase().trim();
+			list = list.filter((m) => m.toLowerCase().includes(query));
+		}
+
+		return [...list].sort((a, b) => {
+			const getRank = (name: string) => {
+				const lowercase = name.toLowerCase();
+				if (lowercase.includes("3.5")) return 50;
+				if (lowercase.includes("3.1")) return 40;
+				if (lowercase.includes("2.5")) return 30;
+				if (lowercase.includes("2.0")) return 20;
+				return 10;
+			};
+
+			const rankA = getRank(a);
+			const rankB = getRank(b);
+
+			if (rankA !== rankB) {
+				return rankB - rankA;
+			}
+
+			const getPriority = (name: string) => {
+				const lowercase = name.toLowerCase();
+				if (lowercase.includes("pro")) return 3;
+				if (lowercase.includes("flash")) return 2;
+				if (lowercase.includes("lite")) return 1;
+				return 0;
+			};
+
+			const prioA = getPriority(a);
+			const prioB = getPriority(b);
+
+			if (prioA !== prioB) {
+				return prioB - prioA;
+			}
+
+			return a.localeCompare(b);
+		});
+	}, [geminiModelOptions, modelSearch]);
 
 	async function loadAiSettings() {
 		setAiLoading(true);
@@ -468,7 +615,7 @@ function SettingsRoute() {
 								onChange={(event) => {
 									const next = event.target.value as AiProvider;
 									setProvider(next);
-									setModel(next === "gemini" ? "gemini-3.5-flash" : "gpt-5.5");
+									setModel(next === "gemini" ? "gemini-2.5-flash" : "gpt-5.5");
 								}}
 								value={provider}
 							>
@@ -482,18 +629,127 @@ function SettingsRoute() {
 								Model
 							</span>
 							{provider === "gemini" ? (
-								<select
-									className={selectFieldClass}
-									disabled={aiLoading || aiSaving}
-									onChange={(event) => setModel(event.target.value)}
-									value={model}
-								>
-									{geminiModelOptions.map((option) => (
-										<option key={option} value={option}>
-											{option}
-										</option>
-									))}
-								</select>
+								<div className="relative">
+									{modelDropdownOpen && (
+										<div className="fixed inset-0 z-40" onClick={() => setModelDropdownOpen(false)} />
+									)}
+									<button
+										type="button"
+										onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
+										disabled={aiLoading || aiSaving}
+										className={cx(
+											"flex w-full min-h-[46px] items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] px-3.5 py-2 text-left transition-colors focus:border-[var(--accent)] outline-none",
+											modelDropdownOpen && "relative z-50",
+											(aiLoading || aiSaving) && "opacity-60 cursor-not-allowed"
+										)}
+									>
+										{(() => {
+											const selectedMeta = GEMINI_MODEL_METADATA.find(m => m.id === model) || {
+												id: model,
+												name: getModelDisplayName(model),
+												desc: "Dynamically resolved API model",
+												limit: getModelRateLimit(model),
+												icon: Sparkles,
+											};
+											const IconComponent = selectedMeta.icon;
+											return (
+												<div className="flex items-center gap-3 min-w-0 flex-1">
+													<div className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+														<IconComponent className="size-4" />
+													</div>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-baseline justify-between gap-2">
+															<span className="text-[13px] font-bold text-[var(--ink)] truncate">
+																{selectedMeta.name}
+															</span>
+															<span className="text-[10px] font-semibold text-[var(--ink-soft)] shrink-0">
+																{selectedMeta.limit}
+															</span>
+														</div>
+														<div className="text-[11px] text-[var(--ink-soft)] truncate">
+															{selectedMeta.desc}
+														</div>
+													</div>
+												</div>
+											);
+										})()}
+										<ChevronDown className="size-4 text-[var(--ink-soft)] shrink-0" />
+									</button>
+									{modelDropdownOpen && (
+										<div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[320px] rounded-xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-xl flex flex-col overflow-hidden">
+											<div className="flex items-center gap-2 border-b border-[var(--line)] px-2.5 py-2 bg-[var(--bg-elevated)] shrink-0">
+												<Search className="size-3.5 text-[var(--ink-soft)] shrink-0" />
+												<input
+													type="text"
+													value={modelSearch}
+													onChange={(e) => setModelSearch(e.target.value)}
+													placeholder="Search models..."
+													className="w-full bg-transparent text-[12px] text-[var(--ink)] placeholder-[var(--ink-soft)] outline-none border-none py-0.5"
+													onClick={(e) => e.stopPropagation()}
+												/>
+											</div>
+											<div className="flex-1 overflow-y-auto p-1 custom-scrollbar max-h-[260px] flex flex-col gap-0.5">
+												{filteredAndSortedModels.length > 0 ? (
+													filteredAndSortedModels.map((m) => {
+														const metadata = GEMINI_MODEL_METADATA.find((item) => item.id === m) || {
+															id: m,
+															name: getModelDisplayName(m),
+															desc: "Dynamically resolved API model",
+															limit: getModelRateLimit(m),
+															icon: Sparkles,
+														};
+														const IconComponent = metadata.icon;
+														const isSelected = m === model;
+														return (
+															<button
+																key={m}
+																type="button"
+																onClick={() => {
+																	setModel(m);
+																	setModelDropdownOpen(false);
+																}}
+																className={cx(
+																	"flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--bg-hover)]",
+																	isSelected && "bg-[var(--accent-soft)] hover:bg-[var(--accent-soft)]"
+																)}
+															>
+																<div className={cx(
+																	"grid size-8 shrink-0 place-items-center rounded-lg text-sm",
+																	isSelected ? "bg-[var(--accent)] text-white" : "bg-[var(--bg)] text-[var(--ink-soft)]"
+																)}>
+																	<IconComponent className="size-4" />
+																</div>
+																<div className="min-w-0 flex-1">
+																	<div className="flex items-baseline justify-between gap-2">
+																		<span className={cx(
+																			"text-[12px] font-semibold truncate",
+																			isSelected ? "text-[var(--accent)]" : "text-[var(--ink)]"
+																		)}>
+																			{metadata.name}
+																		</span>
+																		<span className="text-[9px] font-medium text-[var(--ink-soft)] shrink-0">
+																			{metadata.limit}
+																		</span>
+																	</div>
+																	<div className="text-[11px] text-[var(--ink-soft)] truncate">
+																		{metadata.desc}
+																	</div>
+																</div>
+																{isSelected && (
+																	<Check className="size-4 text-[var(--accent)] shrink-0" />
+																)}
+															</button>
+														);
+													})
+												) : (
+													<div className="px-3 py-4 text-center text-[12px] text-[var(--ink-soft)]">
+														No matching models found
+													</div>
+												)}
+											</div>
+										</div>
+									)}
+								</div>
 							) : (
 								<input
 									className="h-10 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[14px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
@@ -595,24 +851,105 @@ function SettingsRoute() {
 					<div className="grid gap-4 md:grid-cols-3">
 						{/* Bookmarks Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)]">
+							<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-1.5">
+								<span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-bold">B</span>
 								Bookmarks
 							</span>
-							<div className="flex flex-col gap-2 mt-1">
+							
+							{/* Filter authors dropdown */}
+							<div className="relative mt-2">
+								{userDropdownOpen && (
+									<div className="fixed inset-0 z-40" onClick={() => setUserDropdownOpen(false)} />
+								)}
+								<button
+									type="button"
+									onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+									className="flex w-full h-9 items-center justify-between gap-2 rounded-full border border-[var(--line)] bg-[var(--bg)] px-3 text-[12px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)]"
+								>
+									<span className="truncate">
+										{selectedExportUsers.length === 0
+											? "All Bookmark Authors"
+											: `${selectedExportUsers.length} author${selectedExportUsers.length > 1 ? "s" : ""} selected`}
+									</span>
+									<ChevronDown className="size-3.5 text-[var(--ink-soft)]" />
+								</button>
+								{userDropdownOpen && (
+									<div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[220px] overflow-y-auto rounded-xl border border-[var(--line)] bg-[var(--bg-elevated)] p-2 shadow-xl custom-scrollbar flex flex-col gap-1.5">
+										<div className="relative">
+											<Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--ink-soft)]" />
+											<input
+												type="text"
+												value={exportUserSearch}
+												onChange={(e) => setExportUserSearch(e.target.value)}
+												placeholder="Search authors..."
+												className="h-8 w-full rounded-full border border-[var(--line)] bg-[var(--bg)] pl-8 pr-3 text-[12px] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+											/>
+										</div>
+										<div className="flex items-center justify-between px-1 text-[10px]">
+											<button
+												type="button"
+												onClick={() => setSelectedExportUsers([])}
+												className="text-[var(--accent)] font-bold hover:underline"
+											>
+												Clear all
+											</button>
+											<span className="text-[var(--ink-soft)]">
+												{bookmarkAuthors.length} total
+											</span>
+										</div>
+										<div className="flex-1 overflow-y-auto flex flex-col max-h-[120px] pr-0.5">
+											{(() => {
+												const filtered = bookmarkAuthors.filter(a =>
+													a.handle.toLowerCase().includes(exportUserSearch.toLowerCase()) ||
+													a.displayName.toLowerCase().includes(exportUserSearch.toLowerCase())
+												);
+												if (filtered.length === 0) {
+													return <span className="p-2 text-center text-[11px] text-[var(--ink-soft)]">No authors found</span>;
+												}
+												return filtered.map(a => {
+													const isChecked = selectedExportUsers.includes(a.handle);
+													return (
+														<label key={a.handle} className="flex items-center gap-2 rounded px-1.5 py-1 text-[12px] hover:bg-[var(--bg-hover)] cursor-pointer select-none">
+															<input
+																type="checkbox"
+																checked={isChecked}
+																onChange={() => {
+																	if (isChecked) {
+																		setSelectedExportUsers(selectedExportUsers.filter(u => u !== a.handle));
+																	} else {
+																		setSelectedExportUsers([...selectedExportUsers, a.handle]);
+																	}
+																}}
+																className="rounded border-[var(--line)] text-[var(--accent)] focus:ring-[var(--accent)]"
+															/>
+															<div className="min-w-0 flex-1 truncate text-left">
+																<span className="font-semibold text-[var(--ink)]">{a.displayName}</span>{" "}
+																<span className="text-[var(--ink-soft)]">@{a.handle}</span>
+															</div>
+														</label>
+													);
+												});
+											})()}
+										</div>
+									</div>
+								)}
+							</div>
+
+							<div className="flex flex-col gap-2 mt-2">
 								<a
-									href="/api/bulk-export?resource=bookmarks&format=markdown"
+									href={`/api/bulk-export?resource=bookmarks&format=markdown${selectedExportUsers.length > 0 ? `&users=${selectedExportUsers.join(",")}` : ""}`}
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
 								>
 									Download Markdown
 								</a>
 								<a
-									href="/api/bulk-export?resource=bookmarks&format=json"
+									href={`/api/bulk-export?resource=bookmarks&format=json${selectedExportUsers.length > 0 ? `&users=${selectedExportUsers.join(",")}` : ""}`}
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
 								>
 									Download JSON
 								</a>
 								<a
-									href="/api/bulk-export?resource=bookmarks&format=bibtex"
+									href={`/api/bulk-export?resource=bookmarks&format=bibtex${selectedExportUsers.length > 0 ? `&users=${selectedExportUsers.join(",")}` : ""}`}
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
 								>
 									Download BibTeX
@@ -621,11 +958,17 @@ function SettingsRoute() {
 						</div>
 
 						{/* Likes Column */}
-						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)]">
-								Likes
-							</span>
-							<div className="flex flex-col gap-2 mt-1">
+						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3 justify-between">
+							<div>
+								<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-1.5">
+									<span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-bold">L</span>
+									Likes
+								</span>
+								<p className="text-[11px] text-[var(--ink-soft)] mt-1.5 mb-0">
+									Download all curated liked posts. Filters do not apply.
+								</p>
+							</div>
+							<div className="flex flex-col gap-2 mt-4">
 								<a
 									href="/api/bulk-export?resource=likes&format=markdown"
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
@@ -649,24 +992,45 @@ function SettingsRoute() {
 
 						{/* My Posts Column */}
 						<div className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
-							<span className="text-[14px] font-bold text-[var(--ink)]">
+							<span className="text-[14px] font-bold text-[var(--ink)] flex items-center gap-1.5">
+								<span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-bold">P</span>
 								My Posts
 							</span>
-							<div className="flex flex-col gap-2 mt-1">
+
+							{/* Segmented type controller */}
+							<div className="flex rounded-full border border-[var(--line)] bg-[var(--panel)] p-0.5 mt-2">
+								{(["all", "originals", "replies"] as const).map((t) => (
+									<button
+										key={t}
+										type="button"
+										onClick={() => setMyPostsType(t)}
+										className={cx(
+											"flex-1 h-7 rounded-full text-[11px] font-semibold transition-all capitalize",
+											myPostsType === t
+												? "bg-[var(--bg)] text-[var(--accent)] shadow-sm"
+												: "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+										)}
+									>
+										{t}
+									</button>
+								))}
+							</div>
+
+							<div className="flex flex-col gap-2 mt-2">
 								<a
-									href="/api/bulk-export?resource=authored&format=markdown"
+									href={`/api/bulk-export?resource=authored&format=markdown&type=${myPostsType}`}
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
 								>
 									Download Markdown
 								</a>
 								<a
-									href="/api/bulk-export?resource=authored&format=json"
+									href={`/api/bulk-export?resource=authored&format=json&type=${myPostsType}`}
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
 								>
 									Download JSON
 								</a>
 								<a
-									href="/api/bulk-export?resource=authored&format=bibtex"
+									href={`/api/bulk-export?resource=authored&format=bibtex&type=${myPostsType}`}
 									className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--bg-hover)] no-underline"
 								>
 									Download BibTeX

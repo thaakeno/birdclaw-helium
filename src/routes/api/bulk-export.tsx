@@ -37,37 +37,47 @@ export const Route = createFileRoute("/api/bulk-export")({
 					if (!profileId) {
 						return new Response("No profile resolved for primary account.", { status: 400 });
 					}
-					tweets = db
-						.prepare(
-							`
-							select 
-								t.id, t.text, t.created_at as createdAt, t.like_count as likeCount,
-								p.handle as authorHandle, p.display_name as authorName,
-								(select count(*) from tweets child where child.reply_to_id = t.id) as replyCount
-							from tweets t
-							join profiles p on p.id = t.author_profile_id
-							where t.author_profile_id = ?
-							order by t.created_at desc
-							`,
-						)
-						.all(profileId) as any[];
+					const type = url.searchParams.get("type") || "all";
+					let query = `
+						select 
+							t.id, t.text, t.created_at as createdAt, t.like_count as likeCount,
+							p.handle as authorHandle, p.display_name as authorName,
+							(select count(*) from tweets child where child.reply_to_id = t.id) as replyCount
+						from tweets t
+						join profiles p on p.id = t.author_profile_id
+						where t.author_profile_id = ?
+					`;
+					if (type === "originals") {
+						query += " and t.reply_to_id is null";
+					} else if (type === "replies") {
+						query += " and t.reply_to_id is not null";
+					}
+					query += " order by t.created_at desc";
+					tweets = db.prepare(query).all(profileId) as any[];
 				} else {
 					const kind = resource === "likes" ? "likes" : "bookmarks";
-					tweets = db
-						.prepare(
-							`
-							select 
-								t.id, t.text, t.created_at as createdAt, t.like_count as likeCount,
-								p.handle as authorHandle, p.display_name as authorName,
-								(select count(*) from tweets child where child.reply_to_id = t.id) as replyCount
-							from tweet_collections c
-							join tweets t on t.id = c.tweet_id
-							join profiles p on p.id = t.author_profile_id
-							where c.kind = ?
-							order by c.collected_at desc, t.created_at desc
-							`,
-						)
-						.all(kind) as any[];
+					const users = url.searchParams.get("users");
+					let query = `
+						select 
+							t.id, t.text, t.created_at as createdAt, t.like_count as likeCount,
+							p.handle as authorHandle, p.display_name as authorName,
+							(select count(*) from tweets child where child.reply_to_id = t.id) as replyCount
+						from tweet_collections c
+						join tweets t on t.id = c.tweet_id
+						join profiles p on p.id = t.author_profile_id
+						where c.kind = ?
+					`;
+					const params: any[] = [kind];
+					if (users) {
+						const handles = users.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
+						if (handles.length > 0) {
+							const placeholders = handles.map(() => "?").join(",");
+							query += ` and lower(p.handle) in (${placeholders})`;
+							params.push(...handles);
+						}
+					}
+					query += " order by c.collected_at desc, t.created_at desc";
+					tweets = db.prepare(query).all(...params) as any[];
 				}
 
 				let fileContent = "";

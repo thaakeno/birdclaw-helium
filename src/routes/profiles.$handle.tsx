@@ -35,7 +35,6 @@ import {
 	profileContextRequestError,
 	profileContextUrl,
 } from "#/components/ProfileAnalysisClient";
-import { formatCompactNumber } from "#/lib/present";
 import type { ProfileAnalysisContext } from "#/lib/profile-analysis";
 import {
 	readPinnedProfiles,
@@ -49,6 +48,8 @@ import type {
 	TimelineItem,
 	TweetEntities,
 } from "#/lib/types";
+
+const profileContextMemoryCache = new Map<string, ProfileAnalysisContext>();
 
 export const Route = createFileRoute("/profiles/$handle")({
 	component: ProfilesHandleRoute,
@@ -238,9 +239,11 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 	});
 	const stats = statsQuery.data ?? null;
 
-	async function fetchProfileContext(mode: "local" | "newest" | "deep") {
+	async function fetchProfileContext(mode: "local" | "newest" | "deep", isBackground = false) {
 		if (!cleanHandle) return;
-		setContextLoading(true);
+		if (!isBackground) {
+			setContextLoading(true);
+		}
 		setContextError(null);
 		try {
 			const limits =
@@ -264,19 +267,30 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 			if (!payload.context)
 				throw new Error("Profile fetch returned no context.");
 			setContext(payload.context);
+			profileContextMemoryCache.set(cleanHandle.toLowerCase(), payload.context);
 		} catch (error) {
-			setContextError(
-				error instanceof Error ? error.message : "Profile fetch failed",
-			);
+			if (!isBackground) {
+				setContextError(
+					error instanceof Error ? error.message : "Profile fetch failed",
+				);
+			}
 		} finally {
-			setContextLoading(false);
+			if (!isBackground) {
+				setContextLoading(false);
+			}
 		}
 	}
 
 	useEffect(() => {
 		if (cleanHandle && autoRunHandleRef.current !== cleanHandle) {
 			autoRunHandleRef.current = cleanHandle;
-			void fetchProfileContext("local");
+			const cached = profileContextMemoryCache.get(cleanHandle.toLowerCase());
+			if (cached) {
+				setContext(cached);
+				void fetchProfileContext("local", true);
+			} else {
+				void fetchProfileContext("local", false);
+			}
 		}
 	}, [cleanHandle]);
 
@@ -488,32 +502,7 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 							/>
 						) : null}
 
-						<div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[var(--ink-soft)]">
-							{profile ? (
-								<>
-									<span>
-										<strong className="text-[var(--ink)]">
-											{formatCompactNumber(profile.followersCount)}
-										</strong>{" "}
-										followers
-									</span>
-									<span>
-										<strong className="text-[var(--ink)]">
-											{formatCompactNumber(profile.followingCount ?? 0)}
-										</strong>{" "}
-										following
-									</span>
-								</>
-							) : null}
-							<span>{formatProfileAnalysisCounts(activeContext)}</span>
-							{activeContext?.health ? (
-								<span className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 py-0.5">
-									{activeContext.health.source === "merged"
-										? "local archive protected"
-										: activeContext.health.source}
-								</span>
-							) : null}
-						</div>
+
 					</div>
 				</div>
 			</header>

@@ -87,7 +87,14 @@ export const Route = createFileRoute("/api/profile-context")({
 							);
 						});
 
-						return jsonResponse({ ok: true, context });
+						return jsonResponse(
+							{ ok: true, context },
+							{
+								headers: {
+									"cache-control": "no-store, no-cache, must-revalidate",
+								},
+							},
+						);
 					}),
 				),
 		},

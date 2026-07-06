@@ -14,7 +14,6 @@ import {
 	embeddedCardBodyClass,
 	embeddedCardCopyClass,
 	embeddedCardHandleClass,
-	embeddedCardHeaderClass,
 	embeddedCardLabelClass,
 	embeddedCardNameClass,
 	feedActionButtonClass,
@@ -44,25 +43,27 @@ export function EmbeddedTweetCard({
 	return (
 		<section className={embeddedCardBodyClass}>
 			<p className={embeddedCardLabelClass}>{label}</p>
-			<header className={embeddedCardHeaderClass}>
-				<ProfilePreview profile={item.author}>
-					<span className="flex min-w-0 items-center gap-1.5">
-						<span className={embeddedCardNameClass}>
-							{item.author.displayName}
+			<div className="flex items-start justify-between gap-2 min-w-0">
+				<header className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px]">
+					<ProfilePreview profile={item.author}>
+						<span className="flex min-w-0 items-center gap-1.5">
+							<span className={embeddedCardNameClass}>
+								{item.author.displayName}
+							</span>
+							<span className={embeddedCardHandleClass}>
+								@{item.author.handle}
+							</span>
 						</span>
-						<span className={embeddedCardHandleClass}>
-							@{item.author.handle}
-						</span>
-					</span>
-				</ProfilePreview>
-				<span className="text-[var(--ink-soft)]">·</span>
-				<SmartTimestamp
-					className={feedRowTimestampClass}
-					value={item.createdAt}
-				/>
+					</ProfilePreview>
+					<span className="text-[var(--ink-soft)]">·</span>
+					<SmartTimestamp
+						className={feedRowTimestampClass}
+						value={item.createdAt}
+					/>
+				</header>
 				<a
 					aria-label="Open original post"
-					className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
+					className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--ink)]"
 					href={tweetUrl(item)}
 					onClick={(event) => event.stopPropagation()}
 					rel="noreferrer"
@@ -71,7 +72,7 @@ export function EmbeddedTweetCard({
 					<ExternalLink className="size-3.5" strokeWidth={1.8} />
 					Open
 				</a>
-			</header>
+			</div>
 			<TweetRichText
 				className={embeddedCardCopyClass}
 				entities={item.entities}

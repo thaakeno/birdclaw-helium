@@ -13,6 +13,7 @@ function json(data: unknown, status = 200) {
 		status,
 		headers: {
 			"content-type": "application/json",
+			"cache-control": "no-store, no-cache, must-revalidate",
 		},
 	});
 }

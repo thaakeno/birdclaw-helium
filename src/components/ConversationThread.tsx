@@ -21,11 +21,13 @@ export function ConversationThread({
 	error,
 	items,
 	loading,
+	seamless = false,
 }: {
 	anchorId: string;
 	error?: string | null;
 	items: EmbeddedTweet[];
 	loading: boolean;
+	seamless?: boolean;
 }) {
 	if (loading) {
 		return (
@@ -60,7 +62,12 @@ export function ConversationThread({
 	return (
 		<section
 			aria-label="Conversation"
-			className="mt-3 min-w-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_8px_28px_var(--shadow)]"
+			className={cx(
+				"min-w-0 overflow-hidden flex flex-col",
+				seamless
+					? "bg-transparent h-full flex-1"
+					: "mt-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_8px_28px_var(--shadow)]"
+			)}
 			onClick={(event) => event.stopPropagation()}
 			onContextMenu={(event) => event.stopPropagation()}
 		>
@@ -70,7 +77,10 @@ export function ConversationThread({
 					{items.length} tweets in local thread
 				</span>
 			</div>
-			<div className="custom-scrollbar flex max-h-[min(68vh,760px)] flex-col overflow-y-auto overscroll-contain">
+			<div className={cx(
+				"custom-scrollbar flex flex-col overflow-y-auto overscroll-contain",
+				seamless ? "flex-1 min-h-0" : "max-h-[min(68vh,760px)]"
+			)}>
 				{items.map((tweet, index) => {
 					const isAnchor = tweet.id === anchorId;
 					return (
@@ -95,25 +105,27 @@ export function ConversationThread({
 								) : null}
 							</div>
 							<div className="min-w-0 flex-1 overflow-hidden">
-								<header className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px]">
-									<ProfilePreview profile={tweet.author}>
-										<span className="flex min-w-0 max-w-full items-center gap-1.5">
-											<span className={feedRowNameClass}>
-												{tweet.author.displayName}
+								<div className="flex items-start justify-between gap-2 min-w-0">
+									<header className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px]">
+										<ProfilePreview profile={tweet.author}>
+											<span className="flex min-w-0 max-w-full items-center gap-1.5">
+												<span className={feedRowNameClass}>
+													{tweet.author.displayName}
+												</span>
+												<span className={feedRowHandleClass}>
+													@{tweet.author.handle}
+												</span>
 											</span>
-											<span className={feedRowHandleClass}>
-												@{tweet.author.handle}
-											</span>
-										</span>
-									</ProfilePreview>
-									<span className="text-[var(--ink-soft)]">·</span>
-									<SmartTimestamp
-										className={feedRowTimestampClass}
-										value={tweet.createdAt}
-									/>
-									<span className="ml-auto inline-flex shrink-0 items-center gap-1.5">
+										</ProfilePreview>
+										<span className="text-[var(--ink-soft)]">·</span>
+										<SmartTimestamp
+											className={feedRowTimestampClass}
+											value={tweet.createdAt}
+										/>
+									</header>
+									<div className="flex items-center gap-1.5 shrink-0">
 										{isAnchor ? (
-											<span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-bold text-white">
+											<span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-bold text-white leading-none">
 												selected
 											</span>
 										) : null}
@@ -128,8 +140,8 @@ export function ConversationThread({
 											<ExternalLink className="size-3.5" strokeWidth={1.8} />
 											Open
 										</a>
-									</span>
-								</header>
+									</div>
+								</div>
 								<TweetRichText
 									className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-[var(--ink)] [overflow-wrap:anywhere]"
 									entities={tweet.entities}
