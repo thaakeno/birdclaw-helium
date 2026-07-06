@@ -50,6 +50,7 @@ import { Route as ApiConversationRouteImport } from './routes/api/conversation'
 import { Route as ApiBulkExportRouteImport } from './routes/api/bulk-export'
 import { Route as ApiBookmarksExportRouteImport } from './routes/api/bookmarks-export'
 import { Route as ApiBlocksRouteImport } from './routes/api/blocks'
+import { Route as ApiBannerRouteImport } from './routes/api/banner'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
 import { Route as ApiAuthoredStatsRouteImport } from './routes/api/authored-stats'
 import { Route as ApiActionRouteImport } from './routes/api/action'
@@ -259,6 +260,11 @@ const ApiBlocksRoute = ApiBlocksRouteImport.update({
   path: '/api/blocks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBannerRoute = ApiBannerRouteImport.update({
+  id: '/api/banner',
+  path: '/api/banner',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAvatarRoute = ApiAvatarRouteImport.update({
   id: '/api/avatar',
   path: '/api/avatar',
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/api/action': typeof ApiActionRoute
   '/api/authored-stats': typeof ApiAuthoredStatsRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/banner': typeof ApiBannerRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/bulk-export': typeof ApiBulkExportRoute
@@ -341,6 +348,7 @@ export interface FileRoutesByTo {
   '/api/action': typeof ApiActionRoute
   '/api/authored-stats': typeof ApiAuthoredStatsRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/banner': typeof ApiBannerRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/bulk-export': typeof ApiBulkExportRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/api/action': typeof ApiActionRoute
   '/api/authored-stats': typeof ApiAuthoredStatsRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/banner': typeof ApiBannerRoute
   '/api/blocks': typeof ApiBlocksRoute
   '/api/bookmarks-export': typeof ApiBookmarksExportRoute
   '/api/bulk-export': typeof ApiBulkExportRoute
@@ -436,6 +445,7 @@ export interface FileRouteTypes {
     | '/api/action'
     | '/api/authored-stats'
     | '/api/avatar'
+    | '/api/banner'
     | '/api/blocks'
     | '/api/bookmarks-export'
     | '/api/bulk-export'
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/api/action'
     | '/api/authored-stats'
     | '/api/avatar'
+    | '/api/banner'
     | '/api/blocks'
     | '/api/bookmarks-export'
     | '/api/bulk-export'
@@ -528,6 +539,7 @@ export interface FileRouteTypes {
     | '/api/action'
     | '/api/authored-stats'
     | '/api/avatar'
+    | '/api/banner'
     | '/api/blocks'
     | '/api/bookmarks-export'
     | '/api/bulk-export'
@@ -575,6 +587,7 @@ export interface RootRouteChildren {
   ApiActionRoute: typeof ApiActionRoute
   ApiAuthoredStatsRoute: typeof ApiAuthoredStatsRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
+  ApiBannerRoute: typeof ApiBannerRoute
   ApiBlocksRoute: typeof ApiBlocksRoute
   ApiBookmarksExportRoute: typeof ApiBookmarksExportRoute
   ApiBulkExportRoute: typeof ApiBulkExportRoute
@@ -891,6 +904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBlocksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/banner': {
+      id: '/api/banner'
+      path: '/api/banner'
+      fullPath: '/api/banner'
+      preLoaderRoute: typeof ApiBannerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/avatar': {
       id: '/api/avatar'
       path: '/api/avatar'
@@ -935,6 +955,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiActionRoute: ApiActionRoute,
   ApiAuthoredStatsRoute: ApiAuthoredStatsRoute,
   ApiAvatarRoute: ApiAvatarRoute,
+  ApiBannerRoute: ApiBannerRoute,
   ApiBlocksRoute: ApiBlocksRoute,
   ApiBookmarksExportRoute: ApiBookmarksExportRoute,
   ApiBulkExportRoute: ApiBulkExportRoute,

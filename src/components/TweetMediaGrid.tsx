@@ -336,6 +336,14 @@ function MediaViewerModal({
 		? "grid h-full w-full grid-cols-1 overflow-hidden bg-black min-[980px]:grid-cols-[minmax(0,1fr)_420px]"
 		: "flex h-full w-full items-center justify-center";
 
+	useEffect(() => {
+		const originalStyle = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.body.style.overflow = originalStyle;
+		};
+	}, []);
+
 	return (
 		<div
 			aria-modal="true"

@@ -357,7 +357,8 @@ export function ProfileRouteView({ handle }: { handle: string }) {
 		<section className="flex min-h-screen flex-col">
 			<header className="border-b border-[var(--line)] bg-[var(--bg)]">
 				<div
-					className="h-32 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-active)_68%,var(--accent)_32%),color-mix(in_srgb,var(--bg)_70%,var(--accent)_30%))]"
+					className="h-32 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-active)_68%,var(--accent)_32%),color-mix(in_srgb,var(--bg)_70%,var(--accent)_30%))] bg-cover bg-center"
+					style={profile?.id ? { backgroundImage: `url('/api/banner?profileId=${encodeURIComponent(profile.id)}')` } : undefined}
 					data-testid="profile-cover"
 				/>
 				<div className="px-4 pb-5">

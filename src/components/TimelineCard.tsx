@@ -53,7 +53,7 @@ import {
 import { AvatarChip } from "./AvatarChip";
 import { ConversationThread } from "./ConversationThread";
 import { QuotesThread } from "./QuotesThread";
-import { EmbeddedTweetCard } from "./EmbeddedTweetCard";
+import { EmbeddedTweetCard, EmbeddedTweetMetrics } from "./EmbeddedTweetCard";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import { ProfilePreview } from "./ProfilePreview";
 import { SmartTimestamp } from "./SmartTimestamp";
@@ -359,15 +359,9 @@ function MediaViewerTweetAside({
 						entities={tweet.entities}
 						text={tweet.text}
 					/>
-					<a
-						className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--line)] px-3 py-1.5 text-[13px] font-bold text-[var(--ink)] transition-colors hover:bg-[var(--bg-hover)]"
-						href={tweetUrl(tweet)}
-						rel="noreferrer"
-						target="_blank"
-					>
-						<ExternalLink className="size-4" strokeWidth={1.9} />
-						Open on X
-					</a>
+					<div className="mt-3">
+						<EmbeddedTweetMetrics item={tweet as any} />
+					</div>
 				</div>
 			</div>
 			{showThread && anchorId ? (

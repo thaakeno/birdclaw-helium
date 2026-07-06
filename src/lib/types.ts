@@ -26,6 +26,7 @@ export interface ProfileRecord {
 	followingCount?: number;
 	avatarHue: number;
 	avatarUrl?: string;
+	bannerUrl?: string;
 	location?: string;
 	url?: string;
 	verifiedType?: string;
@@ -491,6 +492,7 @@ export interface XurlMentionUser {
 	verified?: boolean;
 	verified_type?: string;
 	profile_image_url?: string;
+	profile_banner_url?: string;
 	entities?: Record<string, unknown>;
 	affiliation?: Record<string, unknown>;
 	public_metrics?: XurlPublicMetrics;

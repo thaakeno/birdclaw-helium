@@ -12,6 +12,7 @@ const PROFILE_COLUMNS = {
 	followingCount: "following_count",
 	avatarHue: "avatar_hue",
 	avatarUrl: "avatar_url",
+	bannerUrl: "banner_url",
 	location: "location",
 	url: "url",
 	verifiedType: "verified_type",
@@ -46,6 +47,9 @@ export function profileFromDbRow(
 	const avatarUrl = nonEmptyString(
 		valueAt(row, prefix, PROFILE_COLUMNS.avatarUrl),
 	);
+	const bannerUrl = nonEmptyString(
+		valueAt(row, prefix, PROFILE_COLUMNS.bannerUrl),
+	);
 	const location = nonEmptyString(
 		valueAt(row, prefix, PROFILE_COLUMNS.location),
 	);
@@ -70,6 +74,7 @@ export function profileFromDbRow(
 		...(Number.isFinite(followingCount) ? { followingCount } : {}),
 		avatarHue: numberOrZero(valueAt(row, prefix, PROFILE_COLUMNS.avatarHue)),
 		...(avatarUrl ? { avatarUrl } : {}),
+		...(bannerUrl ? { bannerUrl } : {}),
 		...(location ? { location } : {}),
 		...(url ? { url } : {}),
 		...(verifiedType ? { verifiedType } : {}),

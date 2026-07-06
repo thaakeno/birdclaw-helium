@@ -43,6 +43,7 @@ const BASE_SCHEMA_SQL = `
     public_metrics_json text not null default '{}',
     avatar_hue integer not null default 0,
     avatar_url text,
+    banner_url text,
     location text,
     url text,
     verified_type text,
@@ -402,6 +403,9 @@ function ensureProfileAvatarColumns(db: Database) {
 	}
 	if (!columnNames.has("avatar_url")) {
 		db.exec("alter table profiles add column avatar_url text");
+	}
+	if (!columnNames.has("banner_url")) {
+		db.exec("alter table profiles add column banner_url text");
 	}
 	if (!columnNames.has("location")) {
 		db.exec("alter table profiles add column location text");

@@ -75,12 +75,14 @@ function buildProfileMetadata(user: XurlMentionUser) {
 	const entities = user.entities;
 	const url =
 		getExpandedUrlFromEntities(entities, "url") ?? getString(user.url);
+	const bannerUrl = getString(user.profile_banner_url) ?? getString((user as any).profileBannerUrl);
 	return {
 		location: getString(user.location) ?? null,
 		url: url ?? null,
 		verifiedType: normalizeVerifiedType(user),
 		entitiesJson: JSON.stringify(entities ?? {}),
 		rawJson: JSON.stringify(user),
+		bannerUrl: bannerUrl ?? null,
 	};
 }
 
@@ -112,6 +114,7 @@ function updateExistingProfileFromUser(
         following_count = coalesce(?, following_count),
         public_metrics_json = ?,
         avatar_url = coalesce(?, avatar_url),
+        banner_url = coalesce(?, banner_url),
         location = coalesce(?, location),
         url = coalesce(?, url),
         verified_type = coalesce(?, verified_type),
@@ -130,6 +133,7 @@ function updateExistingProfileFromUser(
 		followingCount,
 		JSON.stringify(user.public_metrics ?? {}),
 		avatarUrl,
+		metadata.bannerUrl,
 		metadata.location,
 		metadata.url,
 		metadata.verifiedType,
@@ -146,7 +150,7 @@ function updateExistingProfileFromUser(
 	const row = db
 		.prepare(
 			`
-      select id, handle, display_name, bio, followers_count, following_count, avatar_hue, avatar_url,
+      select id, handle, display_name, bio, followers_count, following_count, avatar_hue, avatar_url, banner_url,
         location, url, verified_type, entities_json, created_at
       from profiles
       where id = ?
@@ -222,9 +226,9 @@ export function upsertProfileFromXUser(
 		`
     insert into profiles (
       id, handle, display_name, bio, followers_count, following_count, avatar_hue,
-      public_metrics_json, avatar_url, location, url, verified_type, entities_json,
+      public_metrics_json, avatar_url, banner_url, location, url, verified_type, entities_json,
       raw_json, created_at
-    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     on conflict(id) do update set
 	      handle = excluded.handle,
 	      display_name = excluded.display_name,
@@ -236,6 +240,7 @@ export function upsertProfileFromXUser(
 	        else profiles.following_count
 	      end,
 	      avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url),
+	      banner_url = coalesce(excluded.banner_url, profiles.banner_url),
 	      location = coalesce(excluded.location, profiles.location),
 	      url = coalesce(excluded.url, profiles.url),
 	      verified_type = coalesce(excluded.verified_type, profiles.verified_type),
@@ -255,6 +260,7 @@ export function upsertProfileFromXUser(
 		avatarHue,
 		JSON.stringify(user.public_metrics ?? {}),
 		avatarUrl,
+		metadata.bannerUrl,
 		metadata.location,
 		metadata.url,
 		metadata.verifiedType,
@@ -278,6 +284,7 @@ export function upsertProfileFromXUser(
 			followingCount: followingCount ?? 0,
 			avatarHue,
 			avatarUrl: avatarUrl ?? undefined,
+			...(metadata.bannerUrl ? { bannerUrl: metadata.bannerUrl } : {}),
 			...(metadata.location ? { location: metadata.location } : {}),
 			...(metadata.url ? { url: metadata.url } : {}),
 			...(metadata.verifiedType ? { verifiedType: metadata.verifiedType } : {}),
@@ -296,7 +303,7 @@ export function ensureStubProfileForXUser(
 	const existingRow = db
 		.prepare(
 			`
-      select id, handle, display_name, bio, followers_count, following_count, avatar_hue, avatar_url,
+      select id, handle, display_name, bio, followers_count, following_count, avatar_hue, avatar_url, banner_url,
         location, url, verified_type, entities_json, created_at
       from profiles
       where id = ?
