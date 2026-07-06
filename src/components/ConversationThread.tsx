@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ExternalLink, MessageCircle } from "lucide-react";
 import type { EmbeddedTweet } from "#/lib/types";
 import {
@@ -22,12 +23,14 @@ export function ConversationThread({
 	items,
 	loading,
 	seamless = false,
+	hideAnchor = false,
 }: {
 	anchorId: string;
 	error?: string | null;
 	items: EmbeddedTweet[];
 	loading: boolean;
 	seamless?: boolean;
+	hideAnchor?: boolean;
 }) {
 	if (loading) {
 		return (
@@ -59,6 +62,13 @@ export function ConversationThread({
 		);
 	}
 
+	const filteredItems = useMemo(() => {
+		if (hideAnchor) {
+			return items.filter((tweet) => tweet.id !== anchorId);
+		}
+		return items;
+	}, [items, anchorId, hideAnchor]);
+
 	return (
 		<section
 			aria-label="Conversation"
@@ -78,10 +88,10 @@ export function ConversationThread({
 				</span>
 			</div>
 			<div className={cx(
-				"custom-scrollbar flex flex-col overflow-y-auto overscroll-contain",
+				"custom-scrollbar flex flex-col overflow-y-auto overscroll-contain pb-20",
 				seamless ? "flex-1 min-h-0" : "max-h-[min(68vh,760px)]"
 			)}>
-				{items.map((tweet, index) => {
+				{filteredItems.map((tweet, index) => {
 					const isAnchor = tweet.id === anchorId;
 					return (
 						<div
@@ -100,7 +110,7 @@ export function ConversationThread({
 									profileId={tweet.author.id}
 									size="small"
 								/>
-								{index < items.length - 1 ? (
+								{index < filteredItems.length - 1 ? (
 									<span className="mt-2 w-px flex-1 bg-[var(--line)]" />
 								) : null}
 							</div>

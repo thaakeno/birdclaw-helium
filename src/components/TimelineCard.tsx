@@ -328,8 +328,8 @@ function MediaViewerTweetAside({
 		Boolean(loading) || Boolean(error) || (threadItems?.length ?? 0) > 1;
 
 	return (
-		<div className="flex min-h-full flex-col">
-			<div className="flex gap-3 border-b border-[var(--line)] px-4 py-4">
+		<div className="flex flex-col flex-1 min-h-0">
+			<div className="flex gap-3 border-b border-[var(--line)] px-4 py-4 shrink-0">
 				<AvatarChip
 					avatarUrl={tweet.author.avatarUrl}
 					hue={tweet.author.avatarHue}
@@ -348,7 +348,7 @@ function MediaViewerTweetAside({
 								</span>
 							</span>
 						</ProfilePreview>
-						<span className={feedRowDotClass}>Â·</span>
+						<span className={feedRowDotClass}>·</span>
 						<SmartTimestamp
 							className={feedRowTimestampClass}
 							value={tweet.createdAt}
@@ -371,12 +371,14 @@ function MediaViewerTweetAside({
 				</div>
 			</div>
 			{showThread && anchorId ? (
-				<div className="border-b border-[var(--line)] px-3 py-3">
+				<div className="flex-1 min-h-0 flex flex-col">
 					<ConversationThread
 						anchorId={anchorId}
 						error={error}
 						items={threadItems ?? []}
 						loading={Boolean(loading)}
+						seamless={true}
+						hideAnchor={true}
 					/>
 				</div>
 			) : null}
