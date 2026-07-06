@@ -172,11 +172,13 @@ function SettingsRoute() {
 
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 	const [modelSearch, setModelSearch] = useState("");
+	const [modelSortType, setModelSortType] = useState<"latest" | "generous" | "alpha">("latest");
 	const [myPostsType, setMyPostsType] = useState<"all" | "originals" | "replies">("all");
 
 	useEffect(() => {
 		if (!modelDropdownOpen) {
 			setModelSearch("");
+			setModelSortType("latest");
 		}
 	}, [modelDropdownOpen]);
 	const [bookmarkAuthors, setBookmarkAuthors] = useState<Array<{ handle: string; displayName: string }>>([]);
@@ -221,6 +223,26 @@ function SettingsRoute() {
 		}
 
 		return [...list].sort((a, b) => {
+			if (modelSortType === "alpha") {
+				return a.localeCompare(b);
+			}
+
+			if (modelSortType === "generous") {
+				const getGenerosityScore = (name: string) => {
+					const lowercase = name.toLowerCase();
+					if (lowercase.includes("lite") || lowercase.includes("nano")) return 3;
+					if (lowercase.includes("flash") || lowercase.includes("omni") || lowercase.includes("gemma")) return 2;
+					return 1; // Pro / Research / Paid
+				};
+
+				const scoreA = getGenerosityScore(a);
+				const scoreB = getGenerosityScore(b);
+
+				if (scoreA !== scoreB) {
+					return scoreB - scoreA;
+				}
+			}
+
 			const getRank = (name: string) => {
 				const lowercase = name.toLowerCase();
 				if (lowercase.includes("3.5")) return 50;
@@ -254,7 +276,7 @@ function SettingsRoute() {
 
 			return a.localeCompare(b);
 		});
-	}, [geminiModelOptions, modelSearch]);
+	}, [geminiModelOptions, modelSearch, modelSortType]);
 
 	async function loadAiSettings() {
 		setAiLoading(true);
@@ -659,7 +681,7 @@ function SettingsRoute() {
 													</div>
 													<div className="min-w-0 flex-1">
 														<div className="flex items-baseline justify-between gap-2">
-															<span className="text-[13px] font-bold text-[var(--ink)] truncate">
+															<span className="text-[13px] font-bold text-[var(--ink)] whitespace-normal break-words leading-tight">
 																{selectedMeta.name}
 															</span>
 															<span className="text-[10px] font-semibold text-[var(--ink-soft)] shrink-0">
@@ -676,7 +698,7 @@ function SettingsRoute() {
 										<ChevronDown className="size-4 text-[var(--ink-soft)] shrink-0" />
 									</button>
 									{modelDropdownOpen && (
-										<div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[320px] rounded-xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-xl flex flex-col overflow-hidden">
+										<div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[360px] rounded-xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-xl flex flex-col overflow-hidden">
 											<div className="flex items-center gap-2 border-b border-[var(--line)] px-2.5 py-2 bg-[var(--bg-elevated)] shrink-0">
 												<Search className="size-3.5 text-[var(--ink-soft)] shrink-0" />
 												<input
@@ -687,6 +709,27 @@ function SettingsRoute() {
 													className="w-full bg-transparent text-[12px] text-[var(--ink)] placeholder-[var(--ink-soft)] outline-none border-none py-0.5"
 													onClick={(e) => e.stopPropagation()}
 												/>
+											</div>
+											<div className="flex items-center gap-1.5 border-b border-[var(--line)] px-2.5 py-1.5 bg-[var(--bg-elevated)] shrink-0 flex-wrap">
+												<span className="text-[10px] font-semibold text-[var(--ink-soft)] mr-1">Sort:</span>
+												{(["latest", "generous", "alpha"] as const).map((type) => (
+													<button
+														key={type}
+														type="button"
+														onClick={(e) => {
+															e.stopPropagation();
+															setModelSortType(type);
+														}}
+														className={cx(
+															"rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors border",
+															modelSortType === type
+																? "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]"
+																: "bg-transparent text-[var(--ink-soft)] border-transparent hover:bg-[var(--bg-hover)]"
+														)}
+													>
+														{type === "latest" ? "Latest" : type === "generous" ? "Most Generous" : "A-Z"}
+													</button>
+												))}
 											</div>
 											<div className="flex-1 overflow-y-auto p-1 custom-scrollbar max-h-[260px] flex flex-col gap-0.5">
 												{filteredAndSortedModels.length > 0 ? (
@@ -722,7 +765,7 @@ function SettingsRoute() {
 																<div className="min-w-0 flex-1">
 																	<div className="flex items-baseline justify-between gap-2">
 																		<span className={cx(
-																			"text-[12px] font-semibold truncate",
+																			"text-[12px] font-semibold whitespace-normal break-words leading-tight",
 																			isSelected ? "text-[var(--accent)]" : "text-[var(--ink)]"
 																		)}>
 																			{metadata.name}

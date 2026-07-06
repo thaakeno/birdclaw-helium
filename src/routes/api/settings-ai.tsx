@@ -46,6 +46,8 @@ async function publicAiSettings() {
 							if (lower.includes("tts")) return false;
 							if (lower.includes("deep-research")) return false;
 							if (lower.includes("antigravity")) return false;
+							if (lower.includes("banana")) return false;
+							if (lower.includes("veo")) return false;
 							return true;
 						})
 						.filter(Boolean);
